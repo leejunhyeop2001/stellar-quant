@@ -1,0 +1,46 @@
+# ── CMake / C++ build (FetchContent pybind11 lives under build/_deps) ──
+build/
+cmake-build-*/
+out/
+CMakeUserPresets.json
+
+# Compiled extension (if copied beside python/)
+*.pyd
+*.so
+*.dylib
+
+# ── Python ──
+venv/
+.venv/
+env/
+.env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Streamlit / secrets ──
+.streamlit/secrets.toml
+
+# ── IDE & OS ──
+.vs/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ── Local run outputs (matplotlib / benchmark / main.py) ──
+/python/benchmark_bar_chart.png
+/python/simulation_plot.png
+/python/benchmark_results.json
+/python/benchmark_summary.md
+/summary.md
