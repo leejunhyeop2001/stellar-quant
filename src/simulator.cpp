@@ -49,7 +49,7 @@ inline double jump_log_increment(std::mt19937& rng,
 }
 
 // ---------------------------------------------------------------------------
-// Terminal-only: one S_T per path (Merton jump-diffusion + antithetic on Z).
+// Terminal-only: one S_T per path (Merton jump-diffusion).
 // log(S_T/S_0) = (mu - sigma^2/2)*T + sigma*sqrt(T)*Z + sum_jumps
 // ---------------------------------------------------------------------------
 struct TerminalWorker {
@@ -67,23 +67,26 @@ struct TerminalWorker {
         std::normal_distribution<double> normal(0.0, 1.0);
         std::poisson_distribution<int> poisson(lambda_t > 0.0 ? lambda_t : 0.0);
 
-        for (std::size_t i = lo; i < hi; ++i) {
+        for (std::size_t i = lo; i < hi;) {
             const double z = normal(rng);
             double jlog = 0.0;
             if (lambda_t > 0.0) jlog = jump_log_increment(rng, poisson, normal, lambda_t, jump_mu, jump_sigma);
 
             const double base = drift + jlog;
             const double w = vol_sqrt_t * z;
-            const double lp = base + w;
-            const double lm = base - w;
-            out[i] = 0.5 * s0 * (std::exp(lp) + std::exp(lm));
+            out[i] = s0 * std::exp(base + w);
+            ++i;
+            if (i < hi) {
+                out[i] = s0 * std::exp(base - w);
+                ++i;
+            }
         }
     }
 };
 
 // ---------------------------------------------------------------------------
 // Multi-step path matrix: shape (n_paths, n_steps+1), row-major.
-// Same Poisson draws for antithetic pair at each step (coupled jumps).
+// Antithetic diffusion paths are stored as separate rows, not averaged away.
 // ---------------------------------------------------------------------------
 struct PathMatrixWorker {
     double* out;
@@ -101,11 +104,15 @@ struct PathMatrixWorker {
         std::normal_distribution<double> normal(0.0, 1.0);
         std::poisson_distribution<int> poisson(lambda_dt > 0.0 ? lambda_dt : 0.0);
 
-        for (std::size_t i = lo; i < hi; ++i) {
+        for (std::size_t i = lo; i < hi;) {
             double sp = s0;
             double sm = s0;
             const std::size_t row = i * stride;
-            out[row] = 0.5 * (sp + sm);
+            const bool has_pair = (i + 1 < hi);
+            const std::size_t pair_row = (i + 1) * stride;
+
+            out[row] = sp;
+            if (has_pair) out[pair_row] = sm;
 
             for (std::size_t k = 1; k < stride; ++k) {
                 const double z = normal(rng);
@@ -116,8 +123,10 @@ struct PathMatrixWorker {
                 const double w = vol_sqrt_dt * z;
                 sp *= std::exp(base + w);
                 sm *= std::exp(base - w);
-                out[row + k] = 0.5 * (sp + sm);
+                out[row + k] = sp;
+                if (has_pair) out[pair_row + k] = sm;
             }
+            i += has_pair ? 2 : 1;
         }
     }
 };

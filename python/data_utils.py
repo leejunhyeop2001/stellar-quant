@@ -167,17 +167,37 @@ def estimate_gbm_params(
     ticker: str = "",
     trading_days: int = 252,
 ) -> GbmParams:
-    """Estimate annualized mu and sigma from daily log returns."""
+    """Estimate annualized GBM parameters from daily log returns.
+
+    The drift is deliberately shrunk because a one-year sample mean is noisy and
+    can dominate risk simulations. Volatility blends plain historical sigma with
+    an EWMA/GARCH-style estimate so recent volatility clusters carry more weight.
+    """
     log_ret = np.log(close_prices / close_prices.shift(1)).dropna()
     if log_ret.empty:
         raise ValueError("Not enough data to compute log returns")
 
-    mu_daily    = float(log_ret.mean())
-    sigma_daily = float(log_ret.std(ddof=1))
+    arr = log_ret.to_numpy(dtype=np.float64, copy=False)
+    mu_daily = float(np.mean(arr))
+    sigma_daily = float(np.std(arr, ddof=1))
+    if sigma_daily <= 0.0:
+        raise ValueError("Volatility is zero; cannot estimate GBM parameters")
+
+    # EWMA variance is a lightweight GARCH(1,1)-style volatility clustering proxy.
+    lam = 0.94
+    ewma_var = sigma_daily * sigma_daily
+    for r in arr:
+        ewma_var = lam * ewma_var + (1.0 - lam) * float(r * r)
+    ewma_sigma_daily = float(np.sqrt(max(ewma_var, 0.0)))
+    sigma_daily = max(sigma_daily, 0.7 * sigma_daily + 0.3 * ewma_sigma_daily)
+
+    # Keep historical drift from overwhelming diffusion in short, noisy samples.
+    mu_annual_raw = mu_daily * trading_days
+    mu_annual = float(np.clip(mu_annual_raw, -0.35, 0.35))
 
     return GbmParams(
         s0=float(close_prices.iloc[-1]),
-        mu=mu_daily * trading_days,
+        mu=mu_annual,
         sigma=sigma_daily * np.sqrt(trading_days),
         currency=detect_currency(ticker),
     )
@@ -225,7 +245,11 @@ def estimate_jump_params(
 
 
 def compute_risk_metrics(samples: np.ndarray, s0: float) -> dict[str, float]:
-    """VaR(95%), CVaR / Expected Shortfall (95%), percentiles, profit probability."""
+    """VaR/CVaR and profit probability using log-return based definitions."""
+    samples = np.asarray(samples, dtype=np.float64)
+    if samples.size == 0 or s0 <= 0.0:
+        raise ValueError("Invalid samples or initial price")
+
     p01 = float(np.quantile(samples, 0.01))
     p05 = float(np.quantile(samples, 0.05))
     p25 = float(np.quantile(samples, 0.25))
@@ -233,14 +257,15 @@ def compute_risk_metrics(samples: np.ndarray, s0: float) -> dict[str, float]:
     p75 = float(np.quantile(samples, 0.75))
     p95 = float(np.quantile(samples, 0.95))
     p99 = float(np.quantile(samples, 0.99))
-    up_prob = float(np.mean(samples > s0) * 100.0)
+    log_returns = np.log(np.maximum(samples, np.finfo(np.float64).tiny) / s0)
+    up_prob = float(np.mean(log_returns > 0.0) * 100.0)
     var95_abs = float(max(0.0, s0 - p05))
     var95_pct = (var95_abs / s0) * 100.0 if s0 else 0.0
 
     sorted_s = np.sort(samples)
     k = max(1, int(np.floor(0.05 * sorted_s.size)))
     tail = sorted_s[:k]
-    losses = s0 - tail
+    losses = np.maximum(0.0, s0 - tail)
     cvar95_abs = float(np.mean(losses))
     cvar95_pct = (cvar95_abs / s0) * 100.0 if s0 else 0.0
 

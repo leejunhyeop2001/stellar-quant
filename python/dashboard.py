@@ -68,9 +68,9 @@ SB_RECOMMENDED: dict[str, int | float] = {
     "sq_fan_paths": 8_000,
     "sq_fan_steps": 252,
     "sq_cpp_threads": 0,
-    "sq_jump_lambda": 12.0,
-    "sq_jump_mu": 0.0,
-    "sq_jump_sigma": 0.05,
+    "sq_jump_lambda": 4.0,
+    "sq_jump_mu": -0.08,
+    "sq_jump_sigma": 0.18,
 }
 
 
@@ -353,8 +353,9 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
   font-weight: 600 !important;
   font-family: var(--sans-ui) !important;
   border: none !important;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), var(--shadow-card) !important;
-  background: #101012 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: #1C1C1E !important;
   color: {TEXT} !important;
   padding: 12px 16px !important;
   margin-bottom: 8px !important;
@@ -365,33 +366,58 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"]:hover {{
   transform: none !important;
-  background: rgba(0,100,255,0.12) !important;
-  box-shadow: 0 0 0 1px rgba(0,100,255,0.25), var(--shadow-card-hover) !important;
+  background: rgba(0,100,255,0.10) !important;
+  box-shadow: 0 10px 28px rgba(0,100,255,0.12) !important;
 }}
 [data-testid="stExpander"] {{
-  background-color: #101012 !important;
+  background: #1C1C1E !important;
   background-clip: padding-box !important;
-  border: 1px solid rgba(255,255,255,0.045) !important;
-  box-shadow: var(--shadow-card) !important;
-  border-radius: 22px !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.035) inset, 0 14px 42px rgba(0,0,0,0.54) !important;
+  border-radius: 24px !important;
   margin-top: 10px !important;
   margin-bottom: 34px !important;
   overflow: hidden !important;
-  transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+  isolation: isolate !important;
+  transition: box-shadow 0.22s ease, background 0.22s ease, transform 0.22s ease !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] {{
-  background-color: #101012 !important;
+  background: #1C1C1E !important;
 }}
 [data-testid="stExpander"]:hover {{
-  border-color: rgba(255,255,255,0.075) !important;
-  box-shadow: var(--shadow-card-hover) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 48px rgba(0,0,0,0.62), 0 0 0 1px rgba(0,100,255,0.08) !important;
 }}
 [data-testid="stExpander"] details {{
-  background: transparent !important;
+  background: #1C1C1E !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}}
+[data-testid="stExpander"] .streamlit-expanderHeader,
+[data-testid="stExpander"] .streamlit-expanderContent {{
+  background: #1C1C1E !important;
+  border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}}
+[data-testid="stExpander"] hr,
+[data-testid="stExpander"] [role="separator"],
+[data-testid="stExpander"] summary + div::before {{
+  display: none !important;
+  border: none !important;
+  content: none !important;
 }}
 [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
-  padding: 24px 22px 28px 22px !important;
-  padding-top: 14px !important;
+  background: #1C1C1E !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 30px !important;
+  padding-top: 18px !important;
   gap: 22px !important;
 }}
 [data-testid="stExpander"] details[open] > div {{
@@ -410,12 +436,17 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   font-weight: 850 !important;
   font-family: var(--sans-ui) !important;
   color: {TEXT} !important;
+  background: #1C1C1E !important;
+  border: none !important;
+  border-bottom: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   letter-spacing: -0.02em !important;
   cursor: pointer !important;
   transition: background 0.22s ease, color 0.22s ease !important;
 }}
 [data-testid="stExpander"] summary:hover {{
-  background: rgba(255,255,255,0.018) !important;
+  background: linear-gradient(90deg, rgba(0,100,255,0.10), rgba(28,28,30,1) 42%) !important;
 }}
 [data-testid="stExpander"] summary::-webkit-details-marker,
 [data-testid="stExpander"] summary::marker {{
@@ -429,18 +460,19 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
 }}
 /* 우측 +/− 토글 인디케이터 (chevron 텍스트가 숨겨져도 시각 단서 유지) */
 [data-testid="stExpander"] summary::after {{
-  content: "+";
+  content: "⌄";
   margin-left: auto;
-  font-weight: 600;
+  font-weight: 800;
   color: {ACCENT};
-  font-size: 1.28rem;
+  font-size: 1.1rem;
   line-height: 1;
   padding-left: 8px;
-  transition: transform 0.22s ease, color 0.22s ease !important;
+  transform: rotate(-90deg);
+  transition: transform 0.22s ease, color 0.22s ease, opacity 0.22s ease !important;
 }}
 [data-testid="stExpander"] details[open] summary::after {{
-  content: "−";
-  transform: rotate(180deg);
+  content: "⌄";
+  transform: rotate(0deg);
 }}
 
 @keyframes sq-expander-open {{
@@ -1710,32 +1742,32 @@ def _render_sidebar() -> SidebarConfig:
                 "λ Jump Intensity (점프 강도)",
                 0.0,
                 15.0,
-                0.0,
+                4.0,
                 0.01,
                 format="%.3f",
                 key="sq_jump_lambda",
             )
-            _sb_rec_line("12.0")
+            _sb_rec_line("4.0 (연 4회 급락 이벤트 가정)")
             j_mu = st.slider(
                 "μ_J Jump Mean (점프 평균)",
                 -0.35,
                 0.35,
-                0.0,
+                -0.08,
                 0.005,
                 format="%.4f",
                 key="sq_jump_mu",
             )
-            _sb_rec_line("0")
+            _sb_rec_line("-0.08 (평균 -8% 점프)")
             j_sigma = st.slider(
                 "σ_J Jump Std (점프 변동성)",
                 0.0,
                 1.0,
-                0.05,
+                0.18,
                 0.005,
                 format="%.4f",
                 key="sq_jump_sigma",
             )
-            _sb_rec_line("0.05")
+            _sb_rec_line("0.18")
 
         st.markdown(
             '<div class="sb-foot">'
