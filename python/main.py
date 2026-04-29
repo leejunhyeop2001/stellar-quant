@@ -13,7 +13,13 @@ import matplotlib.ticker as mticker
 import numpy as np
 
 from data_utils import (
-    GbmParams, currency_symbol, estimate_gbm_params, fetch_prices, fmt_price,
+    GbmParams,
+    compute_risk_metrics,
+    currency_symbol,
+    estimate_gbm_params,
+    estimate_jump_params,
+    fetch_prices,
+    fmt_price,
 )
 from loader import PROJECT_ROOT, import_simulator
 
@@ -43,29 +49,6 @@ MAX_FAN_MATRIX_MB  = 400
 
 def estimate_memory_mb(n_terminal: int, n_fan: int, n_steps: int) -> float:
     return (n_terminal * 8 + n_fan * (n_steps + 1) * 8) / (1024 * 1024)
-
-
-# ---------------------------------------------------------------------------
-# Risk metrics
-# ---------------------------------------------------------------------------
-def compute_risk_metrics(samples: np.ndarray, s0: float) -> dict[str, float]:
-    p01 = float(np.quantile(samples, 0.01))
-    p05 = float(np.quantile(samples, 0.05))
-    p25 = float(np.quantile(samples, 0.25))
-    p50 = float(np.quantile(samples, 0.50))
-    p75 = float(np.quantile(samples, 0.75))
-    p95 = float(np.quantile(samples, 0.95))
-    p99 = float(np.quantile(samples, 0.99))
-    up_prob = float(np.mean(samples > s0) * 100.0)
-    var95_abs = float(max(0.0, s0 - p05))
-    var95_pct = (var95_abs / s0) * 100.0
-    return {
-        "p01": p01, "p05": p05, "p25": p25, "p50": p50,
-        "p75": p75, "p95": p95, "p99": p99,
-        "up_probability_pct": up_prob,
-        "var_95_abs": var95_abs,
-        "var_95_pct": var95_pct,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +120,8 @@ def print_risk_report(metrics: dict[str, float], s0: float, terminal: np.ndarray
     print(f"  {'Probability of Profit (상승 확률)':<44} [{arrow}] {up:.2f}%")
     print(f"  {'VaR(95%) Absolute Loss (최대 예상 손실)':<44} {fp(metrics['var_95_abs']):>18}")
     print(f"  {'VaR(95%) Loss Ratio (최대 예상 손실률)':<44} {metrics['var_95_pct']:>17.2f}%")
+    print(f"  {'CVaR(95%) ES Absolute (조건부 꼬리 손실)':<44} {fp(metrics['cvar_95_abs']):>18}")
+    print(f"  {'CVaR(95%) ES Ratio (조건부 꼬리 손실률)':<44} {metrics['cvar_95_pct']:>17.2f}%")
 
 
 def print_performance(elapsed: float, n_paths: int) -> None:
@@ -478,6 +463,7 @@ def print_interpretation(
     print(f"  {THIN_SEP[:52]}")
     print(f"  {'상승 확률':<22} {up:>15.1f}%")
     print(f"  {'VaR(95%) 손실':<22} {fp(var_abs):>16}  ({var_pct:.1f}%)")
+    print(f"  {'CVaR(95%) ES':<22} {fp(metrics['cvar_95_abs']):>16}  ({metrics['cvar_95_pct']:.1f}%)")
     print(f"  {'전망 (Outlook)':<22} {outlook:>16}")
     print(f"\n  ※ 그래프 하단에 상세 해석 가이드가 포함되어 있습니다.")
     print(SEPARATOR)
@@ -495,6 +481,11 @@ def write_summary(
     terminal: np.ndarray,
     metrics: dict[str, float],
     elapsed_sec: float,
+    *,
+    jump_lambda: float,
+    jump_mu: float,
+    jump_sigma: float,
+    jump_diffusion_enabled: bool,
 ) -> Path:
     bench_path = PROJECT_ROOT / "python" / "benchmark_results.json"
     benchmark = json.loads(bench_path.read_text("utf-8")) if bench_path.exists() else None
@@ -516,6 +507,11 @@ def write_summary(
         f"| S₀ Current Price (현재 주가) | `{fp(params.s0)}` |",
         f"| μ Annual Drift (연간 기대수익률) | `{params.mu:.6f}` |",
         f"| σ Annual Volatility (연간 변동성) | `{params.sigma:.6f}` |",
+        "| Merton Jump Diffusion | "
+        f"`{'enabled' if jump_diffusion_enabled else 'disabled (λ = 0)'}` |",
+        f"| Jump λ (annual intensity) | `{jump_lambda:.6f}` |",
+        f"| Jump μ_J (mean log jump) | `{jump_mu:.6f}` |",
+        f"| Jump σ_J (log jump std) | `{jump_sigma:.6f}` |",
         f"| Execution Time (실행 시간) | `{elapsed_sec:.3f}` s |",
         f"| Throughput (초당 처리량) | `{throughput:,.0f}` paths/s |",
         "",
@@ -529,6 +525,8 @@ def write_summary(
         f"| 90% Confidence Interval (신뢰구간 5%–95%) | `[{fp(metrics['p05'])} — {fp(metrics['p95'])}]` |",
         f"| VaR(95%) Absolute Loss (최대 예상 손실) | `{fp(metrics['var_95_abs'])}` |",
         f"| VaR(95%) Loss Ratio (최대 예상 손실률) | `{metrics['var_95_pct']:.2f}%` |",
+        f"| CVaR(95%) ES Absolute (조건부 꼬리 손실) | `{fp(metrics['cvar_95_abs'])}` |",
+        f"| CVaR(95%) ES Ratio (조건부 꼬리 손실률) | `{metrics['cvar_95_pct']:.2f}%` |",
         "",
     ]
 
@@ -549,9 +547,10 @@ def write_summary(
         "---",
         "",
         f"> **[Note]** {n_paths:,} paths simulated via C++ multi-threaded engine "
+        f"({('Merton jump-diffusion + antithetic variates' if jump_diffusion_enabled else 'GBM baseline + antithetic variates')}) "
         f"in {elapsed_sec:.3f}s ({throughput:,.0f} paths/s). "
         f"All prices in **{cur}**. "
-        f"GBM parameters estimated from 2-year Yahoo Finance historical data.",
+        f"GBM and jump parameters estimated from 2-year Yahoo Finance historical data.",
     ])
 
     out = PROJECT_ROOT / "summary.md"
@@ -594,6 +593,7 @@ def main():
     # --- Data ---
     close = fetch_prices(args.ticker, period="2y")
     params = estimate_gbm_params(close, ticker=args.ticker)
+    jump_p = estimate_jump_params(close)
 
     print_header(args.ticker, args.paths, mem, params.currency)
     print_params(params)
@@ -602,14 +602,33 @@ def main():
     simulator = import_simulator(args.build_dir)
     t0 = time.perf_counter()
 
+    jl, jm, js = jump_p.lambda_annual, jump_p.mu_jump, jump_p.sigma_jump
+
     terminal = np.asarray(simulator.simulate_gbm_paths(
-        n_paths=args.paths, s0=params.s0, mu=params.mu,
-        sigma=params.sigma, t=args.years, seed=args.seed, n_threads=args.threads,
+        n_paths=args.paths,
+        s0=params.s0,
+        mu=params.mu,
+        sigma=params.sigma,
+        t=args.years,
+        seed=args.seed,
+        n_threads=args.threads,
+        jump_lambda=jl,
+        jump_mu=jm,
+        jump_sigma=js,
     ), dtype=np.float64)
 
     path_matrix = np.asarray(simulator.simulate_gbm_path_matrix(
-        n_paths=fan_paths, n_steps=args.steps, s0=params.s0, mu=params.mu,
-        sigma=params.sigma, t=args.years, seed=args.seed + 1, n_threads=args.threads,
+        n_paths=fan_paths,
+        n_steps=args.steps,
+        s0=params.s0,
+        mu=params.mu,
+        sigma=params.sigma,
+        t=args.years,
+        seed=args.seed + 1,
+        n_threads=args.threads,
+        jump_lambda=jl,
+        jump_mu=jm,
+        jump_sigma=js,
     ), dtype=np.float64)
 
     elapsed = time.perf_counter() - t0
@@ -622,9 +641,18 @@ def main():
 
     # --- Report ---
     summary = write_summary(
-        ticker=args.ticker, params=params, years=args.years,
-        n_paths=args.paths, n_steps=args.steps,
-        terminal=terminal, metrics=metrics, elapsed_sec=elapsed,
+        ticker=args.ticker,
+        params=params,
+        years=args.years,
+        n_paths=args.paths,
+        n_steps=args.steps,
+        terminal=terminal,
+        metrics=metrics,
+        elapsed_sec=elapsed,
+        jump_lambda=jl,
+        jump_mu=jm,
+        jump_sigma=js,
+        jump_diffusion_enabled=(jl > 0.0),
     )
     print(f"  Summary (요약 저장) → {summary}\n")
 

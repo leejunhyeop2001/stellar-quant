@@ -1,0 +1,4 @@
+[build-system]
+# pybind11 / cmake available while setup.py runs (pybind11_DIR + CMake CLI for isolated builds).
+requires = ["setuptools>=65", "wheel", "pybind11>=2.10", "cmake>=3.16"]
+build-backend = "setuptools.build_meta"

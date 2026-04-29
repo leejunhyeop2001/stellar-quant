@@ -1,0 +1,6 @@
+# Streamlit Community Cloud / Debian: apt packages installed before pip.
+# Native extension build (CMake + pybind11 + C++17).
+build-essential
+cmake
+git
+python3-dev

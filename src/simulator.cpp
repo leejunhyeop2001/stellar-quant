@@ -36,59 +36,106 @@ void dispatch_threads(std::size_t n_items, std::size_t n_threads, Fn&& fn) {
     for (auto& w : workers) w.join();
 }
 
+// Sum of Nj independent log-normal jump increments J_i ~ N(mu_j, sigma_j^2).
+inline double jump_log_increment(std::mt19937& rng,
+                                 std::poisson_distribution<int>& poisson,
+                                 std::normal_distribution<double>& normal,
+                                 double lambda_dt, double mu_j, double sigma_j) {
+    if (lambda_dt <= 0.0) return 0.0;
+    const int nj = poisson(rng);
+    double sum = 0.0;
+    for (int j = 0; j < nj; ++j) sum += mu_j + sigma_j * normal(rng);
+    return sum;
+}
+
 // ---------------------------------------------------------------------------
-// Terminal-only: one S_T per path (flat 1-D array, ~80 MB for 10M)
+// Terminal-only: one S_T per path (Merton jump-diffusion + antithetic on Z).
+// log(S_T/S_0) = (mu - sigma^2/2)*T + sigma*sqrt(T)*Z + sum_jumps
 // ---------------------------------------------------------------------------
 struct TerminalWorker {
     double* out;
-    double s0, drift, vol;
+    double s0;
+    double drift;
+    double vol_sqrt_t;
+    double lambda_t;
+    double jump_mu;
+    double jump_sigma;
     std::uint64_t seed;
 
     void operator()(std::size_t lo, std::size_t hi, std::size_t tid) const {
         std::mt19937 rng(static_cast<std::mt19937::result_type>(seed + tid * 7919ULL));
-        std::normal_distribution<double> N(0.0, 1.0);
-        for (std::size_t i = lo; i < hi; ++i)
-            out[i] = s0 * std::exp(drift + vol * N(rng));
-    }
-};
+        std::normal_distribution<double> normal(0.0, 1.0);
+        std::poisson_distribution<int> poisson(lambda_t > 0.0 ? lambda_t : 0.0);
 
-// ---------------------------------------------------------------------------
-// Multi-step path matrix: shape (n_paths, n_steps+1), row-major
-// ---------------------------------------------------------------------------
-struct PathMatrixWorker {
-    double* out;
-    std::size_t stride;
-    double s0, drift, vol;
-    std::uint64_t seed;
-
-    void operator()(std::size_t lo, std::size_t hi, std::size_t tid) const {
-        std::mt19937 rng(static_cast<std::mt19937::result_type>(seed + tid * 7919ULL));
-        std::normal_distribution<double> N(0.0, 1.0);
         for (std::size_t i = lo; i < hi; ++i) {
-            double s = s0;
-            const std::size_t row = i * stride;
-            out[row] = s;
-            for (std::size_t k = 1; k < stride; ++k) {
-                s *= std::exp(drift + vol * N(rng));
-                out[row + k] = s;
-            }
+            const double z = normal(rng);
+            double jlog = 0.0;
+            if (lambda_t > 0.0) jlog = jump_log_increment(rng, poisson, normal, lambda_t, jump_mu, jump_sigma);
+
+            const double base = drift + jlog;
+            const double w = vol_sqrt_t * z;
+            const double lp = base + w;
+            const double lm = base - w;
+            out[i] = 0.5 * s0 * (std::exp(lp) + std::exp(lm));
         }
     }
 };
 
 // ---------------------------------------------------------------------------
-// Python wrappers (GIL released during computation)
+// Multi-step path matrix: shape (n_paths, n_steps+1), row-major.
+// Same Poisson draws for antithetic pair at each step (coupled jumps).
 // ---------------------------------------------------------------------------
-py::array_t<double> py_simulate_terminal(
-    std::size_t n_paths, double s0, double mu, double sigma, double t,
-    std::uint64_t seed, std::size_t n_threads) {
+struct PathMatrixWorker {
+    double* out;
+    std::size_t stride;
+    double s0;
+    double drift_dt;
+    double vol_sqrt_dt;
+    double lambda_dt;
+    double jump_mu;
+    double jump_sigma;
+    std::uint64_t seed;
+
+    void operator()(std::size_t lo, std::size_t hi, std::size_t tid) const {
+        std::mt19937 rng(static_cast<std::mt19937::result_type>(seed + tid * 7919ULL));
+        std::normal_distribution<double> normal(0.0, 1.0);
+        std::poisson_distribution<int> poisson(lambda_dt > 0.0 ? lambda_dt : 0.0);
+
+        for (std::size_t i = lo; i < hi; ++i) {
+            double sp = s0;
+            double sm = s0;
+            const std::size_t row = i * stride;
+            out[row] = 0.5 * (sp + sm);
+
+            for (std::size_t k = 1; k < stride; ++k) {
+                const double z = normal(rng);
+                double jlog = 0.0;
+                if (lambda_dt > 0.0) jlog = jump_log_increment(rng, poisson, normal, lambda_dt, jump_mu, jump_sigma);
+
+                const double base = drift_dt + jlog;
+                const double w = vol_sqrt_dt * z;
+                sp *= std::exp(base + w);
+                sm *= std::exp(base - w);
+                out[row + k] = 0.5 * (sp + sm);
+            }
+        }
+    }
+};
+
+py::array_t<double> py_simulate_terminal(std::size_t n_paths, double s0, double mu, double sigma,
+                                         double t, std::uint64_t seed, std::size_t n_threads,
+                                         double jump_lambda, double jump_mu, double jump_sigma) {
     if (n_paths == 0 || s0 <= 0.0 || sigma < 0.0 || t <= 0.0)
         throw std::invalid_argument("Invalid simulation parameters");
+    if (jump_lambda < 0.0 || jump_sigma < 0.0)
+        throw std::invalid_argument("Invalid jump parameters");
 
     py::array_t<double> arr(static_cast<py::ssize_t>(n_paths));
-    TerminalWorker w{arr.mutable_data(), s0,
-                     (mu - 0.5 * sigma * sigma) * t,
-                     sigma * std::sqrt(t), seed};
+    const double drift = (mu - 0.5 * sigma * sigma) * t;
+    const double vol_sqrt_t = sigma * std::sqrt(t);
+    const double lambda_t = jump_lambda * t;
+
+    TerminalWorker w{arr.mutable_data(), s0, drift, vol_sqrt_t, lambda_t, jump_mu, jump_sigma, seed};
     {
         py::gil_scoped_release unlock;
         dispatch_threads(n_paths, n_threads, w);
@@ -96,20 +143,24 @@ py::array_t<double> py_simulate_terminal(
     return arr;
 }
 
-py::array_t<double> py_simulate_path_matrix(
-    std::size_t n_paths, std::size_t n_steps,
-    double s0, double mu, double sigma, double t,
-    std::uint64_t seed, std::size_t n_threads) {
+py::array_t<double> py_simulate_path_matrix(std::size_t n_paths, std::size_t n_steps, double s0,
+                                            double mu, double sigma, double t, std::uint64_t seed,
+                                            std::size_t n_threads, double jump_lambda,
+                                            double jump_mu, double jump_sigma) {
     if (n_paths == 0 || n_steps == 0 || s0 <= 0.0 || sigma < 0.0 || t <= 0.0)
         throw std::invalid_argument("Invalid simulation parameters");
+    if (jump_lambda < 0.0 || jump_sigma < 0.0)
+        throw std::invalid_argument("Invalid jump parameters");
 
     const double dt = t / static_cast<double>(n_steps);
-    py::array_t<double> arr({
-        static_cast<py::ssize_t>(n_paths),
-        static_cast<py::ssize_t>(n_steps + 1)});
-    PathMatrixWorker w{arr.mutable_data(), n_steps + 1, s0,
-                       (mu - 0.5 * sigma * sigma) * dt,
-                       sigma * std::sqrt(dt), seed};
+    py::array_t<double> arr(
+        {static_cast<py::ssize_t>(n_paths), static_cast<py::ssize_t>(n_steps + 1)});
+    const double drift_dt = (mu - 0.5 * sigma * sigma) * dt;
+    const double vol_sqrt_dt = sigma * std::sqrt(dt);
+    const double lambda_dt = jump_lambda * dt;
+
+    PathMatrixWorker w{arr.mutable_data(), n_steps + 1, s0, drift_dt,
+                       vol_sqrt_dt, lambda_dt, jump_mu, jump_sigma, seed};
     {
         py::gil_scoped_release unlock;
         dispatch_threads(n_paths, n_threads, w);
@@ -120,15 +171,16 @@ py::array_t<double> py_simulate_path_matrix(
 }  // namespace
 
 PYBIND11_MODULE(gbm_simulator, m) {
-    m.doc() = "GBM Monte Carlo simulator — multi-threaded C++17 / pybind11";
+    m.doc() = "GBM / Merton jump-diffusion Monte Carlo — multi-threaded C++17 / pybind11 "
+              "(antithetic variates on diffusion; Poisson jump counts per thread)";
 
     m.def("simulate_gbm_paths", &py_simulate_terminal,
-          py::arg("n_paths"), py::arg("s0"), py::arg("mu"),
-          py::arg("sigma"), py::arg("t"),
-          py::arg("seed") = 42, py::arg("n_threads") = 0);
+          py::arg("n_paths"), py::arg("s0"), py::arg("mu"), py::arg("sigma"), py::arg("t"),
+          py::arg("seed") = 42ULL, py::arg("n_threads") = std::size_t{0},
+          py::arg("jump_lambda") = 0.0, py::arg("jump_mu") = 0.0, py::arg("jump_sigma") = 0.0);
 
     m.def("simulate_gbm_path_matrix", &py_simulate_path_matrix,
-          py::arg("n_paths"), py::arg("n_steps"), py::arg("s0"),
-          py::arg("mu"), py::arg("sigma"), py::arg("t"),
-          py::arg("seed") = 42, py::arg("n_threads") = 0);
+          py::arg("n_paths"), py::arg("n_steps"), py::arg("s0"), py::arg("mu"), py::arg("sigma"),
+          py::arg("t"), py::arg("seed") = 42ULL, py::arg("n_threads") = std::size_t{0},
+          py::arg("jump_lambda") = 0.0, py::arg("jump_mu") = 0.0, py::arg("jump_sigma") = 0.0);
 }

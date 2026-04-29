@@ -9,8 +9,10 @@ import streamlit as st
 
 from data_utils import (
     GbmParams,
+    compute_risk_metrics,
     currency_symbol,
     estimate_gbm_params,
+    estimate_jump_params,
     fetch_prices,
     fmt_price,
 )
@@ -258,17 +260,6 @@ def _outlook(up: float) -> tuple[str, str]:
     return "Bearish (약세)", RED
 
 
-def compute_risk_metrics(samples: np.ndarray, s0: float) -> dict[str, float]:
-    qs = np.quantile(samples, [0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99])
-    p01, p05, p25, p50, p75, p95, p99 = (float(q) for q in qs)
-    up = float(np.mean(samples > s0) * 100.0)
-    va = float(max(0.0, s0 - p05))
-    vp = (va / s0) * 100.0 if s0 else 0.0
-    return {"p01": p01, "p05": p05, "p25": p25, "p50": p50,
-            "p75": p75, "p95": p95, "p99": p99,
-            "up_probability_pct": up, "var_95_abs": va, "var_95_pct": vp}
-
-
 def lognormal_pdf(x, mu, sig):
     if sig <= 0: return np.zeros_like(x)
     s = np.where(x > 0, x, 1.0)
@@ -449,8 +440,15 @@ def build_fan(pm, s0, yrs, cur, ticker):
 # ---------------------------------------------------------------------------
 # Math formula section builder
 # ---------------------------------------------------------------------------
-def _build_math_section(params: GbmParams, cur: str) -> str:
+def _build_math_section(
+    params: GbmParams,
+    cur: str,
+    jump_lambda: float,
+    jump_mu: float,
+    jump_sigma: float,
+) -> str:
     fp = lambda v: _fp(v, cur)
+    jump_on = jump_lambda > 0.0
     return f"""
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 
@@ -475,10 +473,10 @@ def _build_math_section(params: GbmParams, cur: str) -> str:
 
 <div class="math-panel">
   <h3>✦ 이산화 경로 (Exact Discretization)</h3>
-  <div class="math-eq">S(t+Δt) = S(t) · exp( (μ − ½σ²)Δt + σ√Δt · Zₜ )</div>
+  <div class="math-eq">S(t+Δt) = S(t) · exp( (μ − ½σ²)Δt + σ√Δt · Zₜ + Σ jumps)</div>
   <div class="math-desc">
-    Fan Chart의 각 시간 단계마다 적용되는 수식입니다.<br>
-    GBM 해석해를 직접 이산화하므로 <b>근사 오차가 없습니다</b>.
+    Fan Chart의 각 시간 단계마다 적용되며, 점프 확산이 꺼져 있으면 Σ jumps = 0입니다.<br>
+    확산 난수에는 <b>대칭 변수법 (antithetic Z / −Z)</b>을 적용했습니다.
   </div>
 </div>
 
@@ -494,16 +492,36 @@ def _build_math_section(params: GbmParams, cur: str) -> str:
 </div>
 
 <div class="math-panel" style="margin-top:16px;">
+  <h3>✦ Merton Jump Diffusion — 점프 항</h3>
+  <div class="math-eq">ln S_T − ln S₀ = (μ − ½σ²)T + σ√T · Z + Σ<sub>i=1</sub><sup>N_T</sup> Jᵢ,&nbsp;
+  N_T ~ Poisson(λT),&nbsp; Jᵢ ~ N(μ_J, σ_J²)</div>
+  <div class="math-desc">
+    <b>dN_t</b>: 포아송 도약. <b>J</b>: 로그 점프 크기. 엔진은 스레드별 <code>std::mt19937</code>,
+    <code>std::poisson_distribution</code>, 정규분포를 사용합니다.
+    <br/>현재 설정: λ = <b>{jump_lambda:.4f}</b>, μ_J = <b>{jump_mu:.4f}</b>, σ_J = <b>{jump_sigma:.4f}</b>
+    ({'점프 활성' if jump_on else 'λ = 0 → GBM만'}).
+  </div>
+</div>
+
+<div class="math-panel" style="margin-top:16px;">
+  <h3>✦ CVaR — Expected Shortfall (조건부 꼬리 손실)</h3>
+  <div class="math-eq">CVaR₍₉₅₎ = 𝔼[ Loss | Loss ≥ VaR₍₉₅₎ ], &nbsp; Loss = max(0, S₀ − S_T)</div>
+  <div class="math-desc">
+    하위 5% 경로에서의 평균 손실로, VaR보다 꼬리 리스크를 더 보수적으로 요약합니다.
+  </div>
+</div>
+
+<div class="math-panel" style="margin-top:16px;">
   <h3>✦ 입력 파라미터 (Input Parameters Used)</h3>
   <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px 24px;">
     <div class="math-desc"><span class="math-var">S₀</span> <b>현재 주가</b><br>Current Price = {fp(params.s0)}</div>
     <div class="math-desc"><span class="math-var">μ</span> <b>기대수익률 (연율)</b><br>Annual Drift = {params.mu:.6f}</div>
     <div class="math-desc"><span class="math-var">σ</span> <b>변동성 (연율)</b><br>Annual Volatility = {params.sigma:.6f}</div>
     <div class="math-desc"><span class="math-var">T</span> <b>예측 기간</b><br>Time Horizon (years)</div>
-    <div class="math-desc"><span class="math-var">Z</span> <b>표준정규 난수</b><br>Z ~ N(0,1), 스레드별 독립 생성</div>
-    <div class="math-desc"><span class="math-var">dt</span> <b>시간 간격</b><br>Δt = T / 거래일 수</div>
-    <div class="math-desc"><span class="math-var">W</span> <b>위너 과정</b><br>Wiener Process (브라운 운동)</div>
-    <div class="math-desc"><span class="math-var">Q</span> <b>분위수 함수</b><br>Quantile (백분위수)</div>
+    <div class="math-desc"><span class="math-var">λ</span> <b>연간 점프 강도</b><br>Jump intensity = {jump_lambda:.6f}</div>
+    <div class="math-desc"><span class="math-var">μ_J</span> <b>로그 점프 평균</b><br>Mean log jump = {jump_mu:.6f}</div>
+    <div class="math-desc"><span class="math-var">σ_J</span> <b>로그 점프 변동성</b><br>Log-jump std = {jump_sigma:.6f}</div>
+    <div class="math-desc"><span class="math-var">Z</span> <b>표준정규 난수</b><br>Antithetic pairs per step</div>
   </div>
 </div>
 """
@@ -551,6 +569,25 @@ def main():
                            format="%.2f yr")
         fan_paths = st.slider("Fan Chart Paths (경로 수)", 1000, 20000, 5000, 1000)
 
+        st.markdown('<div class="sb-label">Jump diffusion — Merton</div>',
+                    unsafe_allow_html=True)
+        j_lambda = st.slider(
+            "λ — annual jump intensity (연간 점프 강도)",
+            0.0, 15.0, 0.0, 0.01,
+            format="%.3f",
+            help="Historical estimates shown below after each run.",
+        )
+        j_mu = st.slider(
+            "μ_J — mean log jump (평균 로그 점프)",
+            -0.35, 0.35, 0.0, 0.005,
+            format="%.4f",
+        )
+        j_sigma = st.slider(
+            "σ_J — log jump volatility (로그 점프 변동성)",
+            0.0, 1.0, 0.05, 0.005,
+            format="%.4f",
+        )
+
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
         run = st.button("Run Simulation  →",
                         use_container_width=True, type="primary")
@@ -560,6 +597,13 @@ def main():
             'C++17 Multi-threaded GBM Engine<br>'
             'pybind11 · zero-copy · WebGL</div>',
             unsafe_allow_html=True)
+
+        ej = st.session_state.get("est_jump")
+        if ej is not None:
+            st.caption(
+                f"참고 추정(역사적): λ̂={ej.lambda_annual:.4f}, "
+                f"μ̂_J={ej.mu_jump:.4f}, σ̂_J={ej.sigma_jump:.4f}"
+            )
 
     # ── Landing ───────────────────────────────────────────
     if not run and "metrics" not in st.session_state:
@@ -581,21 +625,58 @@ def main():
         with st.spinner("데이터 수집 중 …"):
             close = fetch_prices(ticker, period="2y")
             params = estimate_gbm_params(close, ticker=ticker)
+            st.session_state.est_jump = estimate_jump_params(close)
         with st.spinner(f"C++ 시뮬레이션 ({n_paths:,} paths) …"):
             sim = import_simulator()
             t0 = time.perf_counter()
-            terminal = np.asarray(sim.simulate_gbm_paths(
-                n_paths=n_paths, s0=params.s0, mu=params.mu,
-                sigma=params.sigma, t=years, seed=42, n_threads=0), dtype=np.float64)
-            path_matrix = np.asarray(sim.simulate_gbm_path_matrix(
-                n_paths=fan_paths, n_steps=252, s0=params.s0, mu=params.mu,
-                sigma=params.sigma, t=years, seed=43, n_threads=0), dtype=np.float64)
+            terminal = np.asarray(
+                sim.simulate_gbm_paths(
+                    n_paths=n_paths,
+                    s0=params.s0,
+                    mu=params.mu,
+                    sigma=params.sigma,
+                    t=years,
+                    seed=42,
+                    n_threads=0,
+                    jump_lambda=j_lambda,
+                    jump_mu=j_mu,
+                    jump_sigma=j_sigma,
+                ),
+                dtype=np.float64,
+            )
+            path_matrix = np.asarray(
+                sim.simulate_gbm_path_matrix(
+                    n_paths=fan_paths,
+                    n_steps=252,
+                    s0=params.s0,
+                    mu=params.mu,
+                    sigma=params.sigma,
+                    t=years,
+                    seed=43,
+                    n_threads=0,
+                    jump_lambda=j_lambda,
+                    jump_mu=j_mu,
+                    jump_sigma=j_sigma,
+                ),
+                dtype=np.float64,
+            )
             elapsed = time.perf_counter() - t0
         metrics = compute_risk_metrics(terminal, params.s0)
-        st.session_state.update(dict(
-            ticker=ticker, params=params, terminal=terminal,
-            path_matrix=path_matrix, metrics=metrics,
-            elapsed=elapsed, n_paths=n_paths, years=years))
+        st.session_state.update(
+            dict(
+                ticker=ticker,
+                params=params,
+                terminal=terminal,
+                path_matrix=path_matrix,
+                metrics=metrics,
+                elapsed=elapsed,
+                n_paths=n_paths,
+                years=years,
+                jump_lambda=j_lambda,
+                jump_mu=j_mu,
+                jump_sigma=j_sigma,
+            )
+        )
 
     # ── Read state ────────────────────────────────────────
     ss = st.session_state
@@ -607,6 +688,9 @@ def main():
     elapsed  = ss["elapsed"]
     n_paths  = ss["n_paths"]
     years    = ss["years"]
+    jl = float(ss.get("jump_lambda", 0.0))
+    jm = float(ss.get("jump_mu", 0.0))
+    js = float(ss.get("jump_sigma", 0.0))
     cur, s0  = params.currency, params.s0
     fp = lambda v: _fp(v, cur)
     thru = n_paths / elapsed if elapsed > 0 else 0
@@ -637,24 +721,29 @@ def main():
     up = metrics["up_probability_pct"]
     p50d = _dpct(metrics["p50"], s0)
     md = _dpct(float(terminal.mean()), s0)
-    cols = st.columns(5, gap="small")
-    with cols[0]:
+    cols_a = st.columns(3, gap="small")
+    cols_b = st.columns(3, gap="small")
+    with cols_a[0]:
         st.markdown(_mc("현재가 Current Price", fp(s0)), unsafe_allow_html=True)
-    with cols[1]:
+    with cols_a[1]:
         c = GREEN if p50d >= 0 else RED
         st.markdown(_mc("중앙 예측가 Median", fp(metrics["p50"]),
                     _dhtml(p50d), True, c), unsafe_allow_html=True)
-    with cols[2]:
+    with cols_a[2]:
         st.markdown(_mc("평균 예측가 Mean", fp(float(terminal.mean())),
                     _dhtml(md)), unsafe_allow_html=True)
-    with cols[3]:
+    with cols_b[0]:
         ico = "📈 🟢" if up >= 50 else "📉 🔴"
         c = GREEN if up >= 50 else RED
         st.markdown(_mc("상승 확률 Profit Prob.", f"{ico} {up:.1f}%",
                     large=True, vc=c), unsafe_allow_html=True)
-    with cols[4]:
+    with cols_b[1]:
         st.markdown(_mc("VaR(95%) 최대 손실", fp(metrics["var_95_abs"]),
                     f'<div class="mc-delta d-neg">▼ {metrics["var_95_pct"]:.1f}%</div>'),
+                    unsafe_allow_html=True)
+    with cols_b[2]:
+        st.markdown(_mc("CVaR(95%) ES 꼬리 손실", fp(metrics["cvar_95_abs"]),
+                    f'<div class="mc-delta d-neg">▼ {metrics["cvar_95_pct"]:.1f}%</div>'),
                     unsafe_allow_html=True)
 
     # ── Risk Table ────────────────────────────────────────
@@ -690,6 +779,8 @@ def main():
             f'<td>{params.mu:.6f}</td></tr>'
             f'<tr><td style="font-family:var(--sans)">σ Volatility (변동성)</td>'
             f'<td>{params.sigma:.6f}</td></tr>'
+            f'<tr><td style="font-family:var(--sans)">Jump λ / μ_J / σ_J</td>'
+            f'<td>{jl:.4f} / {jm:.4f} / {js:.4f}</td></tr>'
             f'<tr><td style="font-family:var(--sans)">90% Confidence (신뢰구간)</td>'
             f'<td>{fp(metrics["p05"])} — {fp(metrics["p95"])}</td></tr>'
             f'<tr><td style="font-family:var(--sans)">Paths (시뮬레이션 횟수)</td>'
@@ -702,7 +793,7 @@ def main():
     # ── Math Formula Section ──────────────────────────────
     st.markdown('<div class="stitle">✦ Mathematical Model (수학 모델)</div>',
                 unsafe_allow_html=True)
-    st.markdown(_build_math_section(params, cur), unsafe_allow_html=True)
+    st.markdown(_build_math_section(params, cur, jl, jm, js), unsafe_allow_html=True)
 
     # ── Disclaimer ────────────────────────────────────────
     st.markdown(

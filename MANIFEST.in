@@ -1,0 +1,4 @@
+include CMakeLists.txt
+include README.md
+include pyproject.toml
+graft src
