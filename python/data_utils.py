@@ -62,6 +62,18 @@ class JumpParams:
     sigma_jump: float     # std dev of log jump increment
 
 
+# 시뮬 엔진 입력용 연율 drift/vol 제동 (대시보드 수동·yfinance 공통)
+GBM_MU_ANNUAL_CAP = 0.20
+GBM_SIGMA_ANNUAL_FLOOR = 0.15
+
+
+def clamp_gbm_for_simulation(mu: float, sigma: float) -> tuple[float, float]:
+    """연율 μ는 상한 20%, 연율 σ는 하한 15% (직선형 우상향·과도한 낙관 방지)."""
+    mu_c = float(min(float(mu), GBM_MU_ANNUAL_CAP))
+    sig_c = float(max(float(sigma), GBM_SIGMA_ANNUAL_FLOOR))
+    return mu_c, sig_c
+
+
 def detect_currency(ticker: str) -> str:
     """Determine currency symbol from ticker suffix."""
     t = ticker.upper()
@@ -172,6 +184,10 @@ def estimate_gbm_params(
     The drift is deliberately shrunk because a one-year sample mean is noisy and
     can dominate risk simulations. Volatility blends plain historical sigma with
     an EWMA/GARCH-style estimate so recent volatility clusters carry more weight.
+
+    After estimation, simulation-bound clamps apply: annual μ ≤ 20%, annual σ ≥ 15%
+    (see ``clamp_gbm_for_simulation``) to limit trend extrapolation and
+    degenerate near-deterministic paths.
     """
     log_ret = np.log(close_prices / close_prices.shift(1)).dropna()
     if log_ret.empty:
@@ -194,11 +210,13 @@ def estimate_gbm_params(
     # Keep historical drift from overwhelming diffusion in short, noisy samples.
     mu_annual_raw = mu_daily * trading_days
     mu_annual = float(np.clip(mu_annual_raw, -0.35, 0.35))
+    sigma_ann = float(sigma_daily * np.sqrt(trading_days))
+    mu_annual, sigma_ann = clamp_gbm_for_simulation(mu_annual, sigma_ann)
 
     return GbmParams(
         s0=float(close_prices.iloc[-1]),
         mu=mu_annual,
-        sigma=sigma_daily * np.sqrt(trading_days),
+        sigma=sigma_ann,
         currency=detect_currency(ticker),
     )
 

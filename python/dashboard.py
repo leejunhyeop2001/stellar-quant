@@ -12,6 +12,7 @@ from data_utils import (
     GbmParams,
     JumpParams,
     YahooFinanceFetchError,
+    clamp_gbm_for_simulation,
     compute_risk_metrics,
     currency_symbol,
     detect_currency,
@@ -60,9 +61,9 @@ FIXED_HORIZON_YEARS = 1.0
 FIXED_FAN_PATHS = 8_000
 FIXED_N_STEPS = 252
 FIXED_N_THREADS = 0  # 0 = 사용 가능 코어 자동
-FIXED_JUMP_LAMBDA = 1.0
-FIXED_JUMP_MU = -0.02
-FIXED_JUMP_SIGMA = 0.05
+FIXED_JUMP_LAMBDA = 2.0
+FIXED_JUMP_MU = -0.05
+FIXED_JUMP_SIGMA = 0.10
 # yfinance 실패 시 Manual Fallback (GBM 입력)
 FIXED_MANUAL_S0 = 250.0
 FIXED_MANUAL_MU = 0.10
@@ -1902,11 +1903,12 @@ def _load_market_data(ticker: str, period: str = "1y") -> MarketData:
 def _manual_market_data(config: SidebarConfig) -> MarketData:
     """Build model parameters from sidebar fallback values."""
 
+    mu_c, sig_c = clamp_gbm_for_simulation(config.manual_mu, config.manual_sigma)
     return MarketData(
         params=GbmParams(
             s0=config.manual_s0,
-            mu=config.manual_mu,
-            sigma=config.manual_sigma,
+            mu=mu_c,
+            sigma=sig_c,
             currency=detect_currency(config.ticker),
         ),
         jump=JumpParams(lambda_annual=0.0, mu_jump=0.0, sigma_jump=0.0),
@@ -2140,9 +2142,14 @@ def _risk_summary(metrics: dict[str, float]) -> tuple[str, str, str]:
 def _render_risk_summary(result: DashboardResult) -> None:
     metrics, params = result.metrics, result.params
     fp = lambda v: _fp(v, params.currency)
+    up = metrics["up_probability_pct"]
+    if up > 90.0:
+        st.warning(
+            "최근 추세가 과도하게 반영되었습니다. 상승 확률이 90%를 넘습니다 — "
+            "추정 드리프트·단기 추세에 기대 과열이 섞였을 수 있으니 보수적으로 해석하세요."
+        )
     title, tone, desc = _risk_summary(metrics)
     median_pct = _dpct(metrics["p50"], params.s0)
-    up = metrics["up_probability_pct"]
     up_cls = "risk-blue" if up >= 50 else "risk-red"
     median_cls = "risk-blue" if median_pct >= 0 else "risk-red"
 
