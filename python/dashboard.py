@@ -622,10 +622,21 @@ def main():
 
     # ── Simulate ──────────────────────────────────────────
     if run:
+        tick = ticker.strip()
+        if not tick:
+            st.error("종목 코드를 입력해 주세요.")
+            return
         with st.spinner("데이터 수집 중 …"):
-            close = fetch_prices(ticker, period="2y")
-            params = estimate_gbm_params(close, ticker=ticker)
-            st.session_state.est_jump = estimate_jump_params(close)
+            try:
+                close = fetch_prices(tick, period="2y")
+                params = estimate_gbm_params(close, ticker=tick)
+                st.session_state.est_jump = estimate_jump_params(close)
+            except ValueError as err:
+                st.error(
+                    "**가격 데이터를 가져오지 못했습니다.**\n\n"
+                    f"{err}"
+                )
+                return
         with st.spinner(f"C++ 시뮬레이션 ({n_paths:,} paths) …"):
             sim = import_simulator()
             t0 = time.perf_counter()

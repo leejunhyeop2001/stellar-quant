@@ -1,11 +1,51 @@
 """Yahoo Finance data fetching and GBM parameter estimation."""
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+import requests
 import yfinance as yf
+
+_YF_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": "*/*",
+}
+
+
+def _yahoo_session() -> requests.Session:
+    s = requests.Session()
+    s.headers.update(_YF_HEADERS)
+    return s
+
+
+def _close_from_frame(df: pd.DataFrame | None) -> pd.Series | None:
+    if df is None or df.empty:
+        return None
+    frame = df
+    if isinstance(frame.columns, pd.MultiIndex):
+        try:
+            frame = frame.copy()
+            frame.columns = [
+                c[-1] if isinstance(c, tuple) and len(c) > 0 else c for c in frame.columns
+            ]
+        except Exception:
+            frame = pd.DataFrame(df)
+
+    for key in ("Close", "Adj Close"):
+        if key in frame.columns:
+            s = frame[key]
+            if isinstance(s, pd.DataFrame):
+                s = s.iloc[:, 0]
+            out = pd.Series(s, dtype=float).dropna()
+            if len(out) >= 10:
+                return out
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,19 +107,60 @@ def fmt_price(value: float, currency: str) -> str:
 
 
 def fetch_prices(ticker: str, period: str = "2y") -> pd.Series:
-    """Download adjusted close prices from Yahoo Finance."""
-    data = yf.download(ticker, period=period, auto_adjust=True, progress=False)
-    if data.empty or "Close" not in data.columns:
-        raise ValueError(f"No close-price data for ticker={ticker!r}")
+    """Download adjusted close prices from Yahoo Finance.
 
-    close = data["Close"]
-    if isinstance(close, pd.DataFrame):
-        close = close.iloc[:, 0]
-    close = close.dropna()
+    Uses a browser-like User-Agent and retries because Yahoo often returns empty
+    responses from datacenter IPs (e.g. Streamlit Community Cloud).
+    """
+    sym = ticker.strip().upper()
+    if not sym:
+        raise ValueError("Ticker symbol is empty.")
 
-    if close.empty:
-        raise ValueError(f"Close series is empty for ticker={ticker!r}")
-    return close
+    session = _yahoo_session()
+    last_exc: Exception | None = None
+
+    def try_history(p: str) -> pd.Series | None:
+        nonlocal last_exc
+        try:
+            try:
+                tk = yf.Ticker(sym, session=session)
+            except TypeError:
+                tk = yf.Ticker(sym)
+            hist = tk.history(period=p, auto_adjust=True)
+            return _close_from_frame(hist)
+        except Exception as exc:
+            last_exc = exc
+            return None
+
+    def try_download(p: str) -> pd.Series | None:
+        nonlocal last_exc
+        try:
+            data = yf.download(
+                sym,
+                period=p,
+                auto_adjust=True,
+                progress=False,
+                session=session,
+                threads=False,
+            )
+            return _close_from_frame(data)
+        except Exception as exc:
+            last_exc = exc
+            return None
+
+    for attempt in range(3):
+        for p in (period, "1y", "6mo", "3mo"):
+            s = try_history(p) or try_download(p)
+            if s is not None:
+                return s
+        time.sleep(0.5 * (attempt + 1))
+
+    hint = (
+        " Yahoo Finance가 클라우드·데이터센터 IP에서 자주 차단합니다. "
+        "티커를 확인하거나 로컬 PC에서 실행해 보세요."
+    )
+    extra = f" ({last_exc!r})" if last_exc else ""
+    raise ValueError(f"No close-price data for ticker={sym!r}.{hint}{extra}")
 
 
 def estimate_gbm_params(

@@ -68,6 +68,7 @@ setup(
     install_requires=[
         "numpy>=1.20",
         "pandas>=1.3",
+        "requests>=2.26",
         "yfinance",
         "matplotlib",
         "pybind11>=2.10",
