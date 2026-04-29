@@ -1435,10 +1435,12 @@ def build_hist(terminal, s0, m, cur, ticker):
 # Fan chart
 # ---------------------------------------------------------------------------
 def build_fan(pm, s0, yrs, cur, ticker):
+    """Fan chart: translucent quantile bands (SVG fill) + mean/median lines (Scattergl)."""
     sym = currency_symbol(cur)
     hf = ",.0f" if cur == "KRW" else ",.2f"
     _, npt = pm.shape
     tf = np.linspace(0.0, yrs, npt)
+    q_mean = np.mean(pm, axis=0)
     q025, q05, q125, q25, q50, q75, q875, q95, q975 = np.quantile(
         pm,
         [0.025, 0.05, 0.125, 0.25, 0.5, 0.75, 0.875, 0.95, 0.975],
@@ -1449,13 +1451,18 @@ def build_fan(pm, s0, yrs, cur, ticker):
     t = tf[di]
     d025, d05, d125, d25 = q025[di], q05[di], q125[di], q25[di]
     d50, d75, d875, d95, d975 = q50[di], q75[di], q875[di], q95[di], q975[di]
+    d_mean = q_mean[di]
+
+    # Toss 다크 테마용 형광 시안 (평균 경로)
+    mean_line_color = "#22d3ee"
 
     fig = go.Figure()
     tr = t[::-1]
+    # fill=toself 는 WebGL(Scattergl) 미지원 → 밴드만 go.Scatter, α 0.05~0.1
     bands = [
-        ("95% 신뢰구간", d025, d975, "rgba(0,100,255,0.10)"),
-        ("75% 신뢰구간", d125, d875, "rgba(0,100,255,0.16)"),
-        ("50% 신뢰구간", d25, d75, "rgba(0,100,255,0.24)"),
+        ("95% 신뢰구간", d025, d975, "rgba(0,100,255,0.06)"),
+        ("75% 신뢰구간", d125, d875, "rgba(0,100,255,0.08)"),
+        ("50% 신뢰구간", d25, d75, "rgba(0,100,255,0.10)"),
     ]
     for name, lo, hi, color in bands:
         fig.add_trace(go.Scatter(
@@ -1469,9 +1476,12 @@ def build_fan(pm, s0, yrs, cur, ticker):
         ))
 
     median_custom = np.column_stack([d05, d95, d25, d75])
-    fig.add_trace(go.Scatter(x=t, y=d50, mode="lines",
+    fig.add_trace(go.Scattergl(
+        x=t,
+        y=d50,
+        mode="lines",
         customdata=median_custom,
-        line=dict(color=ACCENT, width=4.2, shape="spline", smoothing=0.45),
+        line=dict(color=ACCENT, width=2.6, shape="linear"),
         name="Median (중앙값)",
         hovertemplate=(
             f"<b>%{{x:.2f}}Y 예측</b><br>"
@@ -1479,7 +1489,20 @@ def build_fan(pm, s0, yrs, cur, ticker):
             f"90% 범위: {sym}%{{customdata[0]:{hf}}} ~ {sym}%{{customdata[1]:{hf}}}<br>"
             f"50% 범위: {sym}%{{customdata[2]:{hf}}} ~ {sym}%{{customdata[3]:{hf}}}"
             "<extra></extra>"
-        )))
+        ),
+    ))
+
+    fig.add_trace(go.Scattergl(
+        x=t,
+        y=d_mean,
+        mode="lines",
+        line=dict(color=mean_line_color, width=5.0, shape="linear"),
+        name="기대 평균 경로 (Mean)",
+        hovertemplate=(
+            f"<b>%{{x:.2f}}Y 예측</b><br>"
+            f"Mean: {sym}%{{y:{hf}}}<extra></extra>"
+        ),
+    ))
 
     fig.add_hline(y=s0, line_color="rgba(220,228,248,0.42)", line_dash="dash", line_width=1.35)
     fig.add_annotation(x=0.01, y=s0, xref="paper",
@@ -1500,20 +1523,20 @@ def build_fan(pm, s0, yrs, cur, ticker):
 
     for xval, label in label_points:
         idx = int(np.argmin(np.abs(tf - xval)))
-        yval = float(q50[idx])
+        yval = float(q_mean[idx])
         fig.add_annotation(
             x=float(tf[idx]),
             y=yval,
-            text=f"<b>{label}</b> {fmt_price(yval, cur)}",
+            text=f"<b>{label}</b> · Mean {fmt_price(yval, cur)}",
             showarrow=True,
             arrowhead=2,
             arrowwidth=1.2,
-            arrowcolor=ACCENT,
+            arrowcolor=mean_line_color,
             ax=22,
             ay=-34,
             font=dict(color="#F4F5F7", size=11, family="Pretendard Variable, sans-serif"),
             bgcolor="rgba(16,16,18,0.92)",
-            bordercolor="rgba(0,100,255,0.18)",
+            bordercolor="rgba(34,211,238,0.35)",
             borderwidth=1,
             borderpad=6,
         )
@@ -1554,14 +1577,18 @@ def build_fan(pm, s0, yrs, cur, ticker):
             y=0.97,
             xanchor="left",
         ),
-        margin=dict(l=56, r=210, t=76, b=90),
+        margin=dict(l=56, r=210, t=76, b=104),
         legend=dict(
             orientation="h",
             bgcolor="rgba(16,16,18,0.82)",
             bordercolor="rgba(255,255,255,0)",
             borderwidth=0,
             font=dict(size=10, color="#8B93A1", family="Pretendard Variable, Pretendard, sans-serif"),
-            x=0.5, y=-0.18, xanchor="center", yanchor="top",
+            x=0.5,
+            y=-0.22,
+            xanchor="center",
+            yanchor="top",
+            traceorder="normal",
         ),
         xaxis=dict(**_AX, title="예측 기간 Period", tickvals=tp, ticktext=tl),
         yaxis=dict(**_AX, title=f"주가 Price ({cur})", range=[yl, yh],
@@ -1749,6 +1776,31 @@ def _render_sidebar() -> SidebarConfig:
         )
         _sb_rec_line("1.00 yr")
 
+        st.markdown(
+            '<div class="sb-section-hd">Fan Chart — 경로 샘플</div>',
+            unsafe_allow_html=True,
+        )
+        fan_paths = st.slider(
+            "Fan Chart Paths (경로 수)",
+            1000,
+            20000,
+            8000,
+            1000,
+            help="팬 차트·분위수 밴드에 사용하는 경로 개수입니다. (대규모 시뮬 경로 수와 별도)",
+            key="sq_fan_paths",
+        )
+        _sb_rec_line("8,000")
+        n_steps = st.slider(
+            "Time Steps (시간 스텝)",
+            52,
+            504,
+            252,
+            26,
+            help="경로를 나누는 시간 스텝 수 (거래일 스케일).",
+            key="sq_fan_steps",
+        )
+        _sb_rec_line("252")
+
         with st.expander("고급 설정", expanded=False):
             st.button(
                 "추천 설정으로 초기화",
@@ -1756,7 +1808,7 @@ def _render_sidebar() -> SidebarConfig:
                 type="secondary",
                 key="sq_sidebar_recommend_reset",
                 on_click=_apply_recommended_sidebar,
-                help="시뮬 1M · Steps 252 · λ=12 등 전문가 기본값으로 맞춥니다.",
+                help="시뮬 1M · Horizon 1y · Fan 8k · Steps 252 · λ=4 등 추천값으로 맞춥니다.",
             )
             st.markdown(
                 '<div class="sb-section-hd">Manual Fallback — 데이터 실패 시 사용</div>',
@@ -1794,26 +1846,10 @@ def _render_sidebar() -> SidebarConfig:
             )
             _sb_rec_line("S0 250 · μ 0.10 · σ 0.40")
 
-            fan_paths = st.slider(
-                "Fan Chart Paths (경로 수)",
-                1000,
-                20000,
-                5000,
-                1000,
-                help="Fan chart에 그리는 개별 경로 수입니다.",
-                key="sq_fan_paths",
+            st.markdown(
+                '<div class="sb-section-hd">Engine</div>',
+                unsafe_allow_html=True,
             )
-            _sb_rec_line("8,000")
-            n_steps = st.slider(
-                "Time Steps (시간 스텝)",
-                52,
-                504,
-                252,
-                26,
-                help="경로를 나누는 시간 스텝 수 (거래일 스케일).",
-                key="sq_fan_steps",
-            )
-            _sb_rec_line("252")
             n_threads = st.slider(
                 "C++ Threads (스레드 수)",
                 0,
