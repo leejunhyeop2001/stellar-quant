@@ -39,8 +39,8 @@ st.set_page_config(
 # Palette — Toss-inspired premium dark
 # ---------------------------------------------------------------------------
 BG = "#0F1014"            # Page background
-CARD = "#16171C"          # Card surface
-CARD_HI = "#1C1D23"       # Slightly elevated card
+CARD = "#1C1C1E"          # Toss card surface (unified)
+CARD_HI = "#23242A"       # Slightly elevated / hover
 BORDER = "rgba(255,255,255,0.04)"
 TEXT = "#F4F5F7"
 MUTED = "#8B93A1"
@@ -118,7 +118,9 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
   border: none !important;
   background: none !important;
 }}
-section[data-testid="stSidebar"] hr {{ display: none !important; }}
+section[data-testid="stSidebar"] > div [data-testid="stVerticalBlock"] {{
+  gap: 1.125rem !important;
+}}
 
 section[data-testid="stSidebar"] .stTextInput > div > div {{
   background: {CARD} !important;
@@ -135,19 +137,43 @@ section[data-testid="stSidebar"] .stTextInput > div > div:focus-within {{
   box-shadow: 0 0 0 3px rgba(49,130,246,0.12) !important;
 }}
 
-section[data-testid="stSidebar"] label[data-testid="stWidgetLabel"],
+/* 사이드바 위젯 라벨 — 슬라이더·입력 이름 명확히 표시 */
 section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
-  display: none !important;
+  display: block !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  color: {MUTED} !important;
+  letter-spacing: 0.02em !important;
+  text-transform: uppercase !important;
+  margin: 0 0 10px 2px !important;
+  padding: 0 !important;
+  line-height: 1.35 !important;
+}}
+section[data-testid="stSidebar"] [data-baseweb="slider"],
+section[data-testid="stSidebar"] [data-testid="stSlider"] {{
+  margin-bottom: 6px !important;
+}}
+section[data-testid="stSidebar"] .stSelectSlider [data-baseweb="slider"] {{
+  margin-top: 0 !important;
 }}
 
 [data-testid="stExpander"] {{
-  background: {CARD} !important;
-  border: 1px solid {BORDER} !important;
-  border-radius: 16px !important;
-  margin-top: 14px !important;
+  background: #1C1C1E !important;
+  border: 1px solid #2C2C2E !important;
+  border-radius: 24px !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+  margin-top: 20px !important;
+  margin-bottom: 8px !important;
   overflow: hidden !important;
 }}
 [data-testid="stExpander"] details {{ background: transparent !important; }}
+[data-testid="stExpander"] .stElementContainer,
+[data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  padding-bottom: 20px !important;
+  gap: 1.1rem !important;
+}}
 [data-testid="stExpander"] summary {{
   list-style: none !important;
   list-style-type: none !important;
@@ -156,7 +182,7 @@ section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
   align-items: center !important;
   gap: 0 !important;
   min-height: 2.5rem !important;
-  padding: 12px 16px !important;
+  padding: 16px 20px !important;
   font-size: 0.9375rem !important;
   font-weight: 600 !important;
   color: {TEXT} !important;
@@ -190,10 +216,21 @@ section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
   font-size: 0.75rem;
   font-weight: 600;
   color: {MUTED};
-  letter-spacing: 0;
-  padding: 18px 4px 10px 4px;
+  letter-spacing: 0.02em;
+  padding: 20px 4px 8px 4px;
   margin: 0;
   text-transform: uppercase;
+}}
+.sb-section-hd {{
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: {ACCENT};
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 20px 4px 10px 4px;
+  margin: 0;
+  border-top: 1px solid {BORDER};
+  margin-top: 8px;
 }}
 
 .brand-bar {{
@@ -246,24 +283,33 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   border-top: 1px solid {BORDER};
 }}
 
-/* 메트릭 카드 — 토스 스타일 */
+/* ── Toss 카드 시스템 (강제 디자인 토큰) ── */
+.toss-card {{
+  background: #1C1C1E !important;
+  border-radius: 24px !important;
+  border: 1px solid #2C2C2E !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+  overflow: hidden !important;
+}}
+
+/* 메트릭 카드 */
 .mc {{
-  background: {CARD};
+  background: #1C1C1E;
   border: 1px solid #2C2C2E;
   border-radius: 24px;
-  padding: 32px 32px 28px 32px;
+  padding: 32px;
   min-height: 148px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }}
 .mc:hover {{
-  background: {CARD_HI};
+  background: {CARD_HI} !important;
   transform: translateY(-3px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.45), 0 8px 32px rgba(0,0,0,0.22);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
 }}
 .mc-lbl {{
   font-size: 0.8125rem;
@@ -309,8 +355,8 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   font-weight: 700;
   color: {TEXT};
   letter-spacing: -0.03em;
-  margin: 56px 0 22px 2px;
-  padding-bottom: 0;
+  margin: 0 0 1.25rem 2px !important;
+  padding: 0.35rem 0 0 0;
   border-bottom: none;
 }}
 .stitle-sub {{
@@ -323,15 +369,17 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 
 /* 테이블 — 경계선 없음, 카드 래퍼 */
 .rtbl-wrap {{
+  background: #1C1C1E;
   border: 1px solid #2C2C2E;
   border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18);
+  overflow: hidden !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  padding: 32px 32px 28px 32px;
 }}
 .rtbl {{
   width: 100%;
   border-collapse: collapse;
-  background: {CARD};
+  background: transparent;
   border-radius: 0;
   overflow: hidden;
   font-size: 0.9375rem;
@@ -344,7 +392,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   color: {MUTED};
   font-weight: 500;
   text-align: left;
-  padding: 18px 24px 12px 24px;
+  padding: 8px 4px 12px 4px;
   font-size: 0.75rem;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -353,7 +401,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .rtbl td {{
   background: transparent;
   color: {TEXT};
-  padding: 16px 24px;
+  padding: 14px 4px;
   border: none;
   font-size: 0.9375rem;
   font-variant-numeric: tabular-nums;
@@ -374,20 +422,20 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   .math-grid {{ grid-template-columns: 1fr; }}
 }}
 .math-panel {{
-  background: {CARD};
+  background: #1C1C1E;
   border: 1px solid #2C2C2E;
   border-radius: 24px;
-  padding: 36px 36px 32px 36px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18);
-  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  overflow: hidden !important;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }}
 .math-panel:hover {{
-  background: {CARD_HI};
-  box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+  background: {CARD_HI} !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
 }}
 .math-panel h3 {{
   font-size: 0.9375rem;
@@ -485,10 +533,12 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   font-size: 0.75rem;
   color: {MUTED};
   margin: 32px 0 8px 0;
-  padding: 18px 22px;
-  background: {CARD};
-  border-radius: 16px;
-  border: none;
+  padding: 32px;
+  background: #1C1C1E;
+  border-radius: 24px;
+  border: 1px solid #2C2C2E;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  overflow: hidden !important;
   line-height: 1.7;
   letter-spacing: -0.005em;
 }}
@@ -496,22 +546,34 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 /* Streamlit 기본 크롬 정리 */
 #MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden !important; height: 0 !important; }}
 .block-container {{
-  padding: 1.5rem 2.25rem 3.5rem 2.25rem !important;
+  padding: 2rem 2.5rem 4rem 2.5rem !important;
   max-width: 1440px !important;
 }}
 
-/* Plotly 차트 컨테이너 — overflow hidden 으로 SVG 삐져나옴 방지 */
-[data-testid="stPlotlyChart"] {{
-  background: {CARD};
-  border: 1px solid #2C2C2E;
-  border-radius: 24px;
-  padding: 16px 16px 8px 16px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 6px 24px rgba(0,0,0,0.2);
+/* 메인 영역 세로 리듬 — 박스 간 간격 혁신 */
+.block-container [data-testid="stVerticalBlock"] {{
+  gap: 3rem !important;
 }}
-[data-testid="stPlotlyChart"] > div {{
+.block-container [data-testid="stHorizontalBlock"] {{
+  gap: 3rem !important;
+}}
+
+/* Plotly 차트 컨테이너 — toss-card + 모서리 칼질 */
+[data-testid="stPlotlyChart"] {{
+  background: #1C1C1E !important;
+  border: 1px solid #2C2C2E !important;
+  border-radius: 24px !important;
+  padding: 32px 32px 24px 32px !important;
   overflow: hidden !important;
-  border-radius: 20px !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+  margin-bottom: 0 !important;
+}}
+[data-testid="stPlotlyChart"] > div,
+[data-testid="stPlotlyChart"] .js-plotly-plot,
+[data-testid="stPlotlyChart"] .plotly,
+[data-testid="stPlotlyChart"] .user-select-none {{
+  overflow: hidden !important;
+  border-radius: 16px !important;
 }}
 [data-testid="stPlotlyChart"] .main-svg {{
   background: transparent !important;
@@ -543,18 +605,18 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
  * ────────────────────────────────────────────────────────────────── */
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
   [data-testid="stColumn"] > [data-testid="stVerticalBlock"] {{
-  background: {CARD} !important;
+  background: #1C1C1E !important;
   border: 1px solid #2C2C2E !important;
   border-radius: 24px !important;
-  padding: 28px 28px 24px 28px !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18) !important;
+  padding: 32px !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
   overflow: hidden !important;
   transition: background 0.15s ease, box-shadow 0.15s ease !important;
 }}
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
   [data-testid="stColumn"] > [data-testid="stVerticalBlock"]:hover {{
   background: {CARD_HI} !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.45) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38) !important;
 }}
 /* math 카드 안의 라텍스 배경은 살짝 어둡게 */
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
@@ -619,16 +681,6 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   background: rgba(255,255,255,0.04) !important;
 }}
 
-/* 고급설정 내부 라벨 */
-.sb-label-inner {{
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: {MUTED};
-  letter-spacing: 0;
-  padding: 12px 4px 6px 4px;
-  margin: 0;
-}}
-
 /* 토스트 톤 */
 [data-testid="stToast"] {{
   background: {CARD_HI} !important;
@@ -689,10 +741,12 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
 /* ── st.status 스타일 ── */
 [data-testid="stStatusWidget"],
 [data-testid="stStatusContainer"] {{
-  background: {CARD} !important;
-  border: 1px solid {BORDER} !important;
-  border-radius: 20px !important;
-  padding: 16px 20px !important;
+  background: #1C1C1E !important;
+  border: 1px solid #2C2C2E !important;
+  border-radius: 24px !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25) !important;
+  overflow: hidden !important;
+  padding: 20px 24px !important;
   color: {TEXT} !important;
 }}
 [data-testid="stStatusWidget"] p,
@@ -702,15 +756,13 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   margin: 4px 0 !important;
 }}
 
-/* ── 섹션 간격 확대 override ── */
-.stitle {{
-  margin-top: 60px !important;
-  margin-bottom: 24px !important;
-}}
-
-/* ── 차트 컨테이너 상단 여백 ── */
-[data-testid="stPlotlyChart"] {{
-  margin-bottom: 4px !important;
+/* 주요 카드류 — 추가 하단 리듬 (세로 gap 과 병행) */
+.block-container .mc,
+.block-container .rtbl-wrap,
+.block-container [data-testid="stPlotlyChart"],
+.block-container .math-panel,
+.block-container .sq-math-start ~ [data-testid="stHorizontalBlock"] {{
+  margin-bottom: 40px !important;
 }}
 </style>
 """
@@ -1066,7 +1118,7 @@ def _render_math_section(
 
     # 파라미터 요약 테이블
     st.markdown(
-        f'<div class="math-panel" style="margin-top:24px;">'
+        f'<div class="math-panel toss-card" style="margin-top:24px;">'
         f'<h3>입력 파라미터<span class="math-h-sub">Input Parameters Used — 실시간 연동</span></h3>'
         f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px 32px;margin-top:18px;">'
         f'<div class="math-desc"><span class="math-var">S₀</span><br><b>현재 주가</b><br>{fp_v(params.s0)}</div>'
@@ -1089,7 +1141,7 @@ def _render_math_section(
 def _mc(label, value, delta="", lg=False, large=False, vc=TEXT):
     c = "mc-val-lg" if (lg or large) else "mc-val"
     return (
-        f'<div class="mc">'
+        f'<div class="mc toss-card">'
         f'<div class="mc-lbl">{label}</div>'
         f'<div class="{c}" style="color:{vc}">{value}</div>'
         f'{delta}'
@@ -1114,43 +1166,32 @@ def main():
             unsafe_allow_html=True,
         )
 
-        st.markdown('<div class="sb-label">Ticker (종목코드)</div>',
-                    unsafe_allow_html=True)
         ticker = st.text_input(
-            "Ticker",
+            "Ticker (종목코드)",
             value="TSLA",
             max_chars=20,
             placeholder="AAPL, TSLA, 005930.KS …",
-            label_visibility="collapsed",
             key="sq_ticker_symbol",
         ).strip().upper()
 
-        st.markdown('<div class="sb-label">Monte Carlo Paths (시뮬레이션 횟수)</div>',
-                    unsafe_allow_html=True)
         n_paths = st.select_slider(
-            "시뮬레이션 횟수",
+            "Monte Carlo Paths (시뮬레이션 횟수)",
             options=[100_000, 500_000, 1_000_000, 5_000_000, 10_000_000],
             value=1_000_000,
             format_func=lambda x: f"{x:,}",
-            label_visibility="collapsed",
             key="sq_n_paths",
         )
-        st.markdown('<div class="sb-label">Horizon (예측 기간)</div>',
-                    unsafe_allow_html=True)
         years = st.slider(
-            "예측 기간",
+            "Horizon (예측 기간, years)",
             0.25,
             3.0,
             1.0,
             0.25,
             format="%.2f yr",
-            label_visibility="collapsed",
             key="sq_horizon_years",
         )
 
         with st.expander("고급 설정", expanded=False):
-            st.markdown('<div class="sb-label-inner">Fan Chart Paths (경로 수)</div>',
-                        unsafe_allow_html=True)
             fan_paths = st.slider(
                 "Fan Chart Paths (경로 수)",
                 1000,
@@ -1158,11 +1199,8 @@ def main():
                 5000,
                 1000,
                 help="Fan chart에 그리는 개별 경로 수입니다.",
-                label_visibility="collapsed",
                 key="sq_fan_paths",
             )
-            st.markdown('<div class="sb-label-inner">Time Steps (시간 스텝)</div>',
-                        unsafe_allow_html=True)
             n_steps = st.slider(
                 "Time Steps (시간 스텝)",
                 52,
@@ -1170,56 +1208,45 @@ def main():
                 252,
                 26,
                 help="경로를 나누는 시간 스텝 수 (거래일 스케일).",
-                label_visibility="collapsed",
                 key="sq_fan_steps",
             )
-            st.markdown('<div class="sb-label-inner">C++ Threads (스레드 수)</div>',
-                        unsafe_allow_html=True)
             n_threads = st.slider(
                 "C++ Threads (스레드 수)",
                 0,
                 32,
                 0,
                 help="0이면 사용 가능한 코어 수에 맞춥니다.",
-                label_visibility="collapsed",
                 key="sq_cpp_threads",
             )
-            st.markdown('<div class="sb-label-inner" style="margin-top:18px;">Jump Diffusion — Merton</div>',
-                        unsafe_allow_html=True)
-            st.markdown('<div class="sb-label-inner">λ Jump Intensity (점프 강도)</div>',
-                        unsafe_allow_html=True)
+            st.markdown(
+                '<div class="sb-section-hd">Jump Diffusion — Merton</div>',
+                unsafe_allow_html=True,
+            )
             j_lambda = st.slider(
-                "Jump Lambda",
+                "λ Jump Intensity (점프 강도)",
                 0.0,
                 15.0,
                 0.0,
                 0.01,
                 format="%.3f",
-                label_visibility="collapsed",
                 key="sq_jump_lambda",
             )
-            st.markdown('<div class="sb-label-inner">μ_J Jump Mean (점프 평균)</div>',
-                        unsafe_allow_html=True)
             j_mu = st.slider(
-                "Jump Mu",
+                "μ_J Jump Mean (점프 평균)",
                 -0.35,
                 0.35,
                 0.0,
                 0.005,
                 format="%.4f",
-                label_visibility="collapsed",
                 key="sq_jump_mu",
             )
-            st.markdown('<div class="sb-label-inner">σ_J Jump Std (점프 변동성)</div>',
-                        unsafe_allow_html=True)
             j_sigma = st.slider(
-                "Jump Sigma",
+                "σ_J Jump Std (점프 변동성)",
                 0.0,
                 1.0,
                 0.05,
                 0.005,
                 format="%.4f",
-                label_visibility="collapsed",
                 key="sq_jump_sigma",
             )
 
@@ -1498,14 +1525,14 @@ def main():
     tl, tr = st.columns([1.2, 1], gap="large")
     with tl:
         st.markdown(
-            f'<div class="rtbl-wrap"><table class="rtbl"><thead><tr>'
+            f'<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
             f'<th>Scenario (시나리오)</th><th>Percentile (백분위)</th>'
             f'<th>Price (가격)</th><th>Change (변동)</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>',
             unsafe_allow_html=True)
     with tr:
         st.markdown(
-            f'<div class="rtbl-wrap"><table class="rtbl"><thead><tr>'
+            f'<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
             f'<th>Parameter (파라미터)</th><th>Value (값)</th></tr></thead><tbody>'
             f'<tr><td>μ Annual Drift</td><td>{params.mu:.6f}</td></tr>'
             f'<tr><td>σ Volatility</td><td>{params.sigma:.6f}</td></tr>'
@@ -1527,7 +1554,7 @@ def main():
 
     # ── Disclaimer ────────────────────────────────────────
     st.markdown(
-        '<div class="disc">'
+        '<div class="disc toss-card">'
         '※ 과거 2년 Yahoo Finance 데이터 기반 GBM 몬테카를로 시뮬레이션 결과입니다. '
         '실제 투자 판단의 유일한 근거로 사용할 수 없습니다. '
         'Past performance does not guarantee future results.</div>',
