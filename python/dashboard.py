@@ -19,6 +19,12 @@ from data_utils import (
 )
 from loader import import_simulator
 
+
+@st.cache_resource(show_spinner=False)
+def _cached_simulator():
+    """C++ 모듈은 한 번만 import — Streamlit rerun 시 재로딩 방지."""
+    return import_simulator()
+
 # ---------------------------------------------------------------------------
 # Page config
 # ---------------------------------------------------------------------------
@@ -476,8 +482,8 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 /* Streamlit 기본 크롬 정리 */
 #MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden !important; height: 0 !important; }}
 .block-container {{
-  padding: 1.25rem 1.75rem 2rem 1.75rem !important;
-  max-width: 1400px !important;
+  padding: 1.5rem 2.25rem 3.5rem 2.25rem !important;
+  max-width: 1440px !important;
 }}
 
 /* Plotly 차트 컨테이너 — 카드 형태로 감싸되 차트 자체는 투명 */
@@ -508,6 +514,82 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   border: 1px solid {BORDER} !important;
   border-radius: 16px !important;
   color: {TEXT} !important;
+}}
+
+/* ── 로딩 스켈레톤 shimmer ── */
+@keyframes sq-shimmer {{
+  0%   {{ background-position: -900px 0; }}
+  100% {{ background-position:  900px 0; }}
+}}
+.sq-skeleton {{
+  background: linear-gradient(
+    90deg,
+    {CARD} 25%,
+    {CARD_HI} 50%,
+    {CARD} 75%
+  );
+  background-size: 1800px 100%;
+  animation: sq-shimmer 1.5s infinite linear;
+  border-radius: 24px;
+}}
+.sq-chart-skeleton {{
+  height: 460px;
+}}
+.sq-card-skeleton {{
+  height: 132px;
+}}
+
+/* ── 스피너 링 ── */
+@keyframes sq-spin {{
+  to {{ transform: rotate(360deg); }}
+}}
+.sq-ring-wrap {{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 60px 0 40px 0;
+}}
+.sq-ring {{
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(49,130,246,0.15);
+  border-top-color: {ACCENT};
+  border-radius: 50%;
+  animation: sq-spin 0.75s linear infinite;
+}}
+.sq-ring-label {{
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: {MUTED};
+  letter-spacing: -0.01em;
+}}
+
+/* ── st.status 스타일 ── */
+[data-testid="stStatusWidget"],
+[data-testid="stStatusContainer"] {{
+  background: {CARD} !important;
+  border: 1px solid {BORDER} !important;
+  border-radius: 20px !important;
+  padding: 16px 20px !important;
+  color: {TEXT} !important;
+}}
+[data-testid="stStatusWidget"] p,
+[data-testid="stStatusContainer"] p {{
+  color: {MUTED} !important;
+  font-size: 0.875rem !important;
+  margin: 4px 0 !important;
+}}
+
+/* ── 섹션 간격 확대 (앞의 .stitle margin override) ── */
+.stitle {{
+  margin-top: 52px !important;
+  margin-bottom: 22px !important;
+}}
+
+/* ── 차트 컨테이너 상단 여백 ── */
+[data-testid="stPlotlyChart"] {{
+  margin-bottom: 4px !important;
 }}
 </style>
 """
@@ -1014,30 +1096,34 @@ def main():
         if not tick:
             st.error("종목 코드를 입력해 주세요.")
             return
-        with st.spinner("시세 데이터 수집 중…"):
+
+        # ─── 3단계 진행 상태 표시 ───────────────────────────
+        with st.status("분석 시작...", expanded=True) as _status:
+
+            # 1단계: 시세 데이터
+            st.write("📡 시세 데이터 수집 중...")
             try:
                 close = fetch_prices(tick, period="2y")
                 params = estimate_gbm_params(close, ticker=tick)
                 st.session_state.est_jump = estimate_jump_params(close)
             except YahooFinanceFetchError as err:
+                _status.update(label="데이터 수집 실패", state="error", expanded=True)
                 st.error(
                     "**시세 데이터를 가져오지 못했습니다.**\n\n"
                     f"{err}"
                 )
                 return
             except ValueError as err:
+                _status.update(label="데이터 오류", state="error", expanded=True)
                 st.error(
                     "**가격 데이터를 처리할 수 없습니다.**\n\n"
                     f"{err}"
                 )
                 return
-        spinner_engine = (
-            "엔진 가동 중: 1,000만 경로 연산 중…"
-            if n_paths >= 10_000_000
-            else f"엔진 가동 중: {n_paths:,} 경로 연산 중…"
-        )
-        with st.spinner(spinner_engine):
-            sim = import_simulator()
+
+            # 2단계: C++ 시뮬레이션
+            st.write(f"⚙️ C++ 엔진 가동 중 — {n_paths:,} 경로 연산...")
+            sim = _cached_simulator()
             t0 = time.perf_counter()
             terminal = np.asarray(
                 sim.simulate_gbm_paths(
@@ -1071,25 +1157,41 @@ def main():
                 dtype=np.float64,
             )
             elapsed = time.perf_counter() - t0
-        metrics = compute_risk_metrics(terminal, params.s0)
-        st.session_state.update(
-            dict(
-                ticker=ticker,
-                params=params,
-                terminal=terminal,
-                path_matrix=path_matrix,
-                metrics=metrics,
-                elapsed=elapsed,
-                n_paths=n_paths,
-                years=years,
-                n_steps=int(n_steps),
-                n_threads=int(n_threads),
-                jump_lambda=j_lambda,
-                jump_mu=j_mu,
-                jump_sigma=j_sigma,
+
+            # 3단계: 지표 계산 & 차트 빌드 (session_state에 캐시)
+            st.write("📊 차트 및 리스크 지표 계산 중...")
+            metrics = compute_risk_metrics(terminal, params.s0)
+            hist_fig = build_hist(terminal, params.s0, metrics, params.currency, ticker)
+            fan_fig  = build_fan(path_matrix, params.s0, years, params.currency, ticker)
+
+            st.session_state.update(
+                dict(
+                    ticker=ticker,
+                    params=params,
+                    terminal=terminal,
+                    path_matrix=path_matrix,
+                    metrics=metrics,
+                    elapsed=elapsed,
+                    n_paths=n_paths,
+                    years=years,
+                    n_steps=int(n_steps),
+                    n_threads=int(n_threads),
+                    jump_lambda=j_lambda,
+                    jump_mu=j_mu,
+                    jump_sigma=j_sigma,
+                    # 차트 figure 캐싱 — rerun 시 재빌드 방지
+                    hist_fig=hist_fig,
+                    fan_fig=fan_fig,
+                )
             )
-        )
-        # ✦ 등은 ALL_EMOJIS 미등록 시 StreamlitAPIException — 검증 통과 이모지 또는 Material 단축코드만 사용
+            thru = n_paths / elapsed if elapsed > 0 else 0
+            _status.update(
+                label=f"완료!  {elapsed:.2f}s · {thru:,.0f} paths/s",
+                state="complete",
+                expanded=False,
+            )
+
+        # ✦ 등은 ALL_EMOJIS 미등록 시 StreamlitAPIException
         st.toast("시뮬레이션 완료!", icon="✅")
 
     # ── Read state ────────────────────────────────────────
@@ -1130,7 +1232,7 @@ def main():
         '<div class="stitle">핵심 지표<span class="stitle-sub">Key metrics</span></div>',
         unsafe_allow_html=True,
     )
-    k1, k2, k3 = st.columns(3, gap="medium")
+    k1, k2, k3 = st.columns(3, gap="large")
     p50d = _dpct(metrics["p50"], s0)
     c50 = GREEN if p50d >= 0 else RED
     with k1:
@@ -1164,21 +1266,38 @@ def main():
         )
 
     # ── Charts ────────────────────────────────────────────
-    c1, c2 = st.columns(2, gap="medium")
-    cfg = {"displayModeBar": False}
+    # session_state에 캐시된 figure 사용 (run 시 이미 빌드됨)
+    # 캐시 미존재 시(최초 로드 또는 rerun) fallback 빌드
+    _hist_fig = ss.get("hist_fig")
+    _fan_fig  = ss.get("fan_fig")
+    if _hist_fig is None or _fan_fig is None:
+        _skel = st.empty()
+        _skel.markdown(
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">'
+            f'<div class="sq-skeleton sq-chart-skeleton"></div>'
+            f'<div class="sq-skeleton sq-chart-skeleton"></div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        _hist_fig = build_hist(terminal, s0, metrics, cur, ticker)
+        _fan_fig  = build_fan(path_matrix, s0, years, cur, ticker)
+        ss["hist_fig"] = _hist_fig
+        ss["fan_fig"]  = _fan_fig
+        _skel.empty()
+
+    cfg = {"displayModeBar": False, "responsive": True}
+    c1, c2 = st.columns(2, gap="large")
     with c1:
-        st.plotly_chart(build_hist(terminal, s0, metrics, cur, ticker),
-                        use_container_width=True, config=cfg)
+        st.plotly_chart(_hist_fig, use_container_width=True, config=cfg)
     with c2:
-        st.plotly_chart(build_fan(path_matrix, s0, years, cur, ticker),
-                        use_container_width=True, config=cfg)
+        st.plotly_chart(_fan_fig, use_container_width=True, config=cfg)
 
     # ── Metric Cards — 보조 지표 ──────────────────────────
     st.markdown('<div class="stitle">투자 전망<span class="stitle-sub">Outlook</span></div>',
                 unsafe_allow_html=True)
     up = metrics["up_probability_pct"]
     md = _dpct(float(terminal.mean()), s0)
-    cols_a = st.columns(3, gap="small")
+    cols_a = st.columns(3, gap="large")
     with cols_a[0]:
         st.markdown(_mc("현재가 Current Price", fp(s0)), unsafe_allow_html=True)
     with cols_a[1]:
@@ -1206,7 +1325,7 @@ def main():
                  f'<td style="font-weight:700">{pr}</td>'
                  f'<td style="color:{cl};font-weight:700">{a} {dl:+.2f}%</td></tr>')
 
-    tl, tr = st.columns([1.2, 1], gap="medium")
+    tl, tr = st.columns([1.2, 1], gap="large")
     with tl:
         st.markdown(
             f'<table class="rtbl"><thead><tr>'
