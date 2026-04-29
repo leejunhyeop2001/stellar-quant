@@ -500,7 +500,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   max-width: 1440px !important;
 }}
 
-/* Plotly 차트 컨테이너 — 카드 형태, border + shadow */
+/* Plotly 차트 컨테이너 — overflow hidden 으로 SVG 삐져나옴 방지 */
 [data-testid="stPlotlyChart"] {{
   background: {CARD};
   border: 1px solid #2C2C2E;
@@ -509,8 +509,82 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 6px 24px rgba(0,0,0,0.2);
 }}
+[data-testid="stPlotlyChart"] > div {{
+  overflow: hidden !important;
+  border-radius: 20px !important;
+}}
 [data-testid="stPlotlyChart"] .main-svg {{
   background: transparent !important;
+}}
+
+/* ── st.latex — KaTeX 렌더링 스타일 ── */
+[data-testid="stLatex"] {{
+  text-align: center !important;
+  background: rgba(49,130,246,0.05) !important;
+  border-radius: 14px !important;
+  padding: 20px 16px !important;
+  margin: 8px 0 !important;
+  overflow: hidden !important;
+}}
+[data-testid="stLatex"] .katex-display {{
+  margin: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}}
+[data-testid="stLatex"] .katex {{
+  color: {TEXT} !important;
+  font-size: 1.3rem !important;
+}}
+
+/* ── Math 카드 — sentinel CSS trick ──────────────────────────────────
+ * st.markdown('<div class="sq-math-start">') 이후 나오는 stHorizontalBlock의
+ * stColumn > stVerticalBlock 을 카드로 스타일링.
+ * 이 방법으로 st.latex를 포함한 Streamlit 네이티브 컴포넌트를 카드 안에 배치.
+ * ────────────────────────────────────────────────────────────────── */
+.sq-math-start ~ [data-testid="stHorizontalBlock"]
+  [data-testid="stColumn"] > [data-testid="stVerticalBlock"] {{
+  background: {CARD} !important;
+  border: 1px solid #2C2C2E !important;
+  border-radius: 24px !important;
+  padding: 28px 28px 24px 28px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18) !important;
+  overflow: hidden !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease !important;
+}}
+.sq-math-start ~ [data-testid="stHorizontalBlock"]
+  [data-testid="stColumn"] > [data-testid="stVerticalBlock"]:hover {{
+  background: {CARD_HI} !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45) !important;
+}}
+/* math 카드 안의 라텍스 배경은 살짝 어둡게 */
+.sq-math-start ~ [data-testid="stHorizontalBlock"]
+  [data-testid="stLatex"] {{
+  background: rgba(49,130,246,0.07) !important;
+  border-radius: 12px !important;
+}}
+/* math 카드 헤더 */
+.math-card-head {{
+  margin-bottom: 4px;
+}}
+.math-card-title {{
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: {TEXT};
+  letter-spacing: -0.025em;
+  display: block;
+}}
+.math-h-sub {{
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: {MUTED};
+  margin-top: 3px;
+  letter-spacing: 0;
+}}
+/* math 카드 하단 설명 */
+.math-desc-pad {{
+  margin: 4px 0 0 0 !important;
+  padding: 0 !important;
 }}
 
 /* ── 슬라이더 — Toss Blue 단색 통일 ── */
@@ -885,94 +959,128 @@ def build_fan(pm, s0, yrs, cur, ticker):
 
 
 # ---------------------------------------------------------------------------
-# Math formula section builder
+# Math formula section — st.latex 기반 (KaTeX 렌더링)
 # ---------------------------------------------------------------------------
-def _build_math_section(
+def _render_math_section(
     params: GbmParams,
     cur: str,
     jump_lambda: float,
     jump_mu: float,
     jump_sigma: float,
-) -> str:
-    fp = lambda v: _fp(v, cur)
-    jump_on = jump_lambda > 0.0
-    return f"""
-<div class="math-grid">
+) -> None:
+    """Render math model cards using st.latex (KaTeX) + HTML card frames.
 
-<div class="math-panel">
-  <h3>GBM 확률 미분 방정식<span class="math-h-sub">Stochastic Differential Equation</span></h3>
-  <div class="math-eq"><i>dS</i> = μ <i>S</i> <i>dt</i> &nbsp;+&nbsp; σ <i>S</i> <i>dW</i></div>
-  <p class="math-desc">
-    주가 <b>S</b>의 순간 변화를 모델링합니다. 좌측은 <b>추세 (drift)</b>,
-    우측은 <b>무작위 변동 (diffusion)</b>이며 <b>dW</b>는 위너 과정입니다.
-  </p>
-</div>
+    Each card = markdown header ＋ st.latex ＋ markdown description.
+    The column containers are styled as cards via the .sq-math-start CSS sentinel.
+    파라미터(λ, μ_J, σ_J, σ, μ)는 세션에서 실시간으로 읽어 자동 반영됩니다.
+    """
+    fp_v = lambda v: _fp(v, cur)
+    a   = ACCENT          # Toss Blue — 키워드 강조
+    jl  = jump_lambda
+    jm  = jump_mu
+    js  = jump_sigma
+    jump_on = jl > 0.0
 
-<div class="math-panel">
-  <h3>해석해 — Itô's Lemma<span class="math-h-sub">이토 보조정리</span></h3>
-  <div class="math-eq"><i>S</i>(T) = <i>S</i><small>₀</small> · e<sup>(μ − ½σ²)T + σ√T · Z</sup></div>
-  <p class="math-desc">
-    위 SDE의 정확한 해입니다. <b>Z ~ N(0,1)</b> 표준정규 난수를 대입해
-    미래 시점 <b>T</b>의 주가를 한 번에 계산합니다.
-  </p>
-</div>
+    # (타이틀, 부제, LaTeX 수식, 설명 HTML)
+    cards: list[tuple[str, str, str, str]] = [
+        (
+            "GBM 확률 미분 방정식",
+            "Stochastic Differential Equation",
+            r"dS = \mu S \, dt + \sigma S \, dW",
+            f'주가의 <b style="color:{a}">추세(drift)</b>와 '
+            f'<b style="color:{a}">무작위 변동(diffusion)</b>을 모델링합니다. '
+            f'<b>dW</b>는 위너 과정 증분입니다.',
+        ),
+        (
+            "해석해 — Itô's Lemma",
+            "이토 보조정리",
+            r"S(T)=S_0\exp\!\Bigl[(\mu-\tfrac{1}{2}\sigma^2)T+\sigma\sqrt{T}\,Z\Bigr]",
+            f'SDE의 정확한 해. <b style="color:{a}">Z ~ N(0,1)</b> 표준정규 난수를 대입해 '
+            f'미래 시점 T의 주가를 직접 계산합니다.',
+        ),
+        (
+            "이산화 경로",
+            "Exact Discretization",
+            r"S_{t+\Delta t}=S_t\exp\!\Bigl[(\mu-\tfrac{1}{2}\sigma^2)\Delta t+\sigma\sqrt{\Delta t}\,Z_t\Bigr]",
+            f'Fan Chart 각 타임스텝에 적용됩니다. 확산 난수에는 '
+            f'<b style="color:{a}">대칭 변수법(antithetic Z / −Z)</b>을 사용합니다.',
+        ),
+        (
+            "VaR — Value at Risk",
+            "최대 예상 손실 (95%)",
+            r"\mathrm{VaR}_{95\%}=S_0-Q_{0.05}(S_T)",
+            f'<b style="color:{a}">하위 5% 경로</b> 기준 현재가 대비 최대 손실. '
+            f'1,000만 경로 비모수적 추정으로 높은 정밀도를 확보합니다.',
+        ),
+        (
+            "CVaR — Expected Shortfall",
+            "조건부 꼬리 손실",
+            r"\mathrm{CVaR}_{95\%}=\mathbb{E}\!\left[\mathrm{Loss}\mid\mathrm{Loss}\geq\mathrm{VaR}_{95\%}\right]",
+            f'Loss = max(0, S₀ − Sₜ) 하위 5% 평균. '
+            f'<b style="color:{a}">꼬리 리스크(tail risk)</b>를 VaR보다 보수적으로 요약합니다.',
+        ),
+        (
+            "Sharpe Ratio",
+            "위험 조정 수익률",
+            r"SR=\dfrac{\mathbb{E}[\,R_p-R_f\,]}{\sigma_p}",
+            f'<b style="color:{a}">초과 수익</b>을 변동성으로 나눈 위험 조정 지표. '
+            f'높을수록 단위 위험당 수익이 효율적입니다.',
+        ),
+        (
+            "Merton Jump Diffusion",
+            "점프 확산 항 — 실시간 파라미터",
+            r"\ln\frac{S_T}{S_0}=(\mu-\tfrac{1}{2}\sigma^2)T+\sigma\sqrt{T}\,Z+\textstyle\sum_{i=1}^{N_T}J_i",
+            f'N<sub>T</sub>~Poisson(λT), J<sub>i</sub>~N(μ<sub>J</sub>,σ<sub>J</sub>²). &nbsp;'
+            f'<b style="color:{a if jump_on else SUBTLE}">{"● 점프 활성" if jump_on else "○ λ=0 → GBM만"}</b>'
+            f'&nbsp;— λ=<b>{jl:.4f}</b>, μ<sub>J</sub>=<b>{jm:.4f}</b>, σ<sub>J</sub>=<b>{js:.4f}</b>',
+        ),
+    ]
 
-<div class="math-panel">
-  <h3>이산화 경로<span class="math-h-sub">Exact Discretization</span></h3>
-  <div class="math-eq"><i>S</i>(t+Δt) = <i>S</i>(t) · e<sup>(μ − ½σ²)Δt + σ√Δt Z<small>t</small> + Σ J</sup></div>
-  <p class="math-desc">
-    Fan Chart의 각 스텝에 적용됩니다. 점프 확산이 꺼져 있으면 Σ J = 0 이며,
-    확산 난수에는 <b>대칭 변수법 (antithetic Z / −Z)</b>이 적용됩니다.
-  </p>
-</div>
+    # CSS sentinel — 이 div 이후에 오는 st.columns를 카드로 스타일링
+    st.markdown('<div class="sq-math-start"></div>', unsafe_allow_html=True)
 
-<div class="math-panel">
-  <h3>VaR — Value at Risk<span class="math-h-sub">최대 예상 손실 (95%)</span></h3>
-  <div class="math-eq">VaR<small>95</small> = <i>S</i><small>₀</small> − <i>Q</i><small>0.05</small>(<i>S<small>T</small></i>)</div>
-  <p class="math-desc">
-    시뮬레이션 하위 <b>5%</b> 가격을 기준으로, 현재가 대비
-    <b>95% 확률로 이상의 가격을 유지</b>한다는 의미입니다.
-  </p>
-</div>
+    # 2-칼럼 그리드로 카드 렌더
+    for row in range(0, len(cards), 2):
+        c1, c2 = st.columns(2, gap="large")
+        for j, col in enumerate([c1, c2]):
+            idx = row + j
+            if idx >= len(cards):
+                break
+            title, sub, latex_src, desc_html = cards[idx]
+            with col:
+                # 카드 헤더
+                st.markdown(
+                    f'<div class="math-card-head">'
+                    f'<span class="math-card-title">{title}</span>'
+                    f'<span class="math-h-sub">{sub}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                # KaTeX 수식
+                st.latex(latex_src)
+                # 설명 (핵심 용어 Toss Blue)
+                st.markdown(
+                    f'<p class="math-desc math-desc-pad">{desc_html}</p>',
+                    unsafe_allow_html=True,
+                )
 
-<div class="math-panel">
-  <h3>CVaR — Expected Shortfall<span class="math-h-sub">조건부 꼬리 손실</span></h3>
-  <div class="math-eq">CVaR<small>95</small> = 𝔼[ Loss <small>|</small> Loss ≥ VaR<small>95</small> ]</div>
-  <p class="math-desc">
-    Loss = max(0, <i>S</i><small>₀</small> − <i>S<small>T</small></i>) 의 하위 5% 평균.
-    VaR보다 <b>꼬리 리스크</b>를 더 보수적으로 요약합니다.
-  </p>
-</div>
-
-<div class="math-panel">
-  <h3>Merton Jump Diffusion<span class="math-h-sub">점프 확산 항</span></h3>
-  <div class="math-eq" style="font-size:1.25rem;">
-    ln <i>S<small>T</small></i> − ln <i>S</i><small>₀</small> = (μ − ½σ²)T + σ√T Z + Σ J<small>i</small>
-  </div>
-  <p class="math-desc">
-    <b>N<small>T</small> ~ Poisson(λT)</b>, <b>J<small>i</small> ~ N(μ<small>J</small>, σ<small>J</small>²)</b>.
-    엔진은 스레드별 <code>std::mt19937</code>·포아송·정규분포를 사용합니다.
-    <br/>현재 설정 — λ = <b>{jump_lambda:.4f}</b>, μ<small>J</small> = <b>{jump_mu:.4f}</b>,
-    σ<small>J</small> = <b>{jump_sigma:.4f}</b> ({'점프 활성' if jump_on else 'λ = 0 → GBM만'}).
-  </p>
-</div>
-
-</div>
-
-<div class="math-panel" style="margin-top:16px;">
-  <h3>입력 파라미터<span class="math-h-sub">Input Parameters Used</span></h3>
-  <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:18px 28px;">
-    <div class="math-desc"><span class="math-var">S₀</span><br><b>현재 주가</b><br>{fp(params.s0)}</div>
-    <div class="math-desc"><span class="math-var">μ</span><br><b>기대수익률 (연율)</b><br>{params.mu:.6f}</div>
-    <div class="math-desc"><span class="math-var">σ</span><br><b>변동성 (연율)</b><br>{params.sigma:.6f}</div>
-    <div class="math-desc"><span class="math-var">T</span><br><b>예측 기간</b><br>Time Horizon (years)</div>
-    <div class="math-desc"><span class="math-var">λ</span><br><b>연간 점프 강도</b><br>{jump_lambda:.6f}</div>
-    <div class="math-desc"><span class="math-var">μ<small>J</small></span><br><b>로그 점프 평균</b><br>{jump_mu:.6f}</div>
-    <div class="math-desc"><span class="math-var">σ<small>J</small></span><br><b>로그 점프 변동성</b><br>{jump_sigma:.6f}</div>
-    <div class="math-desc"><span class="math-var">Z</span><br><b>표준정규 난수</b><br>Antithetic pairs</div>
-  </div>
-</div>
-"""
+    # 파라미터 요약 테이블
+    st.markdown(
+        f'<div class="math-panel" style="margin-top:24px;">'
+        f'<h3>입력 파라미터<span class="math-h-sub">Input Parameters Used — 실시간 연동</span></h3>'
+        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px 32px;margin-top:18px;">'
+        f'<div class="math-desc"><span class="math-var">S₀</span><br><b>현재 주가</b><br>{fp_v(params.s0)}</div>'
+        f'<div class="math-desc"><span class="math-var" style="color:{a}">μ</span><br><b>기대수익률</b><br>{params.mu:.6f}</div>'
+        f'<div class="math-desc"><span class="math-var" style="color:{a}">σ</span><br><b>변동성 (연율)</b><br>{params.sigma:.6f}</div>'
+        f'<div class="math-desc"><span class="math-var">T</span><br><b>예측 기간</b><br>years</div>'
+        f'<div class="math-desc"><span class="math-var" style="color:{"#e8a85c" if jump_on else SUBTLE}">λ</span>'
+        f'<br><b>점프 강도</b><br><b style="color:{"#e8a85c" if jump_on else SUBTLE}">{jl:.6f}</b></div>'
+        f'<div class="math-desc"><span class="math-var">μ<sub>J</sub></span><br><b>점프 평균</b><br>{jm:.6f}</div>'
+        f'<div class="math-desc"><span class="math-var">σ<sub>J</sub></span><br><b>점프 변동성</b><br>{js:.6f}</div>'
+        f'<div class="math-desc"><span class="math-var">Z</span><br><b>표준정규 난수</b><br>Antithetic pairs</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1415,7 +1523,7 @@ def main():
     # ── Math Formula Section ──────────────────────────────
     st.markdown('<div class="stitle">수학 모델<span class="stitle-sub">Model reference</span></div>',
                 unsafe_allow_html=True)
-    st.markdown(_build_math_section(params, cur, jl, jm, js), unsafe_allow_html=True)
+    _render_math_section(params, cur, jl, jm, js)
 
     # ── Disclaimer ────────────────────────────────────────
     st.markdown(
