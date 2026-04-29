@@ -60,9 +60,9 @@ FIXED_HORIZON_YEARS = 1.0
 FIXED_FAN_PATHS = 8_000
 FIXED_N_STEPS = 252
 FIXED_N_THREADS = 0  # 0 = 사용 가능 코어 자동
-FIXED_JUMP_LAMBDA = 4.0
-FIXED_JUMP_MU = -0.08
-FIXED_JUMP_SIGMA = 0.18
+FIXED_JUMP_LAMBDA = 1.0
+FIXED_JUMP_MU = -0.02
+FIXED_JUMP_SIGMA = 0.05
 # yfinance 실패 시 Manual Fallback (GBM 입력)
 FIXED_MANUAL_S0 = 250.0
 FIXED_MANUAL_MU = 0.10
@@ -716,8 +716,22 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .risk-pill-red {{ color: {RED}; background: rgba(255,75,75,0.13); }}
 .risk-grid {{
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px;
+}}
+.risk-meta {{
+  color: {MUTED};
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.65;
+  letter-spacing: -0.02em;
+  margin: 10px 0 20px 0;
+  max-width: 920px;
+  opacity: 0.92;
+}}
+.risk-meta strong {{
+  color: {TEXT};
+  font-weight: 650;
 }}
 .risk-item {{
   padding: 22px 20px;
@@ -1951,7 +1965,12 @@ def _build_dashboard_result(
     """Compute risk metrics and Plotly figures from engine output."""
 
     params = market_data.params
-    metrics = compute_risk_metrics(engine_output.terminal, params.s0)
+    metrics = compute_risk_metrics(
+        engine_output.terminal,
+        params.s0,
+        sigma_annual=params.sigma,
+        horizon_years=config.years,
+    )
     return DashboardResult(
         ticker=config.ticker,
         params=params,
@@ -2089,17 +2108,33 @@ def _run_simulation_flow(config: SidebarConfig) -> bool:
 
 
 def _risk_summary(metrics: dict[str, float]) -> tuple[str, str, str]:
-    """Return user-facing risk label, tone class, and short explanation."""
+    """정규화 Risk Score(첨도 가중) 구간으로 톤·설명 결정."""
 
-    cvar = metrics["cvar_95_pct"]
-    up = metrics["up_probability_pct"]
-    if cvar >= 30 or up < 35:
-        return "위험도 매우 높음", "risk-pill-red", "꼬리 손실과 하락 가능성을 우선 확인하세요."
-    if cvar >= 18 or up < 45:
-        return "위험도 높음", "risk-pill-red", "손실 방어 관점에서 보수적인 해석이 필요합니다."
-    if cvar >= 10:
-        return "위험도 보통", "risk-pill-blue", "변동성은 있으나 기준 범위 안에서 관리 가능합니다."
-    return "위험도 낮음", "risk-pill-blue", "현재 입력값 기준 손실 압력이 상대적으로 낮습니다."
+    rs = float(metrics.get("risk_score", 0.0))
+    fk = float(metrics.get("fat_tail_feel_index", 0.0))
+    if rs >= 3.5:
+        return (
+            "위험도 매우 높음 (Critical)",
+            "risk-pill-red",
+            f"Fat-tail·VaR 부담이 σ√T 스케일 대비 매우 큽니다. (Risk Score {rs:.2f}, 체감 꼬리 {fk:.2f})",
+        )
+    if rs >= 2.5:
+        return (
+            "위험도 높음 (High)",
+            "risk-pill-red",
+            f"점프·꼬리로 인한 손실 위험이 큽니다. (Score {rs:.2f}, 체감 꼬리 {fk:.2f})",
+        )
+    if rs >= 1.5:
+        return (
+            "위험도 보통 (Moderate)",
+            "risk-pill-blue",
+            f"단순 BS 스케일 대비 VaR 부담이 다소 큽니다. (Score {rs:.2f})",
+        )
+    return (
+        "위험도 낮음 (Low)",
+        "risk-pill-blue",
+        f"통계적 허용 범위 내 — σ√T 대비 상대 VaR이 낮습니다. (Score {rs:.2f})",
+    )
 
 
 def _render_risk_summary(result: DashboardResult) -> None:
@@ -2111,6 +2146,25 @@ def _render_risk_summary(result: DashboardResult) -> None:
     up_cls = "risk-blue" if up >= 50 else "risk-red"
     median_cls = "risk-blue" if median_pct >= 0 else "risk-red"
 
+    sig_ann_pct = params.sigma * 100.0
+    sig_sqrt_t = float(metrics.get("sigma_sqrt_horizon", 0.0))
+    xk = float(metrics.get("log_return_excess_kurtosis", 0.0))
+    ft = float(metrics.get("fat_tail_feel_index", 0.0))
+    tadj = float(metrics.get("tail_adjustment_factor", 1.0))
+    rs = float(metrics.get("risk_score", 0.0))
+    rsb = float(metrics.get("risk_score_base", 0.0))
+    rs_cls = "risk-red" if rs >= 2.5 else "risk-blue"
+
+    risk_meta = (
+        f'<div class="risk-meta">'
+        f'<strong>연율화 총 변동성(추정 σ)</strong> {sig_ann_pct:.2f}% (역사적 GBM 추정) · '
+        f'<strong>예측기간 스케일 σ√T</strong> {sig_sqrt_t:.4f}<br>'
+        f'<strong>종료가 로그수익 초과첨도</strong> {xk:+.3f} (Black–Scholes 확산만이면 ≈0) · '
+        f'<strong>Fat-tail 체감 지수</strong> {ft:.3f} · 꼬리 가중 <strong>×{tadj:.3f}</strong> '
+        f"(Score = {rsb:.3f} × {tadj:.3f} → <strong>{rs:.3f}</strong>)"
+        f"</div>"
+    )
+
     st.markdown(
         f'<section class="risk-hero">'
         f'<div class="risk-hero-head">'
@@ -2118,8 +2172,9 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<div class="risk-label">Risk Report · {result.ticker}</div>'
         f'<div class="risk-title">{title}</div>'
         f'<p class="top-sub" style="margin-top:12px;">{desc}</p>'
+        f'{risk_meta}'
         f'</div>'
-        f'<span class="risk-pill {tone}">{result.elapsed:.2f}s · {result.n_paths:,} paths</span>'
+        f'<span class="risk-pill {tone}">{result.elapsed:.2f}s · {result.n_paths:,} paths · Score {rs:.2f}</span>'
         f'</div>'
         f'<div class="risk-grid">'
         f'<div class="risk-item"><div class="risk-item-label">예상 중앙가</div>'
@@ -2127,6 +2182,9 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<div class="mc-delta {"d-pos" if median_pct >= 0 else "d-neg"}">{"↑" if median_pct >= 0 else "↓"} {median_pct:+.2f}%</div></div>'
         f'<div class="risk-item"><div class="risk-item-label">상승 확률</div>'
         f'<div class="risk-item-value {up_cls}">{up:.1f}%</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">Risk Score (정규화)</div>'
+        f'<div class="risk-item-value {rs_cls}">{rs:.3f}</div>'
+        f'<div class="mc-delta d-neg" style="opacity:0.85">base {rsb:.3f} × tail {tadj:.3f}</div></div>'
         f'<div class="risk-item"><div class="risk-item-label">VaR 95% 손실</div>'
         f'<div class="risk-item-value risk-red">{fp(metrics["var_95_abs"])}</div>'
         f'<div class="mc-delta d-neg">↓ {metrics["var_95_pct"]:.1f}%</div></div>'

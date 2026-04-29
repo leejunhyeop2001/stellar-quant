@@ -641,7 +641,12 @@ def main():
     elapsed = time.perf_counter() - t0
 
     # --- Analysis ---
-    metrics = compute_risk_metrics(terminal, params.s0)
+    metrics = compute_risk_metrics(
+        terminal,
+        params.s0,
+        sigma_annual=params.sigma,
+        horizon_years=args.years,
+    )
     print_risk_report(metrics, params.s0, terminal, params.currency)
     print_performance(elapsed, args.paths)
     print_interpretation(args.ticker, params, args.years, metrics, terminal)

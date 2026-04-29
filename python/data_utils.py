@@ -244,8 +244,25 @@ def estimate_jump_params(
     return JumpParams(lambda_annual=float(lam), mu_jump=mu_j, sigma_jump=sig_j)
 
 
-def compute_risk_metrics(samples: np.ndarray, s0: float) -> dict[str, float]:
-    """VaR/CVaR and profit probability using log-return based definitions."""
+# 종료 로그수익의 Fat-tail을 리스크 점수에 반영할 때, 초과첨도 1당 가중 (Gaussian ≈ 0)
+RISK_TAIL_KURTOSIS_LAMBDA = 0.10
+
+
+def compute_risk_metrics(
+    samples: np.ndarray,
+    s0: float,
+    *,
+    sigma_annual: float | None = None,
+    horizon_years: float | None = None,
+    tail_kurtosis_lambda: float = RISK_TAIL_KURTOSIS_LAMBDA,
+) -> dict[str, float]:
+    """VaR/CVaR, 상승 확률, 정규화 리스크 점수 및 로그수익 초과첨도.
+
+    Risk Score (정규화): (VaR95/S0) / (σ√T). 단순 GBM에서는 분모가 대략적인 로그
+    수익 표준편차 스케일에 해당. 점프·꼬리는 초과첨도 기반 계수로 점수를 상향 조정.
+
+    ``sigma_annual``·``horizon_years`` 가 없으면 점수 필드는 0으로 두고, 첨도만 계산한다.
+    """
     samples = np.asarray(samples, dtype=np.float64)
     if samples.size == 0 or s0 <= 0.0:
         raise ValueError("Invalid samples or initial price")
@@ -269,6 +286,42 @@ def compute_risk_metrics(samples: np.ndarray, s0: float) -> dict[str, float]:
     cvar95_abs = float(np.mean(losses))
     cvar95_pct = (cvar95_abs / s0) * 100.0 if s0 else 0.0
 
+    # Fisher 초과첨도: Gaussian 근사에서 종료 로그수익은 ~0
+    lr = log_returns
+    if lr.size > 4:
+        m_lr = float(np.mean(lr))
+        s_lr = float(np.std(lr, ddof=1))
+        if s_lr > 1e-15:
+            z = (lr - m_lr) / s_lr
+            log_return_excess_kurtosis = float(np.mean(z * z * z * z) - 3.0)
+        else:
+            log_return_excess_kurtosis = 0.0
+    else:
+        log_return_excess_kurtosis = 0.0
+
+    fat_tail_feel_index = float(max(0.0, log_return_excess_kurtosis))
+    tail_adjustment_factor = float(1.0 + tail_kurtosis_lambda * fat_tail_feel_index)
+
+    risk_score_base = 0.0
+    risk_score = 0.0
+    sigma_sqrt_horizon = 0.0
+    if (
+        sigma_annual is not None
+        and horizon_years is not None
+        and sigma_annual > 1e-15
+        and horizon_years > 1e-15
+    ):
+        sigma_sqrt_horizon = float(sigma_annual * np.sqrt(horizon_years))
+        loss_frac = float(var95_abs / s0) if s0 else 0.0
+        if sigma_sqrt_horizon > 1e-15:
+            risk_score_base = loss_frac / sigma_sqrt_horizon
+        else:
+            risk_score_base = float("inf") if loss_frac > 0.0 else 0.0
+        if np.isfinite(risk_score_base):
+            risk_score = float(risk_score_base * tail_adjustment_factor)
+        else:
+            risk_score = risk_score_base
+
     return {
         "p01": p01,
         "p05": p05,
@@ -282,4 +335,10 @@ def compute_risk_metrics(samples: np.ndarray, s0: float) -> dict[str, float]:
         "var_95_pct": var95_pct,
         "cvar_95_abs": cvar95_abs,
         "cvar_95_pct": cvar95_pct,
+        "log_return_excess_kurtosis": log_return_excess_kurtosis,
+        "fat_tail_feel_index": fat_tail_feel_index,
+        "tail_adjustment_factor": tail_adjustment_factor,
+        "risk_score_base": float(risk_score_base) if np.isfinite(risk_score_base) else 999.0,
+        "risk_score": float(risk_score) if np.isfinite(risk_score) else 999.0,
+        "sigma_sqrt_horizon": sigma_sqrt_horizon,
     }
