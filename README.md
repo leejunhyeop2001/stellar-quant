@@ -138,7 +138,7 @@ Stellar-Quant/
 | 안내 캡션 | 현재 빌드에 고정된 시뮬 요약(경로 수·기간·팬 샘플·스텝)을 한 줄로 표시 |
 | 하단 | C++23 엔진 안내; 시뮬 후 **역사적 점프 추정(λ̂, μ̂_J, σ̂_J)** 캡션(`yfinance` 성공 시) |
 
-**대시보드 코드 고정값** (`python/dashboard.py` 상단 `FIXED_*`): 터미널 경로 **10,000,000**, 예측 기간 **1.0년**, 팬 샘플 **8,000** 경로, 시간 스텝 **252**, 스레드 **0**(자동), Merton 점프 **λ=2.0, μ_J=-0.05, σ_J=0.10**; 시세 실패 시 GBM 폴백 **S0=250, μ=0.10, σ=0.40**(폴백값도 엔진 입력 전 `μ≤20%`, `σ≥15%`로 재클램프). `estimate_gbm_params` 역시 동일 클램프를 적용합니다. 리스크 등급은 `data_utils.compute_risk_metrics`의 **정규화 Risk Score** `(VaR95/S0)/(σ√T)` 와 종료 로그수익 **초과첨도** 가중으로 산출합니다.
+**대시보드 코드 고정값** (`python/dashboard.py` 상단 `FIXED_*`): 터미널 경로 **10,000,000**, 예측 기간 **1.0년**, 팬 샘플 **8,000** 경로, 시간 스텝 **252**, 스레드 **0**(자동), Merton 점프(하방 왜도 강화) **λ=1.5, μ_J=-0.15, σ_J=0.10**. `data_utils.estimate_gbm_params`는 연율 μ̂에 **시장 prior 8%와 5:5 수축**(`shrink_mu_toward_market_prior`) 후 **μ≤20%, σ≥15%** 클램프를 적용합니다. 수동 폴백도 동일 수축·클램프를 거칩니다. 리스크는 `compute_risk_metrics`의 정규화 Score와 초과첨도 가중으로 산출합니다.
 
 시세는 기본 **최근 1년** 일봉입니다. **직접 입력…** 을 고르면 본문에 티커 입력 필드가 나타납니다.
 
@@ -195,6 +195,20 @@ $$S_T = S_0 \exp\!\left((\mu - \tfrac{1}{2}\sigma^2)T + \sigma\sqrt{T}\,Z\right)
 ### 이산화 (Exact Discretization)
 
 $$S_{t+\Delta t} = S_t \exp\!\left((\mu - \tfrac{1}{2}\sigma^2)\Delta t + \sigma\sqrt{\Delta t}\,Z_t + \textstyle\sum_i J_i\right)$$
+
+### 드리프트 시장 수축 (리스크 관리)
+
+표본에서 얻은 연율화 추정치 \(\hat\mu\)를 그대로 쓰지 않고, 시장 평균형 prior \(\mu_m = 8\%\)와 반반 혼합합니다.
+
+$$\mu_{\mathrm{sim}} = \tfrac{1}{2}\hat\mu + \tfrac{1}{2}\mu_m$$
+
+이후 시뮬 입력에는 \(\mu_{\mathrm{sim}} \le 20\%\), \(\sigma \ge 15\%\) 클램프를 추가 적용합니다.
+
+### Volatility Drag (이토 보정)
+
+로그 주가 \(\ln S\) 관점에서 GBM을 풀면 드리프트에 \(-\tfrac{1}{2}\sigma^2\) 항이 들어갑니다. 동일한 표면적 \(\mu\)라도 **σ가 클수록 기대 로그수익이 깎이는** 효과(Volatility drag / convexity effect)입니다. C++ 엔진은 \((\mu - \tfrac{1}{2}\sigma^2)\,dt\) (및 점프 항)으로 이를 반영합니다.
+
+$$\ln\frac{S_{t+\Delta t}}{S_t} \approx \left(\mu - \frac{\sigma^2}{2}\right)\Delta t + \sigma\sqrt{\Delta t}\,Z_t + (\text{점프})$$
 
 ### Merton 점프 확산
 

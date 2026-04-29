@@ -12,6 +12,10 @@ from data_utils import (
     GbmParams,
     JumpParams,
     YahooFinanceFetchError,
+    GBM_MU_ANNUAL_CAP,
+    GBM_SIGMA_ANNUAL_FLOOR,
+    MU_MARKET_PRIOR,
+    MU_SHRINKAGE_SAMPLE_WEIGHT,
     clamp_gbm_for_simulation,
     compute_risk_metrics,
     currency_symbol,
@@ -20,6 +24,7 @@ from data_utils import (
     estimate_jump_params,
     fetch_prices,
     fmt_price,
+    shrink_mu_toward_market_prior,
 )
 from loader import import_simulator
 
@@ -61,8 +66,8 @@ FIXED_HORIZON_YEARS = 1.0
 FIXED_FAN_PATHS = 8_000
 FIXED_N_STEPS = 252
 FIXED_N_THREADS = 0  # 0 = 사용 가능 코어 자동
-FIXED_JUMP_LAMBDA = 2.0
-FIXED_JUMP_MU = -0.05
+FIXED_JUMP_LAMBDA = 1.5
+FIXED_JUMP_MU = -0.15
 FIXED_JUMP_SIGMA = 0.10
 # yfinance 실패 시 Manual Fallback (GBM 입력)
 FIXED_MANUAL_S0 = 250.0
@@ -1704,6 +1709,23 @@ def _render_math_section(
             f'<b style="color:{a}">대칭 변수법(antithetic Z / −Z)</b>을 사용합니다.',
         ),
         (
+            "드리프트 시장 수축",
+            "Shrinkage — risk governance",
+            r"\mu_{\mathrm{sim}}=\tfrac{1}{2}\hat{\mu}+\tfrac{1}{2}\mu_m,\quad \mu_m=8\%",
+            f'데이터에서 추정한 연율 <b>μ̂</b>만 쓰면 과거 급등·추세가 미래 전망을 과대 반영할 수 있어, '
+            f'시장 평균형 prior <b>μ<sub>m</sub>={MU_MARKET_PRIOR:.0%}</b>와 '
+            f'<b>{int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}:{100 - int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}</b> 가중 혼합 후 시뮬에 넣습니다.',
+        ),
+        (
+            "Volatility Drag",
+            "Itô / convexity in log space",
+            r"\mathbb{E}[\ln S]\ \text{의 GBM 확산 항}\ \Rightarrow\ (\mu-\tfrac{1}{2}\sigma^2)\,T",
+            f'지수화된 주가에서 <b style="color:{a}">로그</b>로 넘어오면서 생기는 '
+            f'<b>−½σ²</b> 보정입니다. σ가 크면 (<b>μ는 같아도</b>) '
+            f'로그기대·중앙값이 내려가 <b style="color:{a}">고변동 종목의 낙관 편향</b>을 완화합니다. '
+            f'엔진은 각 스텝에 동일한 <code>(μ−½σ²)Δt</code>를 사용합니다.',
+        ),
+        (
             "VaR — Value at Risk",
             "최대 예상 손실 (95%)",
             r"\mathrm{VaR}_{95\%}=S_0-Q_{0.05}(S_T)",
@@ -1903,7 +1925,8 @@ def _load_market_data(ticker: str, period: str = "1y") -> MarketData:
 def _manual_market_data(config: SidebarConfig) -> MarketData:
     """Build model parameters from sidebar fallback values."""
 
-    mu_c, sig_c = clamp_gbm_for_simulation(config.manual_mu, config.manual_sigma)
+    mu_shr = shrink_mu_toward_market_prior(config.manual_mu)
+    mu_c, sig_c = clamp_gbm_for_simulation(mu_shr, config.manual_sigma)
     return MarketData(
         params=GbmParams(
             s0=config.manual_s0,
@@ -2162,11 +2185,19 @@ def _render_risk_summary(result: DashboardResult) -> None:
     rsb = float(metrics.get("risk_score_base", 0.0))
     rs_cls = "risk-red" if rs >= 2.5 else "risk-blue"
 
+    drag_ann = float(params.mu - 0.5 * params.sigma * params.sigma)
+
     risk_meta = (
         f'<div class="risk-meta">'
-        f'<strong>연율화 총 변동성(추정 σ)</strong> {sig_ann_pct:.2f}% (역사적 GBM 추정) · '
+        f'<strong>연율화 총 변동성(추정 σ)</strong> {sig_ann_pct:.2f}% · '
         f'<strong>예측기간 스케일 σ√T</strong> {sig_sqrt_t:.4f}<br>'
-        f'<strong>종료가 로그수익 초과첨도</strong> {xk:+.3f} (Black–Scholes 확산만이면 ≈0) · '
+        f'<strong>Volatility Drag</strong> Itô 보정 로그드리프트 <strong>μ−½σ²</strong> = {drag_ann:.4f} (연율). '
+        f'C++ 엔진은 각 스텝에 <code>(μ−½σ²)Δt</code>를 사용하므로, '
+        f'<b>σ가 클수록 확산의 볼록성(convexity) 때문에 기대 로그수익이 깎입니다.</b><br>'
+        f'<strong>드리프트 수축</strong> 표본 연율 μ̂와 시장 prior <strong>{MU_MARKET_PRIOR:.0%}</strong>을 '
+        f'<strong>{int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}:{100 - int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}</strong> '
+        f'혼합한 뒤 μ≤{GBM_MU_ANNUAL_CAP:.0%}, σ≥{GBM_SIGMA_ANNUAL_FLOOR:.0%} 클램프.<br>'
+        f'<strong>종료가 로그수익 초과첨도</strong> {xk:+.3f} (확산만이면 ≈0) · '
         f'<strong>Fat-tail 체감 지수</strong> {ft:.3f} · 꼬리 가중 <strong>×{tadj:.3f}</strong> '
         f"(Score = {rsb:.3f} × {tadj:.3f} → <strong>{rs:.3f}</strong>)"
         f"</div>"

@@ -65,6 +65,18 @@ class JumpParams:
 # 시뮬 엔진 입력용 연율 drift/vol 제동 (대시보드 수동·yfinance 공통)
 GBM_MU_ANNUAL_CAP = 0.20
 GBM_SIGMA_ANNUAL_FLOOR = 0.15
+# 리스크 관리: 표본 드리프트를 시장 평균 prior와 혼합 (과거 급등이 미래 전망 지배 방지)
+MU_MARKET_PRIOR = 0.08
+MU_SHRINKAGE_SAMPLE_WEIGHT = 0.5  # mu_sim = w*mu_hat + (1-w)*MU_MARKET_PRIOR
+
+
+def shrink_mu_toward_market_prior(
+    mu: float,
+    prior: float = MU_MARKET_PRIOR,
+    w_sample: float = MU_SHRINKAGE_SAMPLE_WEIGHT,
+) -> float:
+    """베이지안 스타일 수축: 연율 μ̂를 시장 평균 prior와 가중 평균."""
+    return float(w_sample * float(mu) + (1.0 - w_sample) * float(prior))
 
 
 def clamp_gbm_for_simulation(mu: float, sigma: float) -> tuple[float, float]:
@@ -185,9 +197,8 @@ def estimate_gbm_params(
     can dominate risk simulations. Volatility blends plain historical sigma with
     an EWMA/GARCH-style estimate so recent volatility clusters carry more weight.
 
-    After estimation, simulation-bound clamps apply: annual μ ≤ 20%, annual σ ≥ 15%
-    (see ``clamp_gbm_for_simulation``) to limit trend extrapolation and
-    degenerate near-deterministic paths.
+    After estimation, **drift shrinkage** blends μ with a market prior (8% annual)
+    half-and-half, then **clamps** apply: annual μ ≤ 20%, annual σ ≥ 15%.
     """
     log_ret = np.log(close_prices / close_prices.shift(1)).dropna()
     if log_ret.empty:
@@ -211,6 +222,7 @@ def estimate_gbm_params(
     mu_annual_raw = mu_daily * trading_days
     mu_annual = float(np.clip(mu_annual_raw, -0.35, 0.35))
     sigma_ann = float(sigma_daily * np.sqrt(trading_days))
+    mu_annual = shrink_mu_toward_market_prior(mu_annual)
     mu_annual, sigma_ann = clamp_gbm_for_simulation(mu_annual, sigma_ann)
 
     return GbmParams(
