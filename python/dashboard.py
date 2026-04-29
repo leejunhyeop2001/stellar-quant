@@ -30,20 +30,22 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Palette — enterprise dark (corporate / 대기업 스타일 톤)
+# Palette — Toss-inspired premium dark
 # ---------------------------------------------------------------------------
-BG = "#0b0d10"
-CARD = "rgba(255,255,255,0.045)"
-BORDER = "rgba(255,255,255,0.08)"
-TEXT = "#e8eaee"
-MUTED = "#8f96a3"
-ACCENT = "#3b82f6"
+BG = "#0F1014"            # Page background
+CARD = "#16171C"          # Card surface
+CARD_HI = "#1C1D23"       # Slightly elevated card
+BORDER = "rgba(255,255,255,0.04)"
+TEXT = "#F4F5F7"
+MUTED = "#8B93A1"
+SUBTLE = "#5C6573"
+ACCENT = "#3182F6"        # Toss blue
 CYAN = "#38bdf8"
 TEAL = "#22c55e"
 PINK = "#a78bfa"
-ORANGE = "#f59e0b"
-RED = "#ef4444"
-GREEN = "#10b981"
+ORANGE = "#FF9500"
+RED = "#FF4D4F"
+GREEN = "#1ABC72"
 
 # ---------------------------------------------------------------------------
 # Typography — Pretendard + mono for figures
@@ -51,7 +53,6 @@ GREEN = "#10b981"
 GLOBAL_CSS = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
 :root {{
   --sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
@@ -65,12 +66,46 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
   font-family: var(--sans) !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.012em;
 }}
-[data-testid="stHeader"] {{ background: transparent !important; }}
+[data-testid="stHeader"] {{
+  background: transparent !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}}
+[data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {{
+  display: none !important;
+}}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Material 아이콘 ligature 누출 방지
+ * Streamlit 컴포넌트가 폰트 미적용 시 keyboard_double_arrow_*, arrow_*
+ * 등의 텍스트가 그대로 노출됨 → 모두 숨김.
+ * ────────────────────────────────────────────────────────────────── */
+[data-testid="stIconMaterial"],
+[data-testid="stMaterialIcon"],
+[data-testid="stIcon"],
+[data-testid="stExpanderToggleIcon"],
+button[data-testid="baseButton-header"] [data-testid="stMarkdownContainer"]:first-child span,
+[data-testid="collapsedControl"] span:not(:empty),
+section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span:not(:empty),
+[data-testid="stHeader"] span[aria-hidden="true"],
+[data-testid="stSidebar"] [data-baseweb="slider"] [aria-hidden="true"],
+.material-icons,
+.material-symbols-outlined {{
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  opacity: 0 !important;
+}}
 
 [data-testid="stSidebar"] {{
-  background: #0e1117 !important;
+  background: {BG} !important;
   border-right: 1px solid {BORDER} !important;
+  padding: 4px 4px 16px 4px !important;
 }}
 [data-testid="stSidebar"] * {{ font-family: var(--sans) !important; }}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {{
@@ -80,334 +115,399 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
 section[data-testid="stSidebar"] hr {{ display: none !important; }}
 
 section[data-testid="stSidebar"] .stTextInput > div > div {{
-  background: rgba(255,255,255,0.06) !important;
+  background: {CARD} !important;
   border: 1px solid {BORDER} !important;
-  border-radius: 6px !important;
+  border-radius: 14px !important;
+  padding: 4px 6px !important;
+}}
+section[data-testid="stSidebar"] .stTextInput input {{
+  font-size: 0.9375rem !important;
+  padding: 10px 12px !important;
 }}
 section[data-testid="stSidebar"] .stTextInput > div > div:focus-within {{
-  border-color: rgba(59,130,246,0.45) !important;
-  box-shadow: 0 0 0 1px rgba(59,130,246,0.25) !important;
+  border-color: rgba(49,130,246,0.55) !important;
+  box-shadow: 0 0 0 3px rgba(49,130,246,0.12) !important;
 }}
 
-/* Collapsed labels: Streamlit 기본 라벨 숨김 (key_double·중복 라벨 방지) */
 section[data-testid="stSidebar"] label[data-testid="stWidgetLabel"],
 section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
   display: none !important;
 }}
 
-/* Expander: <summary> 기본 삼각(▶) + Streamlit chevron(→/↓) 겹침 방지 */
+[data-testid="stExpander"] {{
+  background: {CARD} !important;
+  border: 1px solid {BORDER} !important;
+  border-radius: 16px !important;
+  margin-top: 14px !important;
+  overflow: hidden !important;
+}}
+[data-testid="stExpander"] details {{ background: transparent !important; }}
 [data-testid="stExpander"] summary {{
   list-style: none !important;
   list-style-type: none !important;
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
-  gap: 0.35rem !important;
-  min-height: 2.25rem !important;
-  padding-inline: 0.15rem 0.35rem !important;
+  gap: 0 !important;
+  min-height: 2.5rem !important;
+  padding: 12px 16px !important;
+  font-size: 0.9375rem !important;
+  font-weight: 600 !important;
+  color: {TEXT} !important;
+  cursor: pointer !important;
 }}
 [data-testid="stExpander"] summary::-webkit-details-marker,
 [data-testid="stExpander"] summary::marker {{
   display: none !important;
   content: "" !important;
-  width: 0 !important;
-  height: 0 !important;
 }}
-[data-testid="stExpander"] summary::-moz-list-bullet {{
-  list-style: none !important;
-}}
-/* 아이콘 한 줄 정렬 */
-[data-testid="stExpander"] summary > div,
 [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] {{
+  flex: 1 1 auto !important;
   display: inline-flex !important;
   align-items: center !important;
 }}
-[data-testid="stExpander"] summary svg {{
-  flex-shrink: 0 !important;
-  display: block !important;
+/* 우측 +/− 토글 인디케이터 (chevron 텍스트가 숨겨져도 시각 단서 유지) */
+[data-testid="stExpander"] summary::after {{
+  content: "+";
+  margin-left: auto;
+  font-weight: 400;
+  color: {MUTED};
+  font-size: 1.35rem;
+  line-height: 1;
+  padding-left: 8px;
+}}
+[data-testid="stExpander"] details[open] summary::after {{
+  content: "−";
 }}
 
 .sb-label {{
   font-size: 0.75rem;
   font-weight: 600;
   color: {MUTED};
-  letter-spacing: -0.01em;
-  padding: 16px 0 8px 0;
+  letter-spacing: 0;
+  padding: 18px 4px 10px 4px;
   margin: 0;
+  text-transform: uppercase;
 }}
 
 .brand-bar {{
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 6px 10px;
-  padding-bottom: 16px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid {BORDER};
+  gap: 8px 10px;
+  padding: 8px 4px 20px 4px;
+  margin-bottom: 4px;
 }}
 .brand-title {{
   font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-weight: 800;
+  letter-spacing: -0.04em;
   color: {TEXT};
 }}
-.brand-sep {{
-  color: {MUTED};
-  font-weight: 400;
-  font-size: 1rem;
-}}
+.brand-sep {{ color: {SUBTLE}; font-weight: 400; }}
 .brand-author {{
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: {MUTED};
-  letter-spacing: -0.02em;
 }}
 
 section[data-testid="stSidebar"] button[kind="primary"] {{
   background: {ACCENT} !important;
   border: none !important;
   color: #fff !important;
-  font-weight: 600 !important;
-  border-radius: 6px !important;
-  padding: 10px !important;
-  font-size: 0.875rem !important;
+  font-weight: 700 !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+  font-size: 0.9375rem !important;
   letter-spacing: -0.01em !important;
+  height: 52px !important;
+  transition: transform 0.08s ease, background 0.15s ease !important;
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:hover {{
-  background: #2563eb !important;
+  background: #1d6ce0 !important;
+  transform: translateY(-1px);
+}}
+section[data-testid="stSidebar"] button[kind="primary"]:active {{
+  transform: translateY(0);
 }}
 
 .sb-foot {{
-  margin-top: 14px;
+  margin-top: 18px;
+  padding: 14px 4px 0 4px;
   font-size: 0.6875rem;
-  color: #6b7280;
-  line-height: 1.55;
-  letter-spacing: -0.01em;
+  color: {SUBTLE};
+  line-height: 1.6;
+  border-top: 1px solid {BORDER};
 }}
 
+/* 메트릭 카드 — 토스 스타일 */
 .mc {{
   background: {CARD};
-  border: 1px solid {BORDER};
-  border-radius: 8px;
-  padding: 16px 18px;
+  border: none;
+  border-radius: 24px;
+  padding: 28px 28px 24px 28px;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: transform 0.15s ease, background 0.15s ease;
+}}
+.mc:hover {{
+  background: {CARD_HI};
+  transform: translateY(-2px);
 }}
 .mc-lbl {{
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: {MUTED};
-  letter-spacing: -0.01em;
-  margin-bottom: 6px;
+  letter-spacing: -0.005em;
+  margin-bottom: 12px;
 }}
 .mc-val {{
-  font-size: 1.375rem;
-  font-weight: 600;
-  line-height: 1.25;
-  font-family: var(--mono);
+  font-size: 1.875rem;
+  font-weight: 800;
+  line-height: 1.15;
   color: {TEXT};
-  letter-spacing: -0.02em;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
 }}
 .mc-val-lg {{
-  font-size: 1.625rem;
-  font-weight: 600;
-  line-height: 1.2;
-  font-family: var(--mono);
-  letter-spacing: -0.02em;
+  font-size: 2.375rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }}
 .mc-delta {{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  margin-top: 12px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+  width: fit-content;
+}}
+.d-pos {{ color: {GREEN}; background: rgba(26,188,114,0.12); }}
+.d-neg {{ color: {RED};   background: rgba(255,77,79,0.12); }}
+
+/* 섹션 타이틀 */
+.stitle {{
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: {TEXT};
+  letter-spacing: -0.03em;
+  margin: 40px 0 18px 2px;
+  padding-bottom: 0;
+  border-bottom: none;
+}}
+.stitle-sub {{
   font-size: 0.8125rem;
   font-weight: 500;
-  margin-top: 4px;
-  font-family: var(--mono);
-  letter-spacing: -0.01em;
-}}
-.d-pos {{ color: {GREEN}; }}
-.d-neg {{ color: {RED}; }}
-
-.stitle {{
-  font-size: 0.8125rem;
-  font-weight: 600;
   color: {MUTED};
-  letter-spacing: -0.01em;
-  margin: 20px 0 12px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid {BORDER};
+  margin-left: 8px;
+  letter-spacing: -0.005em;
 }}
 
+/* 테이블 — 보더 없음, 행 간격 넓게 */
 .rtbl {{
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  border-radius: 8px;
+  border-collapse: collapse;
+  background: {CARD};
+  border-radius: 24px;
   overflow: hidden;
-  border: 1px solid {BORDER};
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
+}}
+.rtbl thead tr {{
+  background: transparent;
 }}
 .rtbl th {{
-  background: rgba(255,255,255,0.04);
+  background: transparent;
   color: {MUTED};
-  font-weight: 600;
+  font-weight: 500;
   text-align: left;
-  padding: 10px 14px;
+  padding: 18px 24px 12px 24px;
   font-size: 0.75rem;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  border: none;
 }}
 .rtbl td {{
-  background: {CARD};
+  background: transparent;
   color: {TEXT};
-  padding: 10px 14px;
-  border-top: 1px solid {BORDER};
-  font-family: var(--mono);
-  font-size: 0.8125rem;
+  padding: 16px 24px;
+  border: none;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
 }}
-.rtbl tr:hover td {{ background: rgba(255,255,255,0.03); }}
+.rtbl tbody tr {{
+  border-top: 1px solid {BORDER};
+  transition: background 0.12s ease;
+}}
+.rtbl tbody tr:hover {{ background: rgba(255,255,255,0.025); }}
 
+/* 수학 패널 — 토스 카드 스타일 + 큰 수식 */
+.math-grid {{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}}
+@media (max-width: 900px) {{
+  .math-grid {{ grid-template-columns: 1fr; }}
+}}
 .math-panel {{
   background: {CARD};
-  border: 1px solid {BORDER};
-  border-radius: 8px;
-  padding: 22px 24px;
-  margin-top: 8px;
+  border: none;
+  border-radius: 24px;
+  padding: 32px 32px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  transition: background 0.15s ease;
 }}
+.math-panel:hover {{ background: {CARD_HI}; }}
 .math-panel h3 {{
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 700;
   color: {TEXT};
-  margin: 0 0 12px 0;
-  letter-spacing: -0.02em;
+  margin: 0;
+  letter-spacing: -0.025em;
+}}
+.math-panel h3 .math-h-sub {{
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: {MUTED};
+  margin-top: 4px;
+  letter-spacing: 0;
 }}
 .math-eq {{
-  font-family: var(--mono);
-  font-size: 0.875rem;
-  color: #93c5fd;
-  background: rgba(59,130,246,0.06);
-  border-left: 2px solid rgba(59,130,246,0.35);
-  padding: 12px 14px;
-  border-radius: 0 6px 6px 0;
-  margin: 8px 0;
-  line-height: 1.65;
+  font-family: 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: {TEXT};
+  background: transparent;
+  border: none;
+  padding: 8px 4px;
+  margin: 0;
+  text-align: center;
+  line-height: 1.6;
+  letter-spacing: 0;
 }}
+.math-eq small {{ font-size: 1.125rem; color: {MUTED}; }}
 .math-desc {{
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   color: {MUTED};
-  line-height: 1.65;
-  letter-spacing: -0.01em;
+  line-height: 1.7;
+  letter-spacing: -0.005em;
+  margin: 0;
 }}
 .math-desc b {{ color: {TEXT}; font-weight: 600; }}
 .math-var {{
   display: inline-block;
-  font-family: var(--mono);
-  color: #7dd3fc;
-  font-weight: 500;
-  min-width: 24px;
+  font-family: 'Cambria Math', Georgia, serif;
+  color: {ACCENT};
+  font-weight: 600;
+  min-width: 28px;
+  font-size: 1.0625rem;
 }}
 
+/* Hero 헤더 */
 .hbar {{
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px 16px;
-  margin-bottom: 10px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid {BORDER};
+  margin: 8px 2px 4px 2px;
+  padding: 0;
+  border-bottom: none;
 }}
 .hbar-brand {{
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }}
 .hbar h1 {{
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.625rem;
+  font-weight: 800;
   margin: 0;
   color: {TEXT};
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
 }}
 .hbar .hbar-author {{
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 500;
   color: {MUTED};
-  letter-spacing: -0.02em;
 }}
 .hbar .badge {{
-  background: rgba(59,130,246,0.2);
-  color: #93c5fd;
-  font-weight: 600;
+  background: rgba(49,130,246,0.12);
+  color: #6BA8FF;
+  font-weight: 700;
   font-size: 0.75rem;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-family: var(--mono);
-  border: 1px solid rgba(59,130,246,0.25);
+  padding: 6px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  border: none;
 }}
 .hbar .perf {{
   color: {MUTED};
   font-size: 0.75rem;
   margin-left: auto;
-  font-family: var(--mono);
-  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
 }}
 
 .disc {{
   font-size: 0.75rem;
   color: {MUTED};
-  margin-top: 12px;
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 6px;
-  border: 1px solid {BORDER};
-  line-height: 1.55;
-  letter-spacing: -0.01em;
+  margin: 32px 0 8px 0;
+  padding: 18px 22px;
+  background: {CARD};
+  border-radius: 16px;
+  border: none;
+  line-height: 1.7;
+  letter-spacing: -0.005em;
 }}
 
-/* 메인 메뉴·푸터만 숨김. `header` 전체를 숨기면 상단의 사이드바(≡) 버튼도 사라짐 */
-#MainMenu, footer {{ visibility: hidden !important; }}
+/* Streamlit 기본 크롬 정리 */
+#MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden !important; height: 0 !important; }}
 .block-container {{
-  padding-top: 1rem !important;
-  padding-bottom: 0.5rem !important;
-  max-width: 100% !important;
+  padding: 1.25rem 1.75rem 2rem 1.75rem !important;
+  max-width: 1400px !important;
 }}
+
+/* Plotly 차트 컨테이너 — 카드 형태로 감싸되 차트 자체는 투명 */
 [data-testid="stPlotlyChart"] {{
   background: {CARD};
-  border: 1px solid {BORDER};
-  border-radius: 8px;
-  padding: 2px;
+  border: none;
+  border-radius: 24px;
+  padding: 12px;
+  overflow: hidden;
+}}
+[data-testid="stPlotlyChart"] .main-svg {{
+  background: transparent !important;
 }}
 
-/*
- * Streamlit은 Material 아이콘 이름을 텍스트 ligature로 넣는데, 클라우드 등 환경에서
- * Material Symbols 폰트가 없으면 keyboard_double_arrow_*, arrow_* 등 문자열이 그대로 보임.
- * 헤더·툴바·배포 버튼·Expander·사이드바·슬라이더 장식 슬롯에 아이콘 폰트를 통일 적용.
- */
-button[data-testid="baseButton-header"] > div > div:first-child span {{
-  font-family: 'Material Symbols Outlined', sans-serif !important;
-  font-weight: normal !important;
-  font-style: normal !important;
-  font-size: 1.35rem !important;
-  line-height: 1 !important;
-  letter-spacing: normal !important;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-  color: rgba(203, 213, 225, 0.95) !important;
+/* 입력 컨트롤(슬라이더, 셀렉트 슬라이더) 톤 */
+[data-baseweb="slider"] [role="slider"] {{
+  background: {ACCENT} !important;
+  border-color: {ACCENT} !important;
+  box-shadow: 0 2px 8px rgba(49,130,246,0.35) !important;
 }}
-button[data-testid="baseButton-header"] > div > div:last-child span {{
-  font-family: var(--sans) !important;
-  font-size: 0.9375rem !important;
+section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
+  background: rgba(255,255,255,0.04) !important;
 }}
 
-[data-testid="stHeader"] span[aria-hidden="true"],
-[data-testid="stToolbar"] span[aria-hidden="true"],
-[data-testid="stDecoration"] span[aria-hidden="true"],
-[data-testid="stBottom"] span[aria-hidden="true"],
-[data-testid="stToolbarActions"] span[aria-hidden="true"],
-[data-testid="stDeployButton"] span[aria-hidden="true"],
-[data-testid="stLogoSpacer"] span[aria-hidden="true"],
-[data-testid="stChatFloatingButton"] span[aria-hidden="true"],
-[data-testid="stAppToolbar"] span[aria-hidden="true"],
-section[data-testid="stSidebar"] span[aria-hidden="true"],
-[data-baseweb="slider"] span[aria-hidden="true"] {{
-  font-family: 'Material Symbols Outlined', sans-serif !important;
-  font-weight: normal !important;
-  font-style: normal !important;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+/* 토스트 톤 */
+[data-testid="stToast"] {{
+  background: {CARD_HI} !important;
+  border: 1px solid {BORDER} !important;
+  border-radius: 16px !important;
+  color: {TEXT} !important;
 }}
 </style>
 """
@@ -424,8 +524,8 @@ def _dpct(v: float, s0: float) -> float:
 
 def _dhtml(pct: float) -> str:
     c = "d-pos" if pct >= 0 else "d-neg"
-    a = "▲" if pct >= 0 else "▼"
-    return f'<div class="mc-delta {c}">{a} {pct:+.1f}%</div>'
+    a = "↑" if pct >= 0 else "↓"
+    return f'<span class="mc-delta {c}">{a} {pct:+.2f}%</span>'
 
 def _outlook(up: float) -> tuple[str, str]:
     if up >= 70: return "Bullish (강세)", GREEN
@@ -463,47 +563,39 @@ def _ds(arr, mx=120):
 
 
 # ---------------------------------------------------------------------------
-# Chart common — Plotly dark theme
+# Chart common — Toss-style transparent canvas, no grid
 # ---------------------------------------------------------------------------
-_PLOT_BG = "#0e1218"
-_PAPER_BG = "#0a0e14"
-_GRID = "rgba(130,150,185,0.12)"
-_AXLINE = "rgba(130,150,185,0.18)"
-
 _AX = dict(
-    gridcolor=_GRID,
-    zerolinecolor=_AXLINE,
-    gridwidth=0.85,
-    zerolinewidth=0.85,
+    showgrid=False,
+    zeroline=False,
+    showline=False,
     tickfont=dict(
         size=11,
-        family="SF Mono, Consolas, JetBrains Mono, monospace",
-        color="#9ca3af",
+        family="Pretendard Variable, Pretendard, sans-serif",
+        color="#8B93A1",
     ),
     title_font=dict(
         size=12,
-        color="#9ca3af",
+        color="#8B93A1",
         family="Pretendard Variable, Pretendard, sans-serif",
     ),
-    showline=True,
-    linecolor="rgba(100,120,160,0.25)",
     mirror=False,
 )
 
 _LAY = dict(
-    paper_bgcolor=_PAPER_BG,
-    plot_bgcolor=_PLOT_BG,
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
     font=dict(
         family="Pretendard Variable, Pretendard, Malgun Gothic, Apple SD Gothic Neo, sans-serif",
-        color="#e8eaee",
+        color="#F4F5F7",
         size=13,
     ),
     hoverlabel=dict(
-        bgcolor="rgba(17,24,39,0.95)",
-        bordercolor="rgba(148,163,184,0.35)",
+        bgcolor="rgba(28,29,35,0.96)",
+        bordercolor="rgba(255,255,255,0.06)",
         font_size=12,
         font_family="Pretendard Variable, Pretendard, sans-serif",
-        font_color="#f3f4f6",
+        font_color="#F4F5F7",
     ),
     hovermode="x unified",
 )
@@ -555,17 +647,18 @@ def build_hist(terminal, s0, m, cur, ticker):
 
     fig.update_layout(**_LAY,
         title=dict(
-            text=f"<b>Terminal Price Distribution</b> <span style='color:#64748b;font-weight:500'>(최종가 분포)</span> — {ticker}",
-            font=dict(size=14, color="#f1f5f9", family="Pretendard Variable, Pretendard, sans-serif"),
-            x=0.5,
+            text=f"<b>Terminal Price Distribution</b> <span style='color:#8B93A1;font-weight:500'>· 최종가 분포 — {ticker}</span>",
+            font=dict(size=15, color="#F4F5F7", family="Pretendard Variable, Pretendard, sans-serif"),
+            x=0.04,
             y=0.97,
+            xanchor="left",
         ),
-        margin=dict(l=55, r=15, t=70, b=50),
+        margin=dict(l=48, r=20, t=70, b=48),
         legend=dict(
-            bgcolor="rgba(15,23,42,0.92)",
-            bordercolor="rgba(148,163,184,0.2)",
+            bgcolor="rgba(28,29,35,0.7)",
+            bordercolor="rgba(255,255,255,0.04)",
             borderwidth=1,
-            font=dict(size=10, color="#cbd5e1", family="Pretendard Variable, Pretendard, sans-serif"),
+            font=dict(size=10, color="#8B93A1", family="Pretendard Variable, Pretendard, sans-serif"),
             x=0.98, y=0.98, xanchor="right", yanchor="top",
         ),
         xaxis=dict(**_AX, title=f"최종가 Final Price ({cur})",
@@ -634,17 +727,18 @@ def build_fan(pm, s0, yrs, cur, ticker):
 
     fig.update_layout(**_LAY,
         title=dict(
-            text=f"<b>Stock Price Simulation</b> <span style='color:#64748b;font-weight:500'>(주가 경로)</span> — {ticker}",
-            font=dict(size=14, color="#f1f5f9", family="Pretendard Variable, Pretendard, sans-serif"),
-            x=0.5,
+            text=f"<b>Stock Price Simulation</b> <span style='color:#8B93A1;font-weight:500'>· 주가 경로 — {ticker}</span>",
+            font=dict(size=15, color="#F4F5F7", family="Pretendard Variable, Pretendard, sans-serif"),
+            x=0.04,
             y=0.97,
+            xanchor="left",
         ),
-        margin=dict(l=60, r=70, t=72, b=50),
+        margin=dict(l=52, r=72, t=70, b=48),
         legend=dict(
-            bgcolor="rgba(15,23,42,0.92)",
-            bordercolor="rgba(148,163,184,0.2)",
+            bgcolor="rgba(28,29,35,0.7)",
+            bordercolor="rgba(255,255,255,0.04)",
             borderwidth=1,
-            font=dict(size=10, color="#cbd5e1", family="Pretendard Variable, Pretendard, sans-serif"),
+            font=dict(size=10, color="#8B93A1", family="Pretendard Variable, Pretendard, sans-serif"),
             x=0.02, y=0.98, xanchor="left", yanchor="top",
         ),
         xaxis=dict(**_AX, title="예측 기간 Period", tickvals=tp, ticktext=tl),
@@ -672,78 +766,79 @@ def _build_math_section(
     fp = lambda v: _fp(v, cur)
     jump_on = jump_lambda > 0.0
     return f"""
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+<div class="math-grid">
 
 <div class="math-panel">
-  <h3>✦ GBM 확률 미분 방정식 (Stochastic Differential Equation)</h3>
-  <div class="math-eq">dS = μ · S · dt  +  σ · S · dW</div>
-  <div class="math-desc">
-    주가 <b>S</b>의 순간적 변화를 나타내는 기본 모델입니다.<br>
-    왼쪽 항은 <b>추세(drift)</b>, 오른쪽 항은 <b>무작위 변동(diffusion)</b>입니다.
-  </div>
+  <h3>GBM 확률 미분 방정식<span class="math-h-sub">Stochastic Differential Equation</span></h3>
+  <div class="math-eq"><i>dS</i> = μ <i>S</i> <i>dt</i> &nbsp;+&nbsp; σ <i>S</i> <i>dW</i></div>
+  <p class="math-desc">
+    주가 <b>S</b>의 순간 변화를 모델링합니다. 좌측은 <b>추세 (drift)</b>,
+    우측은 <b>무작위 변동 (diffusion)</b>이며 <b>dW</b>는 위너 과정입니다.
+  </p>
 </div>
 
 <div class="math-panel">
-  <h3>✦ 해석해 — Itô's Lemma (이토 보조정리)</h3>
-  <div class="math-eq">S(T) = S₀ · exp( (μ − ½σ²)T + σ√T · Z )</div>
-  <div class="math-desc">
-    위 SDE의 정확한 해입니다.<br>
-    <b>Z ~ N(0,1)</b> 표준정규분포 난수를 대입하면<br>
-    미래 시점 <b>T</b>에서의 주가 <b>S(T)</b>를 한 번에 계산합니다.
-  </div>
+  <h3>해석해 — Itô's Lemma<span class="math-h-sub">이토 보조정리</span></h3>
+  <div class="math-eq"><i>S</i>(T) = <i>S</i><small>₀</small> · e<sup>(μ − ½σ²)T + σ√T · Z</sup></div>
+  <p class="math-desc">
+    위 SDE의 정확한 해입니다. <b>Z ~ N(0,1)</b> 표준정규 난수를 대입해
+    미래 시점 <b>T</b>의 주가를 한 번에 계산합니다.
+  </p>
 </div>
 
 <div class="math-panel">
-  <h3>✦ 이산화 경로 (Exact Discretization)</h3>
-  <div class="math-eq">S(t+Δt) = S(t) · exp( (μ − ½σ²)Δt + σ√Δt · Zₜ + Σ jumps)</div>
-  <div class="math-desc">
-    Fan Chart의 각 시간 단계마다 적용되며, 점프 확산이 꺼져 있으면 Σ jumps = 0입니다.<br>
-    확산 난수에는 <b>대칭 변수법 (antithetic Z / −Z)</b>을 적용했습니다.
-  </div>
+  <h3>이산화 경로<span class="math-h-sub">Exact Discretization</span></h3>
+  <div class="math-eq"><i>S</i>(t+Δt) = <i>S</i>(t) · e<sup>(μ − ½σ²)Δt + σ√Δt Z<small>t</small> + Σ J</sup></div>
+  <p class="math-desc">
+    Fan Chart의 각 스텝에 적용됩니다. 점프 확산이 꺼져 있으면 Σ J = 0 이며,
+    확산 난수에는 <b>대칭 변수법 (antithetic Z / −Z)</b>이 적용됩니다.
+  </p>
 </div>
 
 <div class="math-panel">
-  <h3>✦ VaR — Value at Risk (최대 예상 손실)</h3>
-  <div class="math-eq">VaR(95%) = S₀ − Q₀.₀₅(S_T)</div>
-  <div class="math-desc">
-    시뮬레이션 결과의 <b>하위 5%</b> 가격을 기준으로<br>
-    현재가 대비 <b>95% 확률로 이 이상의 가격을 유지</b>한다는 의미입니다.
+  <h3>VaR — Value at Risk<span class="math-h-sub">최대 예상 손실 (95%)</span></h3>
+  <div class="math-eq">VaR<small>95</small> = <i>S</i><small>₀</small> − <i>Q</i><small>0.05</small>(<i>S<small>T</small></i>)</div>
+  <p class="math-desc">
+    시뮬레이션 하위 <b>5%</b> 가격을 기준으로, 현재가 대비
+    <b>95% 확률로 이상의 가격을 유지</b>한다는 의미입니다.
+  </p>
+</div>
+
+<div class="math-panel">
+  <h3>CVaR — Expected Shortfall<span class="math-h-sub">조건부 꼬리 손실</span></h3>
+  <div class="math-eq">CVaR<small>95</small> = 𝔼[ Loss <small>|</small> Loss ≥ VaR<small>95</small> ]</div>
+  <p class="math-desc">
+    Loss = max(0, <i>S</i><small>₀</small> − <i>S<small>T</small></i>) 의 하위 5% 평균.
+    VaR보다 <b>꼬리 리스크</b>를 더 보수적으로 요약합니다.
+  </p>
+</div>
+
+<div class="math-panel">
+  <h3>Merton Jump Diffusion<span class="math-h-sub">점프 확산 항</span></h3>
+  <div class="math-eq" style="font-size:1.25rem;">
+    ln <i>S<small>T</small></i> − ln <i>S</i><small>₀</small> = (μ − ½σ²)T + σ√T Z + Σ J<small>i</small>
   </div>
+  <p class="math-desc">
+    <b>N<small>T</small> ~ Poisson(λT)</b>, <b>J<small>i</small> ~ N(μ<small>J</small>, σ<small>J</small>²)</b>.
+    엔진은 스레드별 <code>std::mt19937</code>·포아송·정규분포를 사용합니다.
+    <br/>현재 설정 — λ = <b>{jump_lambda:.4f}</b>, μ<small>J</small> = <b>{jump_mu:.4f}</b>,
+    σ<small>J</small> = <b>{jump_sigma:.4f}</b> ({'점프 활성' if jump_on else 'λ = 0 → GBM만'}).
+  </p>
 </div>
 
 </div>
 
 <div class="math-panel" style="margin-top:16px;">
-  <h3>✦ Merton Jump Diffusion — 점프 항</h3>
-  <div class="math-eq">ln S_T − ln S₀ = (μ − ½σ²)T + σ√T · Z + Σ<sub>i=1</sub><sup>N_T</sup> Jᵢ,&nbsp;
-  N_T ~ Poisson(λT),&nbsp; Jᵢ ~ N(μ_J, σ_J²)</div>
-  <div class="math-desc">
-    <b>dN_t</b>: 포아송 도약. <b>J</b>: 로그 점프 크기. 엔진은 스레드별 <code>std::mt19937</code>,
-    <code>std::poisson_distribution</code>, 정규분포를 사용합니다.
-    <br/>현재 설정: λ = <b>{jump_lambda:.4f}</b>, μ_J = <b>{jump_mu:.4f}</b>, σ_J = <b>{jump_sigma:.4f}</b>
-    ({'점프 활성' if jump_on else 'λ = 0 → GBM만'}).
-  </div>
-</div>
-
-<div class="math-panel" style="margin-top:16px;">
-  <h3>✦ CVaR — Expected Shortfall (조건부 꼬리 손실)</h3>
-  <div class="math-eq">CVaR₍₉₅₎ = 𝔼[ Loss | Loss ≥ VaR₍₉₅₎ ], &nbsp; Loss = max(0, S₀ − S_T)</div>
-  <div class="math-desc">
-    하위 5% 경로에서의 평균 손실로, VaR보다 꼬리 리스크를 더 보수적으로 요약합니다.
-  </div>
-</div>
-
-<div class="math-panel" style="margin-top:16px;">
-  <h3>✦ 입력 파라미터 (Input Parameters Used)</h3>
-  <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px 24px;">
-    <div class="math-desc"><span class="math-var">S₀</span> <b>현재 주가</b><br>Current Price = {fp(params.s0)}</div>
-    <div class="math-desc"><span class="math-var">μ</span> <b>기대수익률 (연율)</b><br>Annual Drift = {params.mu:.6f}</div>
-    <div class="math-desc"><span class="math-var">σ</span> <b>변동성 (연율)</b><br>Annual Volatility = {params.sigma:.6f}</div>
-    <div class="math-desc"><span class="math-var">T</span> <b>예측 기간</b><br>Time Horizon (years)</div>
-    <div class="math-desc"><span class="math-var">λ</span> <b>연간 점프 강도</b><br>Jump intensity = {jump_lambda:.6f}</div>
-    <div class="math-desc"><span class="math-var">μ_J</span> <b>로그 점프 평균</b><br>Mean log jump = {jump_mu:.6f}</div>
-    <div class="math-desc"><span class="math-var">σ_J</span> <b>로그 점프 변동성</b><br>Log-jump std = {jump_sigma:.6f}</div>
-    <div class="math-desc"><span class="math-var">Z</span> <b>표준정규 난수</b><br>Antithetic pairs per step</div>
+  <h3>입력 파라미터<span class="math-h-sub">Input Parameters Used</span></h3>
+  <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:18px 28px;">
+    <div class="math-desc"><span class="math-var">S₀</span><br><b>현재 주가</b><br>{fp(params.s0)}</div>
+    <div class="math-desc"><span class="math-var">μ</span><br><b>기대수익률 (연율)</b><br>{params.mu:.6f}</div>
+    <div class="math-desc"><span class="math-var">σ</span><br><b>변동성 (연율)</b><br>{params.sigma:.6f}</div>
+    <div class="math-desc"><span class="math-var">T</span><br><b>예측 기간</b><br>Time Horizon (years)</div>
+    <div class="math-desc"><span class="math-var">λ</span><br><b>연간 점프 강도</b><br>{jump_lambda:.6f}</div>
+    <div class="math-desc"><span class="math-var">μ<small>J</small></span><br><b>로그 점프 평균</b><br>{jump_mu:.6f}</div>
+    <div class="math-desc"><span class="math-var">σ<small>J</small></span><br><b>로그 점프 변동성</b><br>{jump_sigma:.6f}</div>
+    <div class="math-desc"><span class="math-var">Z</span><br><b>표준정규 난수</b><br>Antithetic pairs</div>
   </div>
 </div>
 """
@@ -754,8 +849,13 @@ def _build_math_section(
 # ---------------------------------------------------------------------------
 def _mc(label, value, delta="", lg=False, large=False, vc=TEXT):
     c = "mc-val-lg" if (lg or large) else "mc-val"
-    return (f'<div class="mc"><div class="mc-lbl">{label}</div>'
-            f'<div class="{c}" style="color:{vc}">{value}</div>{delta}</div>')
+    return (
+        f'<div class="mc">'
+        f'<div class="mc-lbl">{label}</div>'
+        f'<div class="{c}" style="color:{vc}">{value}</div>'
+        f'{delta}'
+        f'</div>'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -873,7 +973,7 @@ def main():
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
         run = st.button(
-            "Run Simulation  →",
+            "Run Simulation",
             use_container_width=True,
             type="primary",
             key="sq_run_simulation",
@@ -896,15 +996,15 @@ def main():
     if not run and "metrics" not in st.session_state:
         st.markdown(
             f'<div style="display:flex;flex-direction:column;align-items:center;'
-            f'justify-content:center;height:58vh;text-align:center;">'
-            f'<div style="font-size:3rem;margin-bottom:12px;opacity:0.9;">✦</div>'
-            f'<h2 style="color:{TEXT};font-weight:700;margin:0;font-size:1.5rem;letter-spacing:-0.03em;">'
-            f'Stellar-Quant</h2>'
-            f'<p style="color:{MUTED};margin:8px 0 0 0;font-size:0.9375rem;font-weight:500;letter-spacing:-0.02em;">'
-            f'이준협</p>'
-            f'<p style="color:{MUTED};margin-top:16px;font-size:0.875rem;max-width:420px;line-height:1.55;letter-spacing:-0.01em;">'
-            f'Monte Carlo 시뮬레이션<br>'
-            f'좌측에서 설정 후 <b style="color:{ACCENT};">Run Simulation</b>을 실행하세요.</p></div>',
+            f'justify-content:center;height:62vh;text-align:center;">'
+            f'<h1 style="color:{TEXT};font-weight:800;margin:0;font-size:2.75rem;letter-spacing:-0.045em;">'
+            f'Stellar-Quant</h1>'
+            f'<p style="color:{MUTED};margin:14px 0 0 0;font-size:1.0625rem;font-weight:500;letter-spacing:-0.02em;">'
+            f'C++ × Monte Carlo 주가 시뮬레이션</p>'
+            f'<p style="color:{SUBTLE};margin-top:28px;font-size:0.9375rem;max-width:480px;line-height:1.7;letter-spacing:-0.01em;">'
+            f'좌측 사이드바에서 종목과 시뮬레이션 설정을 입력한 뒤<br>'
+            f'<b style="color:{ACCENT};">Run Simulation</b> 버튼을 눌러 분석을 시작하세요.</p>'
+            f'</div>',
             unsafe_allow_html=True)
         return
 
@@ -1027,7 +1127,7 @@ def main():
 
     # ── Key metrics (최종 예상가 · VaR · CVaR) ─────────────
     st.markdown(
-        '<div class="stitle" style="margin-top:4px;">핵심 지표 · Key metrics</div>',
+        '<div class="stitle">핵심 지표<span class="stitle-sub">Key metrics</span></div>',
         unsafe_allow_html=True,
     )
     k1, k2, k3 = st.columns(3, gap="medium")
@@ -1074,7 +1174,7 @@ def main():
                         use_container_width=True, config=cfg)
 
     # ── Metric Cards — 보조 지표 ──────────────────────────
-    st.markdown('<div class="stitle">투자 전망 · Outlook</div>',
+    st.markdown('<div class="stitle">투자 전망<span class="stitle-sub">Outlook</span></div>',
                 unsafe_allow_html=True)
     up = metrics["up_probability_pct"]
     md = _dpct(float(terminal.mean()), s0)
@@ -1085,13 +1185,12 @@ def main():
         st.markdown(_mc("평균 예측가 Mean", fp(float(terminal.mean())),
                     _dhtml(md)), unsafe_allow_html=True)
     with cols_a[2]:
-        ico = "📈 🟢" if up >= 50 else "📉 🔴"
         c = GREEN if up >= 50 else RED
-        st.markdown(_mc("상승 확률 Profit Prob.", f"{ico} {up:.1f}%",
+        st.markdown(_mc("상승 확률 Profit Prob.", f"{up:.1f}%",
                     large=True, vc=c), unsafe_allow_html=True)
 
     # ── Risk Table ────────────────────────────────────────
-    st.markdown('<div class="stitle">리스크 시나리오 · Risk scenarios</div>',
+    st.markdown('<div class="stitle">리스크 시나리오<span class="stitle-sub">Risk scenarios</span></div>',
                 unsafe_allow_html=True)
     scn = [
         ("Best (최선)", "95th", fp(metrics["p95"]), _dpct(metrics["p95"], s0), GREEN),
@@ -1101,11 +1200,11 @@ def main():
     ]
     rows = ""
     for lb, pc, pr, dl, cl in scn:
-        a = "▲" if dl >= 0 else "▼"
-        rows += (f'<tr><td style="font-weight:600;font-family:var(--sans)">{lb}</td>'
+        a = "↑" if dl >= 0 else "↓"
+        rows += (f'<tr><td style="font-weight:600">{lb}</td>'
                  f'<td style="color:{MUTED}">{pc}</td>'
-                 f'<td style="font-weight:600">{pr}</td>'
-                 f'<td style="color:{cl};font-weight:600">{a} {dl:+.1f}%</td></tr>')
+                 f'<td style="font-weight:700">{pr}</td>'
+                 f'<td style="color:{cl};font-weight:700">{a} {dl:+.2f}%</td></tr>')
 
     tl, tr = st.columns([1.2, 1], gap="medium")
     with tl:
@@ -1119,25 +1218,21 @@ def main():
         st.markdown(
             f'<table class="rtbl"><thead><tr>'
             f'<th>Parameter (파라미터)</th><th>Value (값)</th></tr></thead><tbody>'
-            f'<tr><td style="font-family:var(--sans)">μ Annual Drift (기대수익률)</td>'
-            f'<td>{params.mu:.6f}</td></tr>'
-            f'<tr><td style="font-family:var(--sans)">σ Volatility (변동성)</td>'
-            f'<td>{params.sigma:.6f}</td></tr>'
-            f'<tr><td style="font-family:var(--sans)">Jump λ / μ_J / σ_J</td>'
+            f'<tr><td>μ Annual Drift</td><td>{params.mu:.6f}</td></tr>'
+            f'<tr><td>σ Volatility</td><td>{params.sigma:.6f}</td></tr>'
+            f'<tr><td>Jump λ / μ_J / σ_J</td>'
             f'<td>{jl:.4f} / {jm:.4f} / {js:.4f}</td></tr>'
-            f'<tr><td style="font-family:var(--sans)">90% Confidence (신뢰구간)</td>'
+            f'<tr><td>90% Confidence</td>'
             f'<td>{fp(metrics["p05"])} — {fp(metrics["p95"])}</td></tr>'
-            f'<tr><td style="font-family:var(--sans)">Paths (시뮬레이션 횟수)</td>'
-            f'<td>{n_paths:,}</td></tr>'
-            f'<tr><td style="font-family:var(--sans)">Fan steps / 스레드</td>'
+            f'<tr><td>Paths</td><td>{n_paths:,}</td></tr>'
+            f'<tr><td>Fan steps / 스레드</td>'
             f'<td>{n_steps_u} / {n_threads_u if n_threads_u else "auto"}</td></tr>'
-            f'<tr><td style="font-family:var(--sans)">C++ Engine (엔진 시간)</td>'
-            f'<td>{elapsed:.3f}s</td></tr>'
+            f'<tr><td>C++ Engine</td><td>{elapsed:.3f}s</td></tr>'
             f'</tbody></table>',
             unsafe_allow_html=True)
 
     # ── Math Formula Section ──────────────────────────────
-    st.markdown('<div class="stitle">수학 모델 · Model reference</div>',
+    st.markdown('<div class="stitle">수학 모델<span class="stitle-sub">Model reference</span></div>',
                 unsafe_allow_html=True)
     st.markdown(_build_math_section(params, cur, jl, jm, js), unsafe_allow_html=True)
 
