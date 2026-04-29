@@ -277,6 +277,48 @@ def estimate_jump_params(
 # 종료 로그수익의 Fat-tail을 리스크 점수에 반영할 때, 초과첨도 1당 가중 (Gaussian ≈ 0)
 RISK_TAIL_KURTOSIS_LAMBDA = 0.10
 
+# 액션 지표 — 무위험 수익률(연율, 단리 근사의 로그환산에도 사용)
+RISK_FREE_RATE_ANNUAL = 0.03
+
+
+def compute_kelly_leverage_fraction(
+    mu_annual: float,
+    sigma_annual: float,
+    rf: float = RISK_FREE_RATE_ANNUAL,
+) -> float:
+    """근사 Kelly 비중 f = (μ − r) / σ² (연율 GBM 드리프트·변동성 기준). [0, 1] 클립."""
+    if sigma_annual <= 1e-15:
+        return 0.0
+    f = (float(mu_annual) - float(rf)) / (float(sigma_annual) ** 2)
+    return float(np.clip(f, 0.0, 1.0))
+
+
+def compute_sortino_from_terminal(
+    terminal: np.ndarray,
+    s0: float,
+    rf: float = RISK_FREE_RATE_ANNUAL,
+) -> tuple[float, float]:
+    """종료 로그수익 기준 소르티노: 분모는 r < 0 인 경로만의 표본 표준편차(ddof=1).
+
+    분자: 평균 로그수익 − log(1+r_f). (샤프 대비 하방 분산 강조)
+    """
+    terminal = np.asarray(terminal, dtype=np.float64)
+    if terminal.size == 0 or s0 <= 0.0:
+        return 0.0, 0.0
+    rlg = np.log(np.maximum(terminal, np.finfo(np.float64).tiny) / s0)
+    neg = rlg[rlg < 0.0]
+    if neg.size <= 1:
+        downside_std = max(1e-12, abs(float(neg[0])) if neg.size == 1 else 1e-12)
+    else:
+        downside_std = float(np.std(neg, ddof=1))
+        if downside_std <= 1e-15:
+            downside_std = 1e-12
+    mean_lg = float(np.mean(rlg))
+    rf_lg = float(np.log(1.0 + rf))
+    excess = mean_lg - rf_lg
+    sortino = excess / downside_std
+    return float(sortino), float(downside_std)
+
 
 def compute_risk_metrics(
     samples: np.ndarray,

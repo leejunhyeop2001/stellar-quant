@@ -16,8 +16,11 @@ from data_utils import (
     GBM_SIGMA_ANNUAL_FLOOR,
     MU_MARKET_PRIOR,
     MU_SHRINKAGE_SAMPLE_WEIGHT,
+    RISK_FREE_RATE_ANNUAL,
     clamp_gbm_for_simulation,
+    compute_kelly_leverage_fraction,
     compute_risk_metrics,
+    compute_sortino_from_terminal,
     currency_symbol,
     detect_currency,
     estimate_gbm_params,
@@ -1747,6 +1750,20 @@ def _render_math_section(
             f'높을수록 단위 위험당 수익이 효율적입니다.',
         ),
         (
+            "Kelly Criterion",
+            "근사 권장 비중 (연율 μ, σ)",
+            r"f^\star=\max\!\left(0,\min\!\left(1,\dfrac{\mu-r_f}{\sigma^2}\right)\right),\ r_f=3\%",
+            f'시뮬에 쓰는 연율 <b>μ, σ</b>로 근사합니다. <b>f∈[0,1]</b>로 캡하여 100% 초과 베팅을 막습니다. '
+            f'실제 포지션은 비용·유동성·제약을 반영해 축소하세요.',
+        ),
+        (
+            "Sortino Ratio",
+            "하방 변동성만 분모",
+            r"\mathrm{Sortino}=\dfrac{\overline{\ln(S_T/S_0)}-\ln(1+r_f)}{\sigma_-},\quad \sigma_-=\mathrm{std}\bigl(\{r_i\mid r_i<0\}\bigr)",
+            f'동일한 <b>초과 평균 로그수익</b> 분자를 쓰되, 샤프와 달리 '
+            f'<b style="color:{a}">손실 경로만</b>의 표준편차를 분모로 삼아 하방 리스크 대비 효율을 강조합니다.',
+        ),
+        (
             "Merton Jump Diffusion",
             "점프 확산 항 — 실시간 파라미터",
             r"\ln\frac{S_T}{S_0}=(\mu-\tfrac{1}{2}\sigma^2)T+\sigma\sqrt{T}\,Z+\textstyle\sum_{i=1}^{N_T}J_i",
@@ -2235,6 +2252,85 @@ def _render_risk_summary(result: DashboardResult) -> None:
     )
 
 
+def _render_action_metrics(result: DashboardResult) -> None:
+    """Kelly·Sortino·샤프(비교)를 Toss 스타일 메트릭 카드로 표시."""
+    p, m = result.params, result.metrics
+    kelly = compute_kelly_leverage_fraction(p.mu, p.sigma, RISK_FREE_RATE_ANNUAL)
+    sortino, _ = compute_sortino_from_terminal(result.terminal, p.s0, RISK_FREE_RATE_ANNUAL)
+    term = np.asarray(result.terminal, dtype=np.float64)
+    rlg = np.log(np.maximum(term, np.finfo(np.float64).tiny) / p.s0)
+    rf_lg = float(np.log(1.0 + RISK_FREE_RATE_ANNUAL))
+    excess = float(np.mean(rlg) - rf_lg) if rlg.size else 0.0
+    if rlg.size > 1:
+        sharpe_denom = float(np.std(rlg, ddof=1))
+        sharpe = excess / max(sharpe_denom, 1e-12)
+    else:
+        sharpe = 0.0
+    up = float(m["up_probability_pct"])
+
+    st.markdown(
+        '<div class="stitle">액션 지표<span class="stitle-sub">Kelly · Sortino · Sharpe 대비</span></div>',
+        unsafe_allow_html=True,
+    )
+    if kelly < 0.20:
+        st.caption("변동성이 너무 커서 소액 투자를 권장합니다.")
+
+    so_vc = ACCENT
+    if sortino > sharpe:
+        so_vc = GREEN
+    elif sortino < 0.0:
+        so_vc = RED
+    sk_vc = GREEN if sharpe >= 0.0 else RED
+
+    c1, c2, c3, c4 = st.columns(4, gap="large")
+    with c1:
+        k_vc = ACCENT if kelly >= 0.2 else MUTED
+        st.markdown(
+            _mc(
+                f"권장 투자 비중 (Kelly) · r={RISK_FREE_RATE_ANNUAL:.0%}",
+                f"{kelly * 100:.1f}%",
+                f'<div class="mc-delta" style="opacity:0.65">f = (μ−r)/σ², 상한 100%</div>',
+                lg=True,
+                vc=k_vc,
+            ),
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            _mc(
+                "소르티노 (하방 σ)",
+                f"{sortino:.3f}",
+                f'<div class="mc-delta" style="opacity:0.85">전체 σ 샤프 {sharpe:.3f} — 하방만 분모</div>',
+                lg=True,
+                vc=so_vc,
+            ),
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            _mc(
+                "샤프 (전체 σ, 참고)",
+                f"{sharpe:.3f}",
+                f'<div class="mc-delta" style="opacity:0.65">Sortino와 동일 분자·전체 변동성</div>',
+                lg=True,
+                vc=sk_vc,
+            ),
+            unsafe_allow_html=True,
+        )
+    with c4:
+        up_vc = GREEN if up >= 50.0 else RED
+        st.markdown(
+            _mc(
+                "상승 확률 P(종료가 &gt; S₀)",
+                f"{up:.1f}%",
+                '<div class="mc-delta" style="opacity:0.65">시뮬 경로 비율 (참고)</div>',
+                lg=True,
+                vc=up_vc,
+            ),
+            unsafe_allow_html=True,
+        )
+
+
 def _render_key_metrics(result: DashboardResult) -> None:
     metrics, s0, cur = result.metrics, result.params.s0, result.params.currency
     fp = lambda v: _fp(v, cur)
@@ -2359,6 +2455,7 @@ def _render_risk_tables(result: DashboardResult) -> None:
 
 def _render_dashboard_result(result: DashboardResult) -> None:
     _render_risk_summary(result)
+    _render_action_metrics(result)
     with st.expander("💡 상세 지표와 수학 모델 보기", expanded=False):
         chart_tab, risk_tab, model_tab = st.tabs(["차트", "리스크 지표", "수학 모델"])
         with chart_tab:

@@ -218,6 +218,22 @@ $$\ln S_T - \ln S_0 = (\mu - \tfrac{1}{2}\sigma^2)T + \sigma\sqrt{T}\,Z + \sum_{
 
 $$\text{VaR}_{95\%} = S_0 - Q_{0.05}(S_T), \qquad \text{CVaR}_{95\%} = \mathbb{E}[\,\text{Loss} \mid \text{Loss} \geq \text{VaR}_{95\%}\,]$$
 
+### Kelly 근사 권장 비중
+
+무위험 이자율을 연 \(r_f = 3\%\)로 두고, 시뮬에 입력되는 연율 \(\mu\), \(\sigma\)로 **전략 자본 대비 레버리지 근사**를 합니다.
+
+$$f^\star = \max\!\left(0,\ \min\!\left(1,\ \frac{\mu - r_f}{\sigma^2}\right)\right)$$
+
+대시보드 **액션 지표**에 \(f^\star\)를 퍼센트로 보여 주며, \(f^\star &lt; 20\%\)이면 변동성 대비 드리프트가 작다는 뜻으로 소액 투자 안내 캡션을 띄웁니다. (실제 매매는 비용·제약을 반영해 축소해야 합니다.)
+
+### Sortino 비율 (하방 변동성)
+
+종료 로그수익 \(r_i = \ln(S_T/S_0)\)에 대해, **손실 경로만** \(r_i &lt; 0\)을 모아 표본 표준편차 \(\sigma_-\)를 구하고, 분자는 평균 로그수익에서 \(\ln(1+r_f)\)를 뺀 초과분을 씁니다.
+
+$$\text{Sortino} = \frac{\bar r - \ln(1+r_f)}{\sigma_-}, \qquad \sigma_- = \mathrm{std}(\{ r_i \mid r_i &lt; 0 \})$$
+
+같은 분자로 **전체** \(\mathrm{std}(r)\)를 분모에 쓰면 샤프에 가까운 비교 지표가 되어, UI에서 Sortino를 먼저 배치해 하방 리스크 대비 수익을 강조합니다.
+
 ---
 
 ## 아키텍처
@@ -236,7 +252,7 @@ $$\text{VaR}_{95\%} = S_0 - Q_{0.05}(S_T), \qquad \text{CVaR}_{95\%} = \mathbb{E
                           (Streamlit + Plotly)     (CLI + Matplotlib)
                                   │                       │
                        ┌──────────┴──────────┐     ├── Console report
-                       │ Risk Report 히어로   │     ├── Histogram + Fan (PNG)
+                       │ Risk Report · 액션 지표 │     ├── Histogram + Fan (PNG)
                        │ 펼침: 차트·리스크·수학│     └── summary.md
                        │ (웹 차트 = 팬 차트) │
                        └─────────────────────┘
