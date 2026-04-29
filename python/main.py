@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import platform
+import sys
 import time
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import numpy as np
 
 from data_utils import (
     GbmParams,
+    YahooFinanceFetchError,
     compute_risk_metrics,
     currency_symbol,
     estimate_gbm_params,
@@ -591,7 +593,12 @@ def main():
     mem = estimate_memory_mb(args.paths, fan_paths, args.steps)
 
     # --- Data ---
-    close = fetch_prices(args.ticker, period="2y")
+    try:
+        close = fetch_prices(args.ticker, period="2y")
+    except YahooFinanceFetchError as e:
+        print(str(e), file=sys.stderr)
+        print("잠시 후 다시 시도해 주세요.", file=sys.stderr)
+        raise SystemExit(2) from None
     params = estimate_gbm_params(close, ticker=args.ticker)
     jump_p = estimate_jump_params(close)
 

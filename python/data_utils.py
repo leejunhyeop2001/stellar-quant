@@ -6,22 +6,19 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-import requests
 import yfinance as yf
 
-_YF_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    ),
-    "Accept": "*/*",
-}
+
+class YahooFinanceFetchError(ValueError):
+    """Yahoo Finance 시세를 가져오지 못했을 때 (네트워크·차단·API 제한 등)."""
+
+    pass
 
 
-def _yahoo_session() -> requests.Session:
-    s = requests.Session()
-    s.headers.update(_YF_HEADERS)
-    return s
+_FETCH_RETRY_HINT_KO = (
+    "일시적으로 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요. "
+    "(네트워크 혼잡 또는 Yahoo 측 제한일 수 있습니다.)"
+)
 
 
 def _close_from_frame(df: pd.DataFrame | None) -> pd.Series | None:
@@ -109,23 +106,22 @@ def fmt_price(value: float, currency: str) -> str:
 def fetch_prices(ticker: str, period: str = "2y") -> pd.Series:
     """Download adjusted close prices from Yahoo Finance.
 
-    Uses a browser-like User-Agent and retries because Yahoo often returns empty
-    responses from datacenter IPs (e.g. Streamlit Community Cloud).
+    세션을 넘기지 않고 yfinance 기본 동작을 사용합니다. 최신 yfinance는
+    ``requests.Session`` 같은 커스텀 세션 대신 내장(curl_cffi) 세션을 기대하는 경우가 있어,
+    여기서는 ``session=`` 을 지정하지 않습니다.
+
+    Yahoo가 빈 응답을 주거나 제한하는 경우가 있어 짧게 재시도합니다.
     """
     sym = ticker.strip().upper()
     if not sym:
         raise ValueError("Ticker symbol is empty.")
 
-    session = _yahoo_session()
     last_exc: Exception | None = None
 
     def try_history(p: str) -> pd.Series | None:
         nonlocal last_exc
         try:
-            try:
-                tk = yf.Ticker(sym, session=session)
-            except TypeError:
-                tk = yf.Ticker(sym)
+            tk = yf.Ticker(sym)
             hist = tk.history(period=p, auto_adjust=True)
             return _close_from_frame(hist)
         except Exception as exc:
@@ -140,7 +136,6 @@ def fetch_prices(ticker: str, period: str = "2y") -> pd.Series:
                 period=p,
                 auto_adjust=True,
                 progress=False,
-                session=session,
                 threads=False,
             )
             return _close_from_frame(data)
@@ -155,12 +150,14 @@ def fetch_prices(ticker: str, period: str = "2y") -> pd.Series:
                 return s
         time.sleep(0.5 * (attempt + 1))
 
-    hint = (
-        " Yahoo Finance가 클라우드·데이터센터 IP에서 자주 차단합니다. "
-        "티커를 확인하거나 로컬 PC에서 실행해 보세요."
-    )
-    extra = f" ({last_exc!r})" if last_exc else ""
-    raise ValueError(f"No close-price data for ticker={sym!r}.{hint}{extra}")
+    tech = ""
+    if last_exc is not None:
+        msg = str(last_exc).strip()
+        if msg:
+            tech = f"\n\n(참고: {msg})"
+    raise YahooFinanceFetchError(
+        f"{_FETCH_RETRY_HINT_KO}\n\n티커: {sym}.{tech}"
+    ) from last_exc
 
 
 def estimate_gbm_params(

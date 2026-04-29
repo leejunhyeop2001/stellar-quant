@@ -9,6 +9,7 @@ import streamlit as st
 
 from data_utils import (
     GbmParams,
+    YahooFinanceFetchError,
     compute_risk_metrics,
     currency_symbol,
     estimate_gbm_params,
@@ -880,9 +881,15 @@ def main():
                 close = fetch_prices(tick, period="2y")
                 params = estimate_gbm_params(close, ticker=tick)
                 st.session_state.est_jump = estimate_jump_params(close)
+            except YahooFinanceFetchError as err:
+                st.error(
+                    "**시세 데이터를 가져오지 못했습니다.**\n\n"
+                    f"{err}"
+                )
+                return
             except ValueError as err:
                 st.error(
-                    "**가격 데이터를 가져오지 못했습니다.**\n\n"
+                    "**가격 데이터를 처리할 수 없습니다.**\n\n"
                     f"{err}"
                 )
                 return
