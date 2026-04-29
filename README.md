@@ -1,9 +1,9 @@
 # Stellar-Quant
 
-**C++17 / Python 하이브리드 고성능 주가 시뮬레이션 엔진**
+**C++23 / Python 하이브리드 고성능 주가 시뮬레이션 엔진**
 
 기하 브라운 운동(GBM) + Merton 점프 확산 기반 몬테카를로 시뮬레이션으로 미래 주가 분포를 예측합니다.
-C++ 멀티스레드 엔진이 1,000만 경로를 수 초 내에 처리하며, Streamlit 웹 대시보드(Toss 스타일 다크 UI)와 Matplotlib CLI 두 가지 방식으로 결과를 확인할 수 있습니다.
+C++ 멀티스레드 엔진이 대규모 경로를 빠르게 처리하며, Streamlit 웹 대시보드(Toss 스타일 다크 UI)와 Matplotlib CLI 두 가지 방식으로 결과를 확인할 수 있습니다.
 
 ---
 
@@ -36,9 +36,9 @@ pip install .
 .\venv\Scripts\streamlit run python\dashboard.py
 ```
 
-브라우저에서 `http://localhost:8501` 이 자동으로 열립니다.
-좌측 사이드바에서 종목코드·시뮬레이션 횟수·예측 기간을 설정하고
-**Run Simulation** 버튼을 클릭하면 됩니다.
+브라우저에서 `http://localhost:8501`이 열립니다.  
+**왼쪽 사이드바**에서 **종목 선택**(주요 티커 프리셋 또는 「직접 입력…」)을 고른 뒤, **본문**에서 **시뮬레이션 시작**을 누릅니다.  
+시뮬 경로 수·기간·점프 등은 대시보드 코드에 **고정**되어 있으며(아래 **웹 대시보드 구성** 절 참고), UI에서 바꿀 수 없습니다. 상단 **햄버거(≡)** 로 사이드바를 열고 닫을 수 있습니다.
 
 ### 2-B. CLI (터미널)
 
@@ -63,7 +63,7 @@ pip install .
 |:--|:--|:--|
 | **실행** | `streamlit run python\dashboard.py` | `python python\main.py --ticker TSLA` |
 | **그래프** | Plotly (인터랙티브, 줌/호버) | Matplotlib (정적 이미지) |
-| **종목 변경** | 사이드바에서 즉시 변경 | 명령어 재입력 |
+| **종목 변경** | 사이드바 프리셋 또는 직접 입력 + **시뮬레이션 시작** 재실행 | 명령어 재입력 |
 | **출력** | 브라우저 대시보드 | 터미널 + PNG + summary.md |
 | **최적 용도** | 탐색적 분석, 프레젠테이션 | 배치 처리, 자동화 |
 
@@ -75,7 +75,7 @@ pip install .
 |:--|--:|:--|
 | `--ticker` | `AAPL` | Yahoo Finance 종목코드 |
 | `--paths` | `10,000,000` | 시뮬레이션 횟수 |
-| `--fan-paths` | `10,000` | Fan Chart 경로 수 |
+| `--fan-paths` | `8,000` | Fan Chart 경로 수 (대시보드와 동일 기본값) |
 | `--steps` | `252` | 시점 수 (거래일) |
 | `--years` | `1.0` | 예측 기간 (년) |
 | `--threads` | `0` | CPU 스레드 수 (0 = 자동) |
@@ -88,7 +88,7 @@ pip install .
 ```text
 Stellar-Quant/
 ├── src/
-│   └── simulator.cpp        # C++17 GBM + Jump Diffusion 멀티스레드 엔진
+│   └── simulator.cpp        # C++23 GBM + Jump Diffusion 멀티스레드 엔진
 ├── python/
 │   ├── dashboard.py          # Streamlit 웹 대시보드 (Toss 스타일 다크 UI)
 │   ├── main.py               # CLI 메인 실행
@@ -110,8 +110,8 @@ Stellar-Quant/
 
 | 파일 | 역할 |
 |:--|:--|
-| `src/simulator.cpp` | C++17 GBM + Merton 점프 확산 엔진. `std::thread` 병렬 연산 + `std::mt19937` 스레드별 독립 RNG. `pybind11`으로 Python에서 호출, `numpy.ndarray` zero-copy 반환. |
-| `python/dashboard.py` | Streamlit + Plotly 웹 대시보드. Toss 스타일 다크 테마, 3단계 로딩 인디케이터(`st.status`), 차트 figure 캐싱(`session_state`), shimmer 스켈레톤, 인터랙티브 차트. |
+| `src/simulator.cpp` | C++23 GBM + Merton 점프 확산 엔진. `std::thread` 병렬 연산 + `std::mt19937` 스레드별 독립 RNG. `pybind11`로 Python에서 호출, `numpy.ndarray` zero-copy 반환. |
+| `python/dashboard.py` | Streamlit + Plotly. 사이드바 **종목 selectbox** + 본문 실행 버튼; 시뮬 파라미터는 모듈 상수로 고정(터미널 1천만 경로·팬 샘플 8k 등). Toss 다크 테마, `Scattergl` 팬 차트(Mean/Median·분위수 밴드), `session_state` 캐시. |
 | `python/main.py` | CLI 파이프라인: 데이터 수집 → C++ 시뮬레이션 → 리스크 분석 → 터미널 리포트 → Matplotlib 시각화 → summary.md 저장. |
 | `python/data_utils.py` | `yfinance` 데이터 다운로드, μ/σ 추정, 점프 파라미터 추정, 통화 자동 감지, 가격 포맷 유틸리티. |
 | `python/benchmark.py` | C++ vs NumPy vs Python for-loop 성능 비교. |
@@ -127,24 +127,38 @@ Stellar-Quant/
 
 ---
 
-## 대시보드 UI
+## 웹 대시보드 구성 (`python/dashboard.py`)
 
-Toss 스타일의 현대적인 다크 대시보드로, 실행 시 3단계 진행 상태가 표시됩니다.
+### 사이드바 (왼쪽)
 
-| 단계 | 내용 |
+| 구역 | 내용 |
 |:--|:--|
-| 📡 데이터 수집 | Yahoo Finance 2년치 시세 다운로드, μ·σ·점프 파라미터 추정 |
-| ⚙️ 엔진 가동 | C++17 멀티스레드로 Monte Carlo 경로 연산 |
-| 📊 차트 생성 | 리스크 지표 계산 + Plotly 차트 빌드 (결과는 session_state에 캐싱) |
+| 브랜드 | Stellar-Quant · 이준협 |
+| **종목 선택** | `st.selectbox`: TSLA, AAPL, NVDA, MSFT, GOOGL, AMZN, META, AMD, INTC, `005930.KS`, `000660.KS`, `373220.KQ`, **직접 입력…** |
+| 안내 캡션 | 현재 빌드에 고정된 시뮬 요약(경로 수·기간·팬 샘플·스텝)을 한 줄로 표시 |
+| 하단 | C++23 엔진 안내; 시뮬 후 **역사적 점프 추정(λ̂, μ̂_J, σ̂_J)** 캡션(`yfinance` 성공 시) |
 
-이후 사이드바 위젯 변경 시에는 C++ 재연산 없이 캐시된 결과를 즉시 렌더링합니다.
+**대시보드 코드 고정값** (`python/dashboard.py` 상단 `FIXED_*`): 터미널 경로 **10,000,000**, 예측 기간 **1.0년**, 팬 샘플 **8,000** 경로, 시간 스텝 **252**, 스레드 **0**(자동), Merton 점프 **λ=4, μ_J=-0.08, σ_J=0.18**; 시세 실패 시 GBM 폴백 **S0=250, μ=0.10, σ=0.40**.
 
-**주요 섹션:**
-- **핵심 지표** — 최종 예상가(Median) · VaR(95%) · CVaR(95%)
-- **차트** — 최종가 분포(히스토그램 + PDF) / 주가 경로 Fan Chart (WebGL 가속)
-- **투자 전망** — 현재가 · 평균 예측가 · 상승 확률
-- **리스크 시나리오** — Best/Expected/Worst + 추정 파라미터 테이블
-- **수학 모델** — GBM SDE · Itô 해석해 · VaR · CVaR · Merton 점프 카드
+시세는 기본 **최근 1년** 일봉입니다. **직접 입력…** 을 고르면 본문에 티커 입력 필드가 나타납니다.
+
+### 본문 (메인 영역)
+
+| 구역 | 내용 |
+|:--|:--|
+| 랜딩 전 | 헤더 카피 + (프리셋 선택 시) 선택 종목 표시 또는 (직접 입력 시) 티커 필드 + **시뮬레이션 시작** |
+| 시뮬 직후 | 단계 메시지: 최근 **1년** `yfinance` → C++ 연산 → 완료; **토스트** |
+| 항상(결과 있을 때) | **Risk Report** 히어로: 위험도, 소요 시간·경로 수, **예상 중앙가·상승 확률·VaR·CVaR** |
+| **상세 지표와 수학 모델 보기** (접기) | 탭 **차트** / **리스크 지표** / **수학 모델** |
+| └ **차트** | 팬 차트만: 분위수 밴드, **Median**·**기대 평균 경로(Mean)** (`Scattergl`), 현재가선 |
+| └ **리스크 지표** | 핵심 지표 카드 → 전망 → 시나리오·파라미터 표 |
+| └ **수학 모델** | KaTeX 카드 + 파라미터 요약 + 면책 |
+
+> 웹 **차트** 탭에는 히스토그램이 없습니다(`build_hist`는 코드에만 존재). 분포는 CLI PNG에서 확인합니다.
+
+### 실행 후 캐시 동작
+
+결과는 `session_state`에 보관됩니다. **종목이나 고정 파라미터를 바꾼 뒤**에는 반드시 다시 **시뮬레이션 시작**을 눌러야 합니다(파라미터는 코드 상수이므로 재실행 = 코드 수정 후 배포).
 
 ---
 
@@ -195,9 +209,9 @@ $$\text{VaR}_{95\%} = S_0 - Q_{0.05}(S_T), \qquad \text{CVaR}_{95\%} = \mathbb{E
 ## 아키텍처
 
 ```text
-[Yahoo Finance]  →  data_utils.py  →  μ, σ, S₀, λ, μ_J, σ_J, Currency
+[Yahoo Finance]  →  data_utils.py  →  μ, σ, S₀, (추정 점프), Currency
                                               ↓
-                                     simulator.cpp (C++17)
+                                     simulator.cpp (C++23)
                                      ├── std::thread × N cores
                                      ├── std::mt19937 per thread  (thread-safe RNG)
                                      ├── Merton Jump Diffusion
@@ -207,15 +221,13 @@ $$\text{VaR}_{95\%} = S_0 - Q_{0.05}(S_T), \qquad \text{CVaR}_{95\%} = \mathbb{E
                              dashboard.py              main.py
                           (Streamlit + Plotly)     (CLI + Matplotlib)
                                   │                       │
-                       ┌──────────┼──────────┐        ├── Console Report
-                       │ 3-Phase Status UI   │        ├── Risk Analysis
-                       │ Histogram + PDF     │        ├── Visualization
-                       │ Fan Chart (WebGL)   │        └── summary.md
-                       │ Metric Cards        │
-                       │ Risk Table          │
-                       └── Math Model Cards  │
-                                             │
-                                   Browser localhost:8501
+                       ┌──────────┴──────────┐     ├── Console report
+                       │ Risk Report 히어로   │     ├── Histogram + Fan (PNG)
+                       │ 펼침: 차트·리스크·수학│     └── summary.md
+                       │ (웹 차트 = 팬 차트) │
+                       └─────────────────────┘
+                                  │
+                    브라우저 http://localhost:8501
 ```
 
 **핵심 설계:**
@@ -223,11 +235,11 @@ $$\text{VaR}_{95\%} = S_0 - Q_{0.05}(S_T), \qquad \text{CVaR}_{95\%} = \mathbb{E
 - **C++ 코어** : `std::thread` 병렬 연산, 스레드별 독립 RNG로 thread-safety 보장
 - **Zero-copy** : `pybind11`로 C++ 배열 → `numpy.ndarray` 메모리 복사 없이 전달
 - **GIL 해제** : 시뮬레이션 구간에서 `py::gil_scoped_release`로 Python 병목 제거
-- **메모리 분리** : 터미널 가격(최대 1,000만) / Fan Chart 경로(기본 5,000)로 분리
-- **차트 캐싱** : Plotly figure를 `session_state`에 보관 — 위젯 변경 시 C++ 재연산 없이 즉시 렌더링
+- **메모리 분리** : 웹은 터미널 **1천만** 경로 + 팬 샘플 **8k**(코드 상수); CLI는 `--paths` / `--fan-paths`로 조절
+- **차트 캐싱** : Plotly figure를 `session_state`에 보관
 - **모듈 캐싱** : `@st.cache_resource`로 C++ 공유 라이브러리를 한 번만 import
-- **3단계 로딩** : `st.status`로 데이터 수집 → 엔진 → 차트 단계별 진행 상태 표시
-- **렌더링 최적화** : 데이터 다운샘플링 + `Scattergl` WebGL 렌더링
+- **로딩 UI** : 데이터 분석 → 엔진 가동 → 완료 메시지 및 `st.toast`
+- **렌더링** : 팬 차트 경로 다운샘플링 + 분위수 밴드 + `Scattergl` 선(중앙값·평균 경로)
 
 ---
 

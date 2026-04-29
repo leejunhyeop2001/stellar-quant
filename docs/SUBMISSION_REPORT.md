@@ -7,7 +7,7 @@
 | 항목 | 내용 |
 |:---|:---|
 | 프로젝트명 | Stellar-Quant |
-| 개발 환경 | C++17, Python 3.x, CMake, pybind11 |
+| 개발 환경 | C++23, Python 3.x, CMake, pybind11 |
 | 주요 라이브러리 | NumPy, Pandas, yfinance, Matplotlib, Streamlit, Plotly |
 
 *(제출 시 기관 요구에 맞게 **작성자·학번·과목명·제출일** 등을 위 표 또는 표지에 추가하세요.)*
@@ -16,7 +16,7 @@
 
 ## 1. 요약 (Abstract)
 
-본 프로젝트는 **기하 브라운 운동(GBM)** 을 가정한 주가 확률 모델 위에서 **몬테카를로 시뮬레이션**을 수행하여, 미래 시점 주가의 **분포·분위수·상승 확률·VaR(95%)** 등을 추정하는 하이브리드 응용 프로그램이다. 계산 집약 구간은 **C++17 멀티스레드**로 구현하고, 데이터 수집·통계·시각화·UI는 **Python**으로 구성하였다. **pybind11**을 통해 C++ 모듈을 Python에서 호출하며, 시뮬레이션 구간에서는 **GIL 해제**로 병목을 줄였다. 사용자는 **Streamlit 웹 대시보드** 또는 **CLI(Matplotlib)** 로 동일한 엔진 결과를 확인할 수 있다.
+본 프로젝트는 **기하 브라운 운동(GBM)** 과 **Merton 점프 확산**을 가정한 주가 모델 위에서 **몬테카를로 시뮬레이션**을 수행하여, 미래 시점 주가의 **분포·분위수·상승 확률·VaR(95%)** 등을 추정하는 하이브리드 응용 프로그램이다. 계산 집약 구간은 **C++23 멀티스레드**로 구현하고, 데이터 수집·통계·시각화·UI는 **Python**으로 구성하였다. **pybind11**을 통해 C++ 모듈을 Python에서 호출하며, 시뮬레이션 구간에서는 **GIL 해제**로 병목을 줄였다. 사용자는 **Streamlit 웹 대시보드**(종목 프리셋 selectbox, 시뮬 파라미터는 코드 상수로 고정) 또는 **CLI(Matplotlib)** 로 동일한 엔진 코어 결과를 확인할 수 있다.
 
 ---
 
@@ -91,7 +91,7 @@ dashboard.py   main.py
 | 데이터·추정 | `python/data_utils.py` | `yfinance` 다운로드, 로그수익 기반 $\mu$·$\sigma$ 연율화 추정, 통화·포맷 |
 | 모듈 로딩 | `python/loader.py` | `build/Release` 등 후보 경로에서 `gbm_simulator` import |
 | CLI 파이프라인 | `python/main.py` | 인자 파싱, 리스크 지표, Matplotlib, `summary.md` 등 |
-| 웹 UI | `python/dashboard.py` | Streamlit, Plotly, 카드형 지표, 수식·설명 섹션 |
+| 웹 UI | `python/dashboard.py` | Streamlit, Plotly, 사이드바 종목 selectbox, `Scattergl` 팬 차트, 고정 시뮬 파라미터(예: 터미널 1천만 경로), 수식·리스크 카드 |
 | 성능 비교 | `python/benchmark.py` | C++ vs NumPy vs 순수 Python 루프 등 |
 
 ### 4.3 성능·안전 설계 요지
@@ -117,7 +117,7 @@ dashboard.py   main.py
 - **리스크**: `numpy.quantile`, `numpy.mean`으로 분위수·상승 확률·VaR 계산  
 - **시각화**:  
   - CLI: 히스토그램 + Fan Chart + 해석 패널  
-  - 대시보드: Plotly 히스토그램/PDF, 분위수 라인, 인터랙티브 Fan Chart  
+  - 대시보드: Plotly **팬 차트**(분위수 밴드, Median/Mean 선, WebGL `Scattergl`); 터미널 분포 히스토그램은 웹 탭에 미연결(코드 `build_hist` 존재)  
 
 ### 5.3 국제 시장 지원
 
@@ -170,7 +170,7 @@ cmake --build build --config Release
 
 ## 9. 결론 및 향후 과제
 
-본 프로젝트는 GBM 기반 몬테카를로 시뮬레이션을 **C++/Python 하이브리드**로 구현하여, **대규모 샘플 처리**와 **풍부한 시각화·UI**를 동시에 달성하였다. 향후에는 **이원 모델(Merton jump)** , **확률적 변동성**, **리스크 중립 측도와의 구분**, **백테스트 프레임** 등으로 모델을 확장할 수 있다.
+본 프로젝트는 GBM 및 Merton 점프 확산 기반 몬테카를로 시뮬레이션을 **C++/Python 하이브리드**로 구현하여, **대규모 샘플 처리**와 **풍부한 시각화·UI**를 동시에 달성하였다. 향후에는 **확률적 변동성**, **리스크 중립 측도와의 구분**, **백테스트 프레임** 등으로 모델을 확장할 수 있다.
 
 ---
 

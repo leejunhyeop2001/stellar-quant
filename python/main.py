@@ -571,7 +571,7 @@ def parse_args():
     p.add_argument("--years",     type=float, default=1.0)
     p.add_argument("--seed",      type=int, default=42)
     p.add_argument("--threads",   type=int, default=0,          help="0 = auto-detect")
-    p.add_argument("--fan-paths", type=int, default=10_000,     help="Path count for fan chart")
+    p.add_argument("--fan-paths", type=int, default=8_000,       help="Path count for fan chart")
     p.add_argument("--build-dir", type=str, default=None)
     p.add_argument("--no-plot",   action="store_true")
     return p.parse_args()

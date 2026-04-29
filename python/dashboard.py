@@ -1,7 +1,7 @@
 """Stellar-Quant — Interactive Streamlit Dashboard (Cosmic Edition)."""
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 import time
 
 import numpy as np
@@ -44,39 +44,54 @@ st.set_page_config(
 BG = "#000000"            # 앱 전체 배경 (깊이)
 CARD = "#101012"          # 카드 표면
 CARD_HI = "#16161A"       # 호버/약한 상승
-BORDER = "transparent"    # 테두리 제거 — 그림자로만 구획
 TEXT = "#F4F5F7"
 MUTED = "#8B93A1"
 SUBTLE = "#5C6573"
 ACCENT = "#0064FF"        # Toss 브랜드 블루 (슬라이더·강조)
-ACCENT_SOFT = "rgba(0,100,255,0.2)"
 ACCENT_GLOW = "rgba(0,100,255,0.14)"
-CYAN = "#38bdf8"
-TEAL = "#22c55e"
-PINK = "#a78bfa"
-ORANGE = MUTED
 RED = "#FF4B4B"
 GREEN = ACCENT
 
-# 사이드바 「추천 설정」 전문가 기본값 (고급 설정 초기화 버튼과 동일)
-SB_RECOMMENDED: dict[str, int | float] = {
-    "sq_n_paths": 1_000_000,
-    "sq_horizon_years": 1.0,
-    "sq_manual_s0": 250.0,
-    "sq_manual_mu": 0.10,
-    "sq_manual_sigma": 0.40,
-    "sq_fan_paths": 8_000,
-    "sq_fan_steps": 252,
-    "sq_cpp_threads": 0,
-    "sq_jump_lambda": 4.0,
-    "sq_jump_mu": -0.08,
-    "sq_jump_sigma": 0.18,
-}
+# ---------------------------------------------------------------------------
+# 고정 시뮬레이션 파라미터 (대시보드 내부 최적화 — UI에서 변경 불가)
+# ---------------------------------------------------------------------------
+FIXED_N_PATHS = 10_000_000
+FIXED_HORIZON_YEARS = 1.0
+FIXED_FAN_PATHS = 8_000
+FIXED_N_STEPS = 252
+FIXED_N_THREADS = 0  # 0 = 사용 가능 코어 자동
+FIXED_JUMP_LAMBDA = 4.0
+FIXED_JUMP_MU = -0.08
+FIXED_JUMP_SIGMA = 0.18
+# yfinance 실패 시 Manual Fallback (GBM 입력)
+FIXED_MANUAL_S0 = 250.0
+FIXED_MANUAL_MU = 0.10
+FIXED_MANUAL_SIGMA = 0.40
+
+TICKER_CUSTOM = "__CUSTOM__"
+# (심볼, 표시 라벨) — 사이드바 selectbox
+TICKER_PRESETS: list[tuple[str, str]] = [
+    ("TSLA", "Tesla · TSLA"),
+    ("AAPL", "Apple · AAPL"),
+    ("NVDA", "NVIDIA · NVDA"),
+    ("MSFT", "Microsoft · MSFT"),
+    ("GOOGL", "Alphabet · GOOGL"),
+    ("AMZN", "Amazon · AMZN"),
+    ("META", "Meta · META"),
+    ("AMD", "AMD · AMD"),
+    ("INTC", "Intel · INTC"),
+    ("005930.KS", "삼성전자 · 005930.KS"),
+    ("000660.KS", "SK하이닉스 · 000660.KS"),
+    ("373220.KQ", "LG에너지솔루션 · 373220.KQ"),
+    (TICKER_CUSTOM, "직접 입력…"),
+]
+TICKER_LABELS: dict[str, str] = dict(TICKER_PRESETS)
+TICKER_OPTIONS: list[str] = [sym for sym, _ in TICKER_PRESETS]
 
 
 @dataclass(frozen=True, slots=True)
 class SidebarConfig:
-    """User-selected simulation settings from the Streamlit sidebar."""
+    """Per-run inputs: ticker + run flag; 나머지는 모듈 상수 FIXED_*."""
 
     ticker: str
     n_paths: int
@@ -132,16 +147,23 @@ class DashboardResult:
     fan_fig: go.Figure | None
 
 
-def _apply_recommended_sidebar() -> None:
-    for k, v in SB_RECOMMENDED.items():
-        st.session_state[k] = v
-
-
-def _sb_rec_line(text: str) -> None:
-    st.markdown(
-        f'<p class="sb-rec-caption">추천: {text}</p>',
-        unsafe_allow_html=True,
+def _fixed_engine_config(ticker: str, run: bool) -> SidebarConfig:
+    return SidebarConfig(
+        ticker=ticker.strip().upper(),
+        n_paths=FIXED_N_PATHS,
+        years=FIXED_HORIZON_YEARS,
+        manual_s0=FIXED_MANUAL_S0,
+        manual_mu=FIXED_MANUAL_MU,
+        manual_sigma=FIXED_MANUAL_SIGMA,
+        fan_paths=FIXED_FAN_PATHS,
+        n_steps=FIXED_N_STEPS,
+        n_threads=FIXED_N_THREADS,
+        jump_lambda=FIXED_JUMP_LAMBDA,
+        jump_mu=FIXED_JUMP_MU,
+        jump_sigma=FIXED_JUMP_SIGMA,
+        run=run,
     )
+
 
 # ---------------------------------------------------------------------------
 # Typography — Pretendard + mono for figures
@@ -1762,11 +1784,9 @@ def _mc(label, value, delta="", lg=False, large=False, vc: str | None = None):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def _render_sidebar() -> SidebarConfig:
-    """Render advanced settings and return a typed simulation config."""
+def _render_sidebar() -> str:
+    """사이드바: 브랜드 + 종목 preset selectbox. 반환값은 심볼 또는 TICKER_CUSTOM."""
 
-    ticker = str(st.session_state.get("sq_ticker_symbol", "TSLA")).strip().upper()
-    run = False
     with st.sidebar:
         st.markdown(
             '<div class="brand-bar">'
@@ -1776,144 +1796,23 @@ def _render_sidebar() -> SidebarConfig:
             '</div>',
             unsafe_allow_html=True,
         )
-
-        n_paths = st.select_slider(
-            "Monte Carlo Paths (시뮬레이션 횟수)",
-            options=[100_000, 500_000, 1_000_000, 5_000_000, 10_000_000],
-            value=1_000_000,
-            format_func=lambda x: f"{x:,}",
-            key="sq_n_paths",
-        )
-        _sb_rec_line("1,000,000")
-
-        years = st.slider(
-            "Horizon (예측 기간, years)",
-            0.25,
-            3.0,
-            1.0,
-            0.25,
-            format="%.2f yr",
-            key="sq_horizon_years",
-        )
-        _sb_rec_line("1.00 yr")
-
         st.markdown(
-            '<div class="sb-section-hd">Fan Chart — 경로 샘플</div>',
+            '<div class="sb-section-hd">종목</div>',
             unsafe_allow_html=True,
         )
-        fan_paths = st.slider(
-            "Fan Chart Paths (경로 수)",
-            1000,
-            20000,
-            8000,
-            1000,
-            help="팬 차트·분위수 밴드에 사용하는 경로 개수입니다. (대규모 시뮬 경로 수와 별도)",
-            key="sq_fan_paths",
+        preset = st.selectbox(
+            "종목 선택",
+            options=TICKER_OPTIONS,
+            format_func=lambda s: TICKER_LABELS[s],
+            index=0,
+            key="sq_ticker_preset",
+            help="직접 입력… 을 고르면 본문에서 티커를 입력합니다.",
         )
-        _sb_rec_line("8,000")
-        n_steps = st.slider(
-            "Time Steps (시간 스텝)",
-            52,
-            504,
-            252,
-            26,
-            help="경로를 나누는 시간 스텝 수 (거래일 스케일).",
-            key="sq_fan_steps",
+
+        st.caption(
+            f"시뮬 고정값: {FIXED_N_PATHS:,} paths · {FIXED_HORIZON_YEARS:g}y · "
+            f"fan {FIXED_FAN_PATHS:,} · steps {FIXED_N_STEPS}"
         )
-        _sb_rec_line("252")
-
-        with st.expander("고급 설정", expanded=False):
-            st.button(
-                "추천 설정으로 초기화",
-                use_container_width=True,
-                type="secondary",
-                key="sq_sidebar_recommend_reset",
-                on_click=_apply_recommended_sidebar,
-                help="시뮬 1M · Horizon 1y · Fan 8k · Steps 252 · λ=4 등 추천값으로 맞춥니다.",
-            )
-            st.markdown(
-                '<div class="sb-section-hd">Manual Fallback — 데이터 실패 시 사용</div>',
-                unsafe_allow_html=True,
-            )
-            manual_s0 = st.number_input(
-                "Manual S0 (현재가 fallback)",
-                min_value=0.01,
-                max_value=1_000_000.0,
-                value=250.0,
-                step=1.0,
-                format="%.2f",
-                help="yfinance 조회 실패 또는 잘못된 티커 입력 시 사용할 현재가입니다.",
-                key="sq_manual_s0",
-            )
-            manual_mu = st.number_input(
-                "Manual μ (연 기대수익률 fallback)",
-                min_value=-2.0,
-                max_value=2.0,
-                value=0.10,
-                step=0.01,
-                format="%.4f",
-                help="fallback 시 C++ 엔진에 전달할 연율 drift입니다.",
-                key="sq_manual_mu",
-            )
-            manual_sigma = st.number_input(
-                "Manual σ (연 변동성 fallback)",
-                min_value=0.0,
-                max_value=5.0,
-                value=0.40,
-                step=0.01,
-                format="%.4f",
-                help="fallback 시 C++ 엔진에 전달할 연율 변동성입니다.",
-                key="sq_manual_sigma",
-            )
-            _sb_rec_line("S0 250 · μ 0.10 · σ 0.40")
-
-            st.markdown(
-                '<div class="sb-section-hd">Engine</div>',
-                unsafe_allow_html=True,
-            )
-            n_threads = st.slider(
-                "C++ Threads (스레드 수)",
-                0,
-                32,
-                0,
-                help="0이면 사용 가능한 코어 수에 맞춥니다.",
-                key="sq_cpp_threads",
-            )
-            _sb_rec_line("0 (auto)")
-            st.markdown(
-                '<div class="sb-section-hd">Jump Diffusion — Merton</div>',
-                unsafe_allow_html=True,
-            )
-            j_lambda = st.slider(
-                "λ Jump Intensity (점프 강도)",
-                0.0,
-                15.0,
-                4.0,
-                0.01,
-                format="%.3f",
-                key="sq_jump_lambda",
-            )
-            _sb_rec_line("4.0 (연 4회 급락 이벤트 가정)")
-            j_mu = st.slider(
-                "μ_J Jump Mean (점프 평균)",
-                -0.35,
-                0.35,
-                -0.08,
-                0.005,
-                format="%.4f",
-                key="sq_jump_mu",
-            )
-            _sb_rec_line("-0.08 (평균 -8% 점프)")
-            j_sigma = st.slider(
-                "σ_J Jump Std (점프 변동성)",
-                0.0,
-                1.0,
-                0.18,
-                0.005,
-                format="%.4f",
-                key="sq_jump_sigma",
-            )
-            _sb_rec_line("0.18")
 
         st.markdown(
             '<div class="sb-foot">'
@@ -1929,56 +1828,49 @@ def _render_sidebar() -> SidebarConfig:
                 f"μ̂_J={ej.mu_jump:.4f}, σ̂_J={ej.sigma_jump:.4f}"
             )
 
-    return SidebarConfig(
-        ticker=ticker,
-        n_paths=int(n_paths),
-        years=float(years),
-        manual_s0=float(manual_s0),
-        manual_mu=float(manual_mu),
-        manual_sigma=float(manual_sigma),
-        fan_paths=int(fan_paths),
-        n_steps=int(n_steps),
-        n_threads=int(n_threads),
-        jump_lambda=float(j_lambda),
-        jump_mu=float(j_mu),
-        jump_sigma=float(j_sigma),
-        run=bool(run),
-    )
+    return str(preset)
 
 
-def _render_top_controls(config: SidebarConfig) -> SidebarConfig:
-    """Render the main-page ticker input and primary action."""
+def _render_top_controls(preset: str) -> SidebarConfig:
+    """본문: 히어로 + (직접 입력 시) 티커 입력 + 시뮬레이션 버튼."""
 
     st.markdown(
         '<div class="top-shell">'
         '<p class="top-kicker">C++23 Monte Carlo Risk Engine</p>'
         '<h1 class="top-title">투자 위험을 한눈에 확인하세요</h1>'
         '<p class="top-sub">'
-        '종목코드만 입력하면 최근 1년 yfinance 데이터로 현재가와 변동성을 자동 반영합니다. '
-        '상세 차트와 수학 모델은 결과 아래에서 필요할 때만 펼쳐볼 수 있습니다.'
+        '왼쪽 사이드바에서 종목을 고른 뒤 시뮬레이션을 시작하세요. '
+        '최근 1년 yfinance 데이터로 현재가와 변동성을 반영합니다. '
+        '상세 차트와 수학 모델은 결과 아래에서 펼칠 수 있습니다.'
         '</p>'
         '</div>',
         unsafe_allow_html=True,
     )
-    c1, c2 = st.columns([3, 1], gap="large")
-    with c1:
+
+    if preset == TICKER_CUSTOM:
         ticker = st.text_input(
-            "종목코드",
-            value=config.ticker or "TSLA",
+            "종목코드 (Yahoo Finance)",
+            value=str(st.session_state.get("sq_ticker_custom", "")),
             max_chars=20,
-            placeholder="AAPL, TSLA, 005930.KS",
-            key="sq_ticker_symbol",
-            help="Yahoo Finance 티커를 입력하세요. 실패 시 사이드바 fallback 값을 사용합니다.",
+            placeholder="예: COIN, 035420.KS",
+            key="sq_ticker_custom",
+            help="사이드바에서 「직접 입력…」을 선택한 경우에만 사용됩니다.",
         ).strip().upper()
-    with c2:
-        st.write("")
-        run = st.button(
-            "시뮬레이션 시작",
-            use_container_width=True,
-            type="primary",
-            key="sq_run_simulation",
+    else:
+        ticker = str(preset).strip().upper()
+        st.markdown(
+            f'<p style="color:{MUTED};font-size:0.9rem;margin:0 0 16px 0;">'
+            f'선택 종목: <b style="color:{TEXT}">{ticker}</b></p>',
+            unsafe_allow_html=True,
         )
-    return replace(config, ticker=ticker, run=bool(run))
+
+    run = st.button(
+        "시뮬레이션 시작",
+        use_container_width=True,
+        type="primary",
+        key="sq_run_simulation",
+    )
+    return _fixed_engine_config(ticker, bool(run))
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -2403,8 +2295,8 @@ def _render_dashboard_result(result: DashboardResult) -> None:
 
 def main():
     st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
-    config = _render_sidebar()
-    config = _render_top_controls(config)
+    preset = _render_sidebar()
+    config = _render_top_controls(preset)
 
     if not config.run and "metrics" not in st.session_state:
         _render_landing()
