@@ -357,7 +357,8 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   letter-spacing: -0.01em;
 }}
 
-#MainMenu, footer, header {{ visibility: hidden; }}
+/* 메인 메뉴·푸터만 숨김. `header` 전체를 숨기면 상단의 사이드바(≡) 버튼도 사라짐 */
+#MainMenu, footer {{ visibility: hidden !important; }}
 .block-container {{
   padding-top: 1rem !important;
   padding-bottom: 0.5rem !important;
