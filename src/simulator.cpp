@@ -37,7 +37,7 @@ void dispatch_threads(std::size_t n_items, std::size_t n_threads, Fn&& fn) {
 }
 
 // Sum of Nj independent log-normal jump increments J_i ~ N(mu_j, sigma_j^2).
-inline double jump_log_increment(std::mt19937& rng,
+inline double jump_log_increment(std::mt19937_64& rng,
                                  std::poisson_distribution<int>& poisson,
                                  std::normal_distribution<double>& normal,
                                  double lambda_dt, double mu_j, double sigma_j) {
@@ -63,7 +63,7 @@ struct TerminalWorker {
     std::uint64_t seed;
 
     void operator()(std::size_t lo, std::size_t hi, std::size_t tid) const {
-        std::mt19937 rng(static_cast<std::mt19937::result_type>(seed + tid * 7919ULL));
+        std::mt19937_64 rng(seed + static_cast<std::uint64_t>(tid) * 7919ULL);
         std::normal_distribution<double> normal(0.0, 1.0);
         std::poisson_distribution<int> poisson(lambda_t > 0.0 ? lambda_t : 0.0);
 
@@ -100,7 +100,7 @@ struct PathMatrixWorker {
     std::uint64_t seed;
 
     void operator()(std::size_t lo, std::size_t hi, std::size_t tid) const {
-        std::mt19937 rng(static_cast<std::mt19937::result_type>(seed + tid * 7919ULL));
+        std::mt19937_64 rng(seed + static_cast<std::uint64_t>(tid) * 7919ULL);
         std::normal_distribution<double> normal(0.0, 1.0);
         std::poisson_distribution<int> poisson(lambda_dt > 0.0 ? lambda_dt : 0.0);
 
@@ -181,7 +181,7 @@ py::array_t<double> py_simulate_path_matrix(std::size_t n_paths, std::size_t n_s
 
 PYBIND11_MODULE(gbm_simulator, m) {
     m.doc() = "GBM / Merton jump-diffusion Monte Carlo — multi-threaded C++23 / pybind11 "
-              "(antithetic variates on diffusion; Poisson jump counts per thread)";
+              "(per-thread std::mt19937_64, no shared RNG; antithetic diffusion; Poisson jumps)";
 
     m.def("simulate_gbm_paths", &py_simulate_terminal,
           py::arg("n_paths"), py::arg("s0"), py::arg("mu"), py::arg("sigma"), py::arg("t"),
