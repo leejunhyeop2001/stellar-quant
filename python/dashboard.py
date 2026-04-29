@@ -45,7 +45,9 @@ BORDER = "rgba(255,255,255,0.04)"
 TEXT = "#F4F5F7"
 MUTED = "#8B93A1"
 SUBTLE = "#5C6573"
-ACCENT = "#3182F6"        # Toss blue
+ACCENT = "#0064FF"        # Toss 브랜드 블루 (슬라이더·강조)
+ACCENT_SOFT = "rgba(0,100,255,0.2)"
+ACCENT_GLOW = "rgba(0,100,255,0.14)"
 CYAN = "#38bdf8"
 TEAL = "#22c55e"
 PINK = "#a78bfa"
@@ -53,16 +55,43 @@ ORANGE = "#FF9500"
 RED = "#FF4D4F"
 GREEN = "#1ABC72"
 
+# 사이드바 「추천 설정」 전문가 기본값 (고급 설정 초기화 버튼과 동일)
+SB_RECOMMENDED: dict[str, int | float] = {
+    "sq_n_paths": 1_000_000,
+    "sq_horizon_years": 1.0,
+    "sq_fan_paths": 8_000,
+    "sq_fan_steps": 252,
+    "sq_cpp_threads": 0,
+    "sq_jump_lambda": 12.0,
+    "sq_jump_mu": 0.0,
+    "sq_jump_sigma": 0.05,
+}
+
+
+def _apply_recommended_sidebar() -> None:
+    for k, v in SB_RECOMMENDED.items():
+        st.session_state[k] = v
+
+
+def _sb_rec_line(text: str) -> None:
+    st.markdown(
+        f'<p class="sb-rec-caption">추천: {text}</p>',
+        unsafe_allow_html=True,
+    )
+
 # ---------------------------------------------------------------------------
 # Typography — Pretendard + mono for figures
 # ---------------------------------------------------------------------------
 GLOBAL_CSS = f"""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 :root {{
-  --sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+  --sans: 'Pretendard Variable', Pretendard, 'Inter', -apple-system, BlinkMacSystemFont,
           'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --sans-ui: 'Inter', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
+  --toss-blue: #0064FF;
   --mono: 'SF Mono', 'Consolas', 'JetBrains Mono', ui-monospace, monospace;
 }}
 
@@ -111,9 +140,10 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
 [data-testid="stSidebar"] {{
   background: {BG} !important;
   border-right: 1px solid {BORDER} !important;
-  padding: 4px 4px 16px 4px !important;
+  padding: 8px 12px 20px 12px !important;
+  font-family: var(--sans-ui) !important;
 }}
-[data-testid="stSidebar"] * {{ font-family: var(--sans) !important; }}
+[data-testid="stSidebar"] * {{ font-family: inherit !important; }}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {{
   border: none !important;
   background: none !important;
@@ -123,56 +153,120 @@ section[data-testid="stSidebar"] > div [data-testid="stVerticalBlock"] {{
 }}
 
 section[data-testid="stSidebar"] .stTextInput > div > div {{
-  background: {CARD} !important;
-  border: 1px solid {BORDER} !important;
-  border-radius: 14px !important;
-  padding: 4px 6px !important;
+  background-color: #1c1c1e !important;
+  border: none !important;
+  border-radius: 24px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 20px !important;
+  overflow: hidden !important;
 }}
 section[data-testid="stSidebar"] .stTextInput input {{
   font-size: 0.9375rem !important;
+  font-weight: 500 !important;
   padding: 10px 12px !important;
 }}
 section[data-testid="stSidebar"] .stTextInput > div > div:focus-within {{
-  border-color: rgba(49,130,246,0.55) !important;
-  box-shadow: 0 0 0 3px rgba(49,130,246,0.12) !important;
+  box-shadow: 0 0 0 3px {ACCENT_GLOW} !important;
 }}
 
-/* 사이드바 위젯 라벨 — 슬라이더·입력 이름 명확히 표시 */
+/* 사이드바 위젯 라벨 — 위계: 제목 굵게 */
 section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
-  display: block !important;
-  font-size: 0.75rem !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  font-size: 0.8125rem !important;
   font-weight: 600 !important;
-  color: {MUTED} !important;
-  letter-spacing: 0.02em !important;
-  text-transform: uppercase !important;
-  margin: 0 0 10px 2px !important;
+  color: {TEXT} !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+  margin: 0 0 14px 2px !important;
   padding: 0 !important;
-  line-height: 1.35 !important;
+  line-height: 1.45 !important;
+}}
+/* (?) 도움말 아이콘과 텍스트 간격 */
+section[data-testid="stSidebar"] [data-testid="stWidgetHelp"] {{
+  margin-left: 2px !important;
+  margin-top: 1px !important;
 }}
 section[data-testid="stSidebar"] [data-baseweb="slider"],
 section[data-testid="stSidebar"] [data-testid="stSlider"] {{
-  margin-bottom: 6px !important;
+  margin-top: 4px !important;
+  margin-bottom: 2px !important;
 }}
 section[data-testid="stSidebar"] .stSelectSlider [data-baseweb="slider"] {{
-  margin-top: 0 !important;
+  margin-top: 4px !important;
 }}
 
-[data-testid="stExpander"] {{
-  background: #1C1C1E !important;
-  border: 1px solid #2C2C2E !important;
+section[data-testid="stSidebar"] [data-testid="stCaption"] {{
+  font-family: var(--sans-ui) !important;
+  font-size: 0.6875rem !important;
+  font-weight: 400 !important;
+  color: {SUBTLE} !important;
+}}
+
+/* Select slider 행 (기본 설정) — 카드 톤 */
+section[data-testid="stSidebar"] .stSelectSlider {{
+  padding: 18px 22px 10px 22px !important;
+  margin-bottom: 4px !important;
+  background-color: #1c1c1e !important;
+  border: none !important;
   border-radius: 24px !important;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
-  margin-top: 20px !important;
+  overflow: hidden !important;
+}}
+section[data-testid="stSidebar"] .stSlider {{
+  padding: 18px 22px 8px 22px !important;
+  margin-bottom: 4px !important;
+  background-color: #1c1c1e !important;
+  border: none !important;
+  border-radius: 24px !important;
+  overflow: hidden !important;
+}}
+.sb-rec-caption {{
+  font-family: var(--sans-ui) !important;
+  font-size: 0.6875rem !important;
+  font-weight: 400 !important;
+  color: {SUBTLE} !important;
+  line-height: 1.45 !important;
+  margin: 2px 0 0 2px !important;
+  padding: 0 !important;
+  letter-spacing: -0.01em !important;
+}}
+
+/* 고급 설정 — 추천 초기화 보조 버튼 */
+section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"] {{
+  border-radius: 14px !important;
+  font-weight: 600 !important;
+  font-family: var(--sans-ui) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  background: rgba(255,255,255,0.05) !important;
+  color: {TEXT} !important;
+  padding: 12px 16px !important;
   margin-bottom: 8px !important;
   overflow: hidden !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"]:hover {{
+  border-color: rgba(0,100,255,0.4) !important;
+  background: rgba(0,100,255,0.1) !important;
+}}
+[data-testid="stExpander"] {{
+  background-color: #1c1c1e !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 24px !important;
+  margin-top: 0 !important;
+  margin-bottom: 20px !important;
+  overflow: hidden !important;
+}}
+section[data-testid="stSidebar"] [data-testid="stExpander"] {{
+  background-color: #1c1c1e !important;
 }}
 [data-testid="stExpander"] details {{ background: transparent !important; }}
 [data-testid="stExpander"] .stElementContainer,
 [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
-  padding-left: 12px !important;
-  padding-right: 12px !important;
-  padding-bottom: 20px !important;
-  gap: 1.1rem !important;
+  padding: 30px !important;
+  padding-top: 12px !important;
+  gap: 1.25rem !important;
 }}
 [data-testid="stExpander"] summary {{
   list-style: none !important;
@@ -181,10 +275,11 @@ section[data-testid="stSidebar"] .stSelectSlider [data-baseweb="slider"] {{
   flex-direction: row !important;
   align-items: center !important;
   gap: 0 !important;
-  min-height: 2.5rem !important;
-  padding: 16px 20px !important;
+  min-height: 2.75rem !important;
+  padding: 22px 30px !important;
   font-size: 0.9375rem !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
+  font-family: var(--sans-ui) !important;
   color: {TEXT} !important;
   cursor: pointer !important;
 }}
@@ -222,15 +317,16 @@ section[data-testid="stSidebar"] .stSelectSlider [data-baseweb="slider"] {{
   text-transform: uppercase;
 }}
 .sb-section-hd {{
+  font-family: var(--sans-ui) !important;
   font-size: 0.6875rem;
   font-weight: 700;
-  color: {ACCENT};
+  color: #0064FF;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 20px 4px 10px 4px;
+  padding: 16px 4px 6px 4px;
   margin: 0;
   border-top: 1px solid {BORDER};
-  margin-top: 8px;
+  margin-top: 4px;
 }}
 
 .brand-bar {{
@@ -238,10 +334,11 @@ section[data-testid="stSidebar"] .stSelectSlider [data-baseweb="slider"] {{
   align-items: baseline;
   flex-wrap: wrap;
   gap: 8px 10px;
-  padding: 8px 4px 20px 4px;
-  margin-bottom: 4px;
+  padding: 12px 4px 20px 4px;
+  margin-bottom: 8px;
 }}
 .brand-title {{
+  font-family: var(--sans-ui) !important;
   font-size: 1.125rem;
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -249,25 +346,29 @@ section[data-testid="stSidebar"] .stSelectSlider [data-baseweb="slider"] {{
 }}
 .brand-sep {{ color: {SUBTLE}; font-weight: 400; }}
 .brand-author {{
-  font-size: 0.875rem;
+  font-family: var(--sans-ui) !important;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: {MUTED};
 }}
 
 section[data-testid="stSidebar"] button[kind="primary"] {{
-  background: {ACCENT} !important;
+  background: #0064FF !important;
   border: none !important;
   color: #fff !important;
   font-weight: 700 !important;
-  border-radius: 14px !important;
+  font-family: var(--sans-ui) !important;
+  border-radius: 16px !important;
   padding: 14px !important;
   font-size: 0.9375rem !important;
   letter-spacing: -0.01em !important;
   height: 52px !important;
+  margin-bottom: 20px !important;
+  overflow: hidden !important;
   transition: transform 0.08s ease, background 0.15s ease !important;
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:hover {{
-  background: #1d6ce0 !important;
+  background: #0052CC !important;
   transform: translateY(-1px);
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:active {{
@@ -275,11 +376,13 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 }}
 
 .sb-foot {{
-  margin-top: 18px;
-  padding: 14px 4px 0 4px;
+  font-family: var(--sans-ui) !important;
+  margin-top: 8px;
+  padding: 18px 8px 8px 8px;
   font-size: 0.6875rem;
+  font-weight: 400;
   color: {SUBTLE};
-  line-height: 1.6;
+  line-height: 1.65;
   border-top: 1px solid {BORDER};
 }}
 
@@ -649,23 +752,22 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   padding: 0 !important;
 }}
 
-/* ── 슬라이더 — Toss Blue 단색 통일 ── */
-/* 썸 (드래그 핸들) */
+/* ── 슬라이더 — Toss 브랜드 블루 #0064FF (레드/기본색 무력화) ── */
 [data-baseweb="slider"] [role="slider"] {{
-  background: {ACCENT} !important;
-  border: 3px solid {ACCENT} !important;
-  box-shadow: 0 0 0 4px rgba(49,130,246,0.18), 0 2px 8px rgba(49,130,246,0.35) !important;
+  background: #0064FF !important;
+  border: 3px solid #0064FF !important;
+  box-shadow: 0 0 0 4px rgba(0,100,255,0.2), 0 2px 10px rgba(0,100,255,0.35) !important;
   width: 18px !important;
   height: 18px !important;
 }}
-/* 채워진 트랙 (활성 구간) */
 [data-baseweb="slider"] [data-testid="stSliderThumb"],
-[data-baseweb="slider"] div[class*="Track"]:first-of-type {{
-  background: {ACCENT} !important;
+[data-baseweb="slider"] div[class*="Track"]:first-of-type,
+[data-baseweb="slider"] div[class*="InnerTrack"],
+[data-baseweb="slider"] [class*="InnerTrack"] {{
+  background: #0064FF !important;
 }}
-/* 전체 트랙 배경 */
 [data-baseweb="slider"] div[class*="Track"] {{
-  background: rgba(255,255,255,0.08) !important;
+  background: rgba(255,255,255,0.09) !important;
   height: 4px !important;
   border-radius: 999px !important;
 }}
@@ -1173,6 +1275,7 @@ def main():
             placeholder="AAPL, TSLA, 005930.KS …",
             key="sq_ticker_symbol",
         ).strip().upper()
+        _sb_rec_line("대표 종목 예: TSLA, AAPL, 005930.KS")
 
         n_paths = st.select_slider(
             "Monte Carlo Paths (시뮬레이션 횟수)",
@@ -1181,6 +1284,8 @@ def main():
             format_func=lambda x: f"{x:,}",
             key="sq_n_paths",
         )
+        _sb_rec_line("1,000,000")
+
         years = st.slider(
             "Horizon (예측 기간, years)",
             0.25,
@@ -1190,8 +1295,17 @@ def main():
             format="%.2f yr",
             key="sq_horizon_years",
         )
+        _sb_rec_line("1.00 yr")
 
         with st.expander("고급 설정", expanded=False):
+            st.button(
+                "추천 설정으로 초기화",
+                use_container_width=True,
+                type="secondary",
+                key="sq_sidebar_recommend_reset",
+                on_click=_apply_recommended_sidebar,
+                help="시뮬 1M · Steps 252 · λ=12 등 전문가 기본값으로 맞춥니다.",
+            )
             fan_paths = st.slider(
                 "Fan Chart Paths (경로 수)",
                 1000,
@@ -1201,6 +1315,7 @@ def main():
                 help="Fan chart에 그리는 개별 경로 수입니다.",
                 key="sq_fan_paths",
             )
+            _sb_rec_line("8,000")
             n_steps = st.slider(
                 "Time Steps (시간 스텝)",
                 52,
@@ -1210,6 +1325,7 @@ def main():
                 help="경로를 나누는 시간 스텝 수 (거래일 스케일).",
                 key="sq_fan_steps",
             )
+            _sb_rec_line("252")
             n_threads = st.slider(
                 "C++ Threads (스레드 수)",
                 0,
@@ -1218,6 +1334,7 @@ def main():
                 help="0이면 사용 가능한 코어 수에 맞춥니다.",
                 key="sq_cpp_threads",
             )
+            _sb_rec_line("0 (auto)")
             st.markdown(
                 '<div class="sb-section-hd">Jump Diffusion — Merton</div>',
                 unsafe_allow_html=True,
@@ -1231,6 +1348,7 @@ def main():
                 format="%.3f",
                 key="sq_jump_lambda",
             )
+            _sb_rec_line("12.0")
             j_mu = st.slider(
                 "μ_J Jump Mean (점프 평균)",
                 -0.35,
@@ -1240,6 +1358,7 @@ def main():
                 format="%.4f",
                 key="sq_jump_mu",
             )
+            _sb_rec_line("0")
             j_sigma = st.slider(
                 "σ_J Jump Std (점프 변동성)",
                 0.0,
@@ -1249,8 +1368,8 @@ def main():
                 format="%.4f",
                 key="sq_jump_sigma",
             )
+            _sb_rec_line("0.05")
 
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
         run = st.button(
             "Run Simulation",
             use_container_width=True,
