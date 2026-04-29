@@ -1,6 +1,7 @@
 """Stellar-Quant — Interactive Streamlit Dashboard (Cosmic Edition)."""
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
 import time
 
 import numpy as np
@@ -9,9 +10,11 @@ import streamlit as st
 
 from data_utils import (
     GbmParams,
+    JumpParams,
     YahooFinanceFetchError,
     compute_risk_metrics,
     currency_symbol,
+    detect_currency,
     estimate_gbm_params,
     estimate_jump_params,
     fetch_prices,
@@ -51,14 +54,17 @@ ACCENT_GLOW = "rgba(0,100,255,0.14)"
 CYAN = "#38bdf8"
 TEAL = "#22c55e"
 PINK = "#a78bfa"
-ORANGE = "#FF9500"
-RED = "#FF4D4F"
-GREEN = "#1ABC72"
+ORANGE = MUTED
+RED = "#FF4B4B"
+GREEN = ACCENT
 
 # 사이드바 「추천 설정」 전문가 기본값 (고급 설정 초기화 버튼과 동일)
 SB_RECOMMENDED: dict[str, int | float] = {
     "sq_n_paths": 1_000_000,
     "sq_horizon_years": 1.0,
+    "sq_manual_s0": 250.0,
+    "sq_manual_mu": 0.10,
+    "sq_manual_sigma": 0.40,
     "sq_fan_paths": 8_000,
     "sq_fan_steps": 252,
     "sq_cpp_threads": 0,
@@ -66,6 +72,64 @@ SB_RECOMMENDED: dict[str, int | float] = {
     "sq_jump_mu": 0.0,
     "sq_jump_sigma": 0.05,
 }
+
+
+@dataclass(frozen=True, slots=True)
+class SidebarConfig:
+    """User-selected simulation settings from the Streamlit sidebar."""
+
+    ticker: str
+    n_paths: int
+    years: float
+    manual_s0: float
+    manual_mu: float
+    manual_sigma: float
+    fan_paths: int
+    n_steps: int
+    n_threads: int
+    jump_lambda: float
+    jump_mu: float
+    jump_sigma: float
+    run: bool
+
+
+@dataclass(frozen=True, slots=True)
+class MarketData:
+    """Yahoo Finance data transformed into model-ready parameters."""
+
+    params: GbmParams
+    jump: JumpParams
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
+class EngineOutput:
+    """Raw arrays returned by the C++ Monte Carlo engine."""
+
+    terminal: np.ndarray
+    path_matrix: np.ndarray
+    elapsed: float
+
+
+@dataclass(frozen=True, slots=True)
+class DashboardResult:
+    """Complete render-ready simulation result."""
+
+    ticker: str
+    params: GbmParams
+    terminal: np.ndarray
+    path_matrix: np.ndarray
+    metrics: dict[str, float]
+    elapsed: float
+    n_paths: int
+    years: float
+    n_steps: int
+    n_threads: int
+    jump_lambda: float
+    jump_mu: float
+    jump_sigma: float
+    hist_fig: go.Figure | None
+    fan_fig: go.Figure | None
 
 
 def _apply_recommended_sidebar() -> None:
@@ -448,6 +512,143 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   overflow: hidden !important;
 }}
 
+.top-shell {{
+  margin: 8px 0 42px 0;
+  padding: 34px 36px;
+  border-radius: 28px;
+  background: #101012 !important;
+  box-shadow: var(--shadow-card);
+  overflow: hidden !important;
+}}
+.top-kicker {{
+  color: {MUTED};
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px 0;
+}}
+.top-title {{
+  color: {TEXT};
+  font-size: clamp(2.1rem, 4vw, 3.4rem);
+  font-weight: 850;
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+  margin: 0 0 12px 0;
+}}
+.top-sub {{
+  color: {MUTED};
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 760px;
+}}
+.risk-hero {{
+  margin: 0 0 48px 0;
+  padding: 34px 36px;
+  border-radius: 30px;
+  background: #101012 !important;
+  box-shadow: var(--shadow-card);
+  overflow: hidden !important;
+}}
+.risk-hero-head {{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 28px;
+}}
+.risk-label {{
+  color: {MUTED};
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}}
+.risk-title {{
+  color: {TEXT};
+  font-size: clamp(1.85rem, 3vw, 2.7rem);
+  font-weight: 850;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+}}
+.risk-pill {{
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  white-space: nowrap;
+}}
+.risk-pill-blue {{ color: {ACCENT}; background: rgba(0,100,255,0.13); }}
+.risk-pill-red {{ color: {RED}; background: rgba(255,75,75,0.13); }}
+.risk-grid {{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}}
+.risk-item {{
+  padding: 22px 20px;
+  border-radius: 22px;
+  background: #16161A !important;
+}}
+.risk-item-label {{
+  color: {MUTED};
+  font-size: 0.72rem;
+  font-weight: 650;
+  margin-bottom: 10px;
+}}
+.risk-item-value {{
+  color: {TEXT};
+  font-size: 1.42rem;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}}
+.risk-blue {{ color: {ACCENT} !important; }}
+.risk-red {{ color: {RED} !important; }}
+.sq-loading {{
+  margin: 24px 0 40px 0;
+  padding: 22px 26px;
+  border-radius: 22px;
+  background: #101012 !important;
+  box-shadow: var(--shadow-card);
+  color: {TEXT};
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}}
+.sq-loading span {{
+  color: {MUTED};
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-top: 8px;
+}}
+button[kind="primary"] {{
+  background: {ACCENT} !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  border-radius: 18px !important;
+  min-height: 52px !important;
+  box-shadow: 0 8px 28px rgba(0,100,255,0.32) !important;
+}}
+button[kind="primary"]:hover {{
+  background: #0052CC !important;
+  box-shadow: 0 10px 34px rgba(0,100,255,0.42) !important;
+}}
+@media (max-width: 900px) {{
+  .risk-hero-head {{ flex-direction: column; }}
+  .risk-grid {{ grid-template-columns: 1fr 1fr; }}
+}}
+@media (max-width: 640px) {{
+  .risk-grid {{ grid-template-columns: 1fr; }}
+  .top-shell, .risk-hero {{ padding: 26px 22px; }}
+}}
+
 .mc {{
   background: #101012 !important;
   background-clip: padding-box !important;
@@ -502,16 +703,16 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   width: fit-content;
   opacity: 0.5;
 }}
-.d-pos {{ color: {GREEN}; background: rgba(26,188,114,0.14); opacity: 1; }}
-.d-neg {{ color: {RED};   background: rgba(255,77,79,0.14); opacity: 1; }}
+.d-pos {{ color: {ACCENT}; background: rgba(0,100,255,0.14); opacity: 1; }}
+.d-neg {{ color: {RED};   background: rgba(255,75,75,0.14); opacity: 1; }}
 
 .stitle {{
-  font-size: 0.97rem;
+  font-size: 1.08rem;
   font-weight: 700;
   color: {TEXT};
   letter-spacing: -0.02em;
-  margin: 0 0 18px 2px !important;
-  padding: 0.25rem 0 0 0;
+  margin: 16px 0 24px 2px !important;
+  padding: 0.4rem 0 0 0;
   border: none !important;
 }}
 .stitle-sub {{
@@ -917,7 +1118,7 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
 .block-container [data-testid="stPlotlyChart"],
 .block-container .math-panel,
 .block-container .sq-math-start ~ [data-testid="stHorizontalBlock"] {{
-  margin-bottom: 32px !important;
+  margin-bottom: 44px !important;
 }}
 
 .block-container [data-testid="element-container"],
@@ -995,7 +1196,7 @@ def _dhtml(pct: float) -> str:
 def _outlook(up: float) -> tuple[str, str]:
     if up >= 70: return "Bullish (강세)", GREEN
     if up >= 50: return "Moderately Bullish (약간 강세)", GREEN
-    if up >= 30: return "Moderately Bearish (약간 약세)", ORANGE
+    if up >= 30: return "Moderately Bearish (약간 약세)", RED
     return "Bearish (약세)", RED
 
 
@@ -1080,7 +1281,7 @@ def build_hist(terminal, s0, m, cur, ticker):
     fig = go.Figure()
     fig.add_trace(go.Histogram(
         x=cl, nbinsx=120, histnorm="probability density",
-        marker=dict(color="rgba(118,156,238,0.38)", line_width=0),
+        marker=dict(color="rgba(139,147,161,0.32)", line_width=0),
         opacity=0.82, name="분포 (Distribution)",
         hovertemplate=f"{sym}%{{x:{hf}}}<br>밀도: %{{y:.5f}}<extra></extra>",
     ))
@@ -1091,14 +1292,14 @@ def build_hist(terminal, s0, m, cur, ticker):
     pm = float(yp.max()) if len(yp) else 1.0
 
     fig.add_trace(go.Scatter(x=xp, y=yp, mode="lines",
-        line=dict(color="#d4a853", width=2.8, shape="spline", smoothing=1.2),
+        line=dict(color="#8B93A1", width=2.8, shape="spline", smoothing=1.2),
         name="PDF (확률밀도)", hoverinfo="skip"))
 
     for v, c, d, w, n in [
         (s0, "rgba(230,236,252,0.55)", "dash", 1.6, "현재가 (Current)"),
-        (m["p05"], "#e8a85c", "solid", 2.2, "VaR 5% (최대손실)"),
-        (m["p50"], "#c9a0e8", "solid", 2.0, "Median (중앙값)"),
-        (m["p95"], "#5ec9a8", "dash", 1.4, "95th (상한선)"),
+        (m["p05"], RED, "solid", 2.2, "VaR 5% (최대손실)"),
+        (m["p50"], MUTED, "solid", 2.0, "Median (중앙값)"),
+        (m["p95"], ACCENT, "dash", 1.4, "95th (상한선)"),
     ]:
         fig.add_trace(go.Scatter(x=[v,v], y=[0, pm*1.02], mode="lines",
             line=dict(color=c, width=w, dash=d),
@@ -1106,9 +1307,9 @@ def build_hist(terminal, s0, m, cur, ticker):
 
     fig.add_annotation(x=m["p05"], y=pm*0.88,
         text=f"<b>VaR 5%</b><br>{_fp(m['p05'],cur)}",
-        showarrow=True, arrowhead=2, arrowwidth=1.5, arrowcolor="#e8a85c",
-        ax=50, ay=-30, font=dict(color="#fcd34d", size=11, family="Pretendard Variable, sans-serif"),
-        bgcolor="rgba(14,18,28,0.92)", bordercolor="#c99a4a", borderwidth=1, borderpad=5)
+        showarrow=True, arrowhead=2, arrowwidth=1.5, arrowcolor=RED,
+        ax=50, ay=-30, font=dict(color=RED, size=11, family="Pretendard Variable, sans-serif"),
+        bgcolor="rgba(14,18,28,0.92)", bordercolor="rgba(255,75,75,0.45)", borderwidth=1, borderpad=5)
 
     fig.update_layout(**_LAY,
         title=dict(
@@ -1173,13 +1374,13 @@ def build_fan(pm, s0, yrs, cur, ticker):
         line_width=0, name="25%-75% (신뢰구간)", hoverinfo="skip"))
 
     fig.add_trace(go.Scatter(x=t, y=d50, mode="lines",
-        line=dict(color="#c9a0e8", width=3.0, shape="spline", smoothing=0.45), name="Median (중간값)",
+        line=dict(color=ACCENT, width=3.0, shape="spline", smoothing=0.45), name="Median (중간값)",
         hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
     fig.add_trace(go.Scatter(x=t, y=d05, mode="lines",
-        line=dict(color="#5ec9a8", width=1.35, dash="dot"), name="5% (하한)",
+        line=dict(color=RED, width=1.35, dash="dot"), name="5% (하한)",
         hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
     fig.add_trace(go.Scatter(x=t, y=d95, mode="lines",
-        line=dict(color="#7eb8da", width=1.35, dash="dot"), name="95% (상한)",
+        line=dict(color=ACCENT, width=1.35, dash="dot"), name="95% (상한)",
         hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
 
     fig.add_hline(y=s0, line_color="rgba(220,228,248,0.42)", line_dash="dash", line_width=1.35)
@@ -1213,7 +1414,7 @@ def build_fan(pm, s0, yrs, cur, ticker):
                    tickformat=hf, tickprefix=sym),
         height=CH)
 
-    for v, c in [(float(q50[-1]), "#c9a0e8"), (float(q05[-1]), "#5ec9a8"), (float(q95[-1]), "#7eb8da")]:
+    for v, c in [(float(q50[-1]), ACCENT), (float(q05[-1]), RED), (float(q95[-1]), ACCENT)]:
         fig.add_annotation(x=yrs, y=v, text=f" <b>{_fp(v,cur)}</b> ",
             showarrow=False, xanchor="left", font=dict(color=c, size=10.5),
             bgcolor="rgba(6,8,15,0.55)", borderpad=2)
@@ -1363,10 +1564,11 @@ def _mc(label, value, delta="", lg=False, large=False, vc: str | None = None):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main():
-    st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
+def _render_sidebar() -> SidebarConfig:
+    """Render advanced settings and return a typed simulation config."""
 
-    # ── Sidebar ───────────────────────────────────────────
+    ticker = str(st.session_state.get("sq_ticker_symbol", "TSLA")).strip().upper()
+    run = False
     with st.sidebar:
         st.markdown(
             '<div class="brand-bar">'
@@ -1376,15 +1578,6 @@ def main():
             '</div>',
             unsafe_allow_html=True,
         )
-
-        ticker = st.text_input(
-            "Ticker (종목코드)",
-            value="TSLA",
-            max_chars=20,
-            placeholder="AAPL, TSLA, 005930.KS …",
-            key="sq_ticker_symbol",
-        ).strip().upper()
-        _sb_rec_line("대표 종목 예: TSLA, AAPL, 005930.KS")
 
         n_paths = st.select_slider(
             "Monte Carlo Paths (시뮬레이션 횟수)",
@@ -1415,6 +1608,42 @@ def main():
                 on_click=_apply_recommended_sidebar,
                 help="시뮬 1M · Steps 252 · λ=12 등 전문가 기본값으로 맞춥니다.",
             )
+            st.markdown(
+                '<div class="sb-section-hd">Manual Fallback — 데이터 실패 시 사용</div>',
+                unsafe_allow_html=True,
+            )
+            manual_s0 = st.number_input(
+                "Manual S0 (현재가 fallback)",
+                min_value=0.01,
+                max_value=1_000_000.0,
+                value=250.0,
+                step=1.0,
+                format="%.2f",
+                help="yfinance 조회 실패 또는 잘못된 티커 입력 시 사용할 현재가입니다.",
+                key="sq_manual_s0",
+            )
+            manual_mu = st.number_input(
+                "Manual μ (연 기대수익률 fallback)",
+                min_value=-2.0,
+                max_value=2.0,
+                value=0.10,
+                step=0.01,
+                format="%.4f",
+                help="fallback 시 C++ 엔진에 전달할 연율 drift입니다.",
+                key="sq_manual_mu",
+            )
+            manual_sigma = st.number_input(
+                "Manual σ (연 변동성 fallback)",
+                min_value=0.0,
+                max_value=5.0,
+                value=0.40,
+                step=0.01,
+                format="%.4f",
+                help="fallback 시 C++ 엔진에 전달할 연율 변동성입니다.",
+                key="sq_manual_sigma",
+            )
+            _sb_rec_line("S0 250 · μ 0.10 · σ 0.40")
+
             fan_paths = st.slider(
                 "Fan Chart Paths (경로 수)",
                 1000,
@@ -1479,18 +1708,12 @@ def main():
             )
             _sb_rec_line("0.05")
 
-        run = st.button(
-            "Run Simulation",
-            use_container_width=True,
-            type="primary",
-            key="sq_run_simulation",
-        )
-
         st.markdown(
             '<div class="sb-foot">'
             'C++17 Multi-threaded GBM Engine<br>'
             'pybind11 · zero-copy · WebGL</div>',
-            unsafe_allow_html=True)
+            unsafe_allow_html=True,
+        )
 
         ej = st.session_state.get("est_jump")
         if ej is not None:
@@ -1499,174 +1722,335 @@ def main():
                 f"μ̂_J={ej.mu_jump:.4f}, σ̂_J={ej.sigma_jump:.4f}"
             )
 
-    # ── Landing ───────────────────────────────────────────
-    if not run and "metrics" not in st.session_state:
-        st.markdown(
-            f'<div style="display:flex;flex-direction:column;align-items:center;'
-            f'justify-content:center;height:62vh;text-align:center;">'
-            f'<h1 style="color:{TEXT};font-weight:800;margin:0;font-size:2.75rem;letter-spacing:-0.045em;">'
-            f'Stellar-Quant</h1>'
-            f'<p style="color:{MUTED};margin:14px 0 0 0;font-size:1.0625rem;font-weight:500;letter-spacing:-0.02em;">'
-            f'C++ × Monte Carlo 주가 시뮬레이션</p>'
-            f'<p style="color:{SUBTLE};margin-top:28px;font-size:0.9375rem;max-width:480px;line-height:1.7;letter-spacing:-0.01em;">'
-            f'좌측 사이드바에서 종목과 시뮬레이션 설정을 입력한 뒤<br>'
-            f'<b style="color:{ACCENT};">Run Simulation</b> 버튼을 눌러 분석을 시작하세요.</p>'
-            f'</div>',
-            unsafe_allow_html=True)
-        return
+    return SidebarConfig(
+        ticker=ticker,
+        n_paths=int(n_paths),
+        years=float(years),
+        manual_s0=float(manual_s0),
+        manual_mu=float(manual_mu),
+        manual_sigma=float(manual_sigma),
+        fan_paths=int(fan_paths),
+        n_steps=int(n_steps),
+        n_threads=int(n_threads),
+        jump_lambda=float(j_lambda),
+        jump_mu=float(j_mu),
+        jump_sigma=float(j_sigma),
+        run=bool(run),
+    )
 
-    # ── Simulate ──────────────────────────────────────────
-    if run:
-        tick = ticker.strip()
-        if not tick:
-            st.error("종목 코드를 입력해 주세요.")
-            return
 
-        # ─── 3단계 진행 상태 표시 ───────────────────────────
-        with st.status("분석 시작...", expanded=True) as _status:
+def _render_top_controls(config: SidebarConfig) -> SidebarConfig:
+    """Render the main-page ticker input and primary action."""
 
-            # 1단계: 시세 데이터
-            st.write("📡 시세 데이터 수집 중...")
-            try:
-                close = fetch_prices(tick, period="2y")
-                params = estimate_gbm_params(close, ticker=tick)
-                st.session_state.est_jump = estimate_jump_params(close)
-            except YahooFinanceFetchError as err:
-                _status.update(label="데이터 수집 실패", state="error", expanded=True)
-                st.error(
-                    "**시세 데이터를 가져오지 못했습니다.**\n\n"
-                    f"{err}"
-                )
-                return
-            except ValueError as err:
-                _status.update(label="데이터 오류", state="error", expanded=True)
-                st.error(
-                    "**가격 데이터를 처리할 수 없습니다.**\n\n"
-                    f"{err}"
-                )
-                return
-
-            # 2단계: C++ 시뮬레이션
-            st.write(f"⚙️ C++ 엔진 가동 중 — {n_paths:,} 경로 연산...")
-            sim = _cached_simulator()
-            t0 = time.perf_counter()
-            terminal = np.asarray(
-                sim.simulate_gbm_paths(
-                    n_paths=n_paths,
-                    s0=params.s0,
-                    mu=params.mu,
-                    sigma=params.sigma,
-                    t=years,
-                    seed=42,
-                    n_threads=int(n_threads),
-                    jump_lambda=j_lambda,
-                    jump_mu=j_mu,
-                    jump_sigma=j_sigma,
-                ),
-                dtype=np.float64,
-            )
-            path_matrix = np.asarray(
-                sim.simulate_gbm_path_matrix(
-                    n_paths=fan_paths,
-                    n_steps=int(n_steps),
-                    s0=params.s0,
-                    mu=params.mu,
-                    sigma=params.sigma,
-                    t=years,
-                    seed=43,
-                    n_threads=int(n_threads),
-                    jump_lambda=j_lambda,
-                    jump_mu=j_mu,
-                    jump_sigma=j_sigma,
-                ),
-                dtype=np.float64,
-            )
-            elapsed = time.perf_counter() - t0
-
-            # 3단계: 지표 계산 & 차트 빌드 (session_state에 캐시)
-            st.write("📊 차트 및 리스크 지표 계산 중...")
-            metrics = compute_risk_metrics(terminal, params.s0)
-            hist_fig = build_hist(terminal, params.s0, metrics, params.currency, ticker)
-            fan_fig  = build_fan(path_matrix, params.s0, years, params.currency, ticker)
-
-            st.session_state.update(
-                dict(
-                    ticker=ticker,
-                    params=params,
-                    terminal=terminal,
-                    path_matrix=path_matrix,
-                    metrics=metrics,
-                    elapsed=elapsed,
-                    n_paths=n_paths,
-                    years=years,
-                    n_steps=int(n_steps),
-                    n_threads=int(n_threads),
-                    jump_lambda=j_lambda,
-                    jump_mu=j_mu,
-                    jump_sigma=j_sigma,
-                    # 차트 figure 캐싱 — rerun 시 재빌드 방지
-                    hist_fig=hist_fig,
-                    fan_fig=fan_fig,
-                )
-            )
-            thru = n_paths / elapsed if elapsed > 0 else 0
-            _status.update(
-                label=f"완료!  {elapsed:.2f}s · {thru:,.0f} paths/s",
-                state="complete",
-                expanded=False,
-            )
-
-        # ✦ 등은 ALL_EMOJIS 미등록 시 StreamlitAPIException
-        st.toast("시뮬레이션 완료!", icon="✅")
-
-    # ── Read state ────────────────────────────────────────
-    ss = st.session_state
-    ticker   = ss["ticker"]
-    params   = ss["params"]
-    terminal = ss["terminal"]
-    path_matrix = ss["path_matrix"]
-    metrics  = ss["metrics"]
-    elapsed  = ss["elapsed"]
-    n_paths  = ss["n_paths"]
-    years    = ss["years"]
-    n_steps_u = int(ss.get("n_steps", 252))
-    n_threads_u = int(ss.get("n_threads", 0))
-    jl = float(ss.get("jump_lambda", 0.0))
-    jm = float(ss.get("jump_mu", 0.0))
-    js = float(ss.get("jump_sigma", 0.0))
-    cur, s0  = params.currency, params.s0
-    fp = lambda v: _fp(v, cur)
-    thru = n_paths / elapsed if elapsed > 0 else 0
-
-    # ── Header ────────────────────────────────────────────
-    otxt, oclr = _outlook(metrics["up_probability_pct"])
     st.markdown(
-        f'<div class="hbar">'
-        f'<div class="hbar-brand">'
-        f'<h1>Stellar-Quant</h1>'
-        f'<span class="hbar-author">이준협</span>'
-        f'</div>'
-        f'<span class="badge">{ticker}</span>'
-        f'<span style="color:{oclr};font-weight:600;font-size:0.8125rem;letter-spacing:-0.01em;">{otxt}</span>'
-        f'<span class="perf">{elapsed:.3f}s · {thru:,.0f} paths/s · '
-        f'{n_paths:,} simulations</span></div>',
-        unsafe_allow_html=True)
+        '<div class="top-shell">'
+        '<p class="top-kicker">C++17 Monte Carlo Risk Engine</p>'
+        '<h1 class="top-title">투자 위험을 한눈에 확인하세요</h1>'
+        '<p class="top-sub">'
+        '종목코드만 입력하면 최근 1년 yfinance 데이터로 현재가와 변동성을 자동 반영합니다. '
+        '상세 차트와 수학 모델은 결과 아래에서 필요할 때만 펼쳐볼 수 있습니다.'
+        '</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    c1, c2 = st.columns([3, 1], gap="large")
+    with c1:
+        ticker = st.text_input(
+            "종목코드",
+            value=config.ticker or "TSLA",
+            max_chars=20,
+            placeholder="AAPL, TSLA, 005930.KS",
+            key="sq_ticker_symbol",
+            help="Yahoo Finance 티커를 입력하세요. 실패 시 사이드바 fallback 값을 사용합니다.",
+        ).strip().upper()
+    with c2:
+        st.write("")
+        run = st.button(
+            "시뮬레이션 시작",
+            use_container_width=True,
+            type="primary",
+            key="sq_run_simulation",
+        )
+    return replace(config, ticker=ticker, run=bool(run))
 
-    # ── Key metrics (최종 예상가 · VaR · CVaR) ─────────────
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _load_market_data(ticker: str, period: str = "1y") -> MarketData:
+    """Fetch 1y yfinance prices and convert them into GBM and jump parameters."""
+
+    close = fetch_prices(ticker, period=period)
+    return MarketData(
+        params=estimate_gbm_params(close, ticker=ticker),
+        jump=estimate_jump_params(close),
+        source="yfinance",
+    )
+
+
+def _manual_market_data(config: SidebarConfig) -> MarketData:
+    """Build model parameters from sidebar fallback values."""
+
+    return MarketData(
+        params=GbmParams(
+            s0=config.manual_s0,
+            mu=config.manual_mu,
+            sigma=config.manual_sigma,
+            currency=detect_currency(config.ticker),
+        ),
+        jump=JumpParams(lambda_annual=0.0, mu_jump=0.0, sigma_jump=0.0),
+        source="manual",
+    )
+
+
+def _run_cpp_engine(config: SidebarConfig, params: GbmParams) -> EngineOutput:
+    """Call the pybind11 C++ Monte Carlo engine and normalize arrays."""
+
+    sim = _cached_simulator()
+    t0 = time.perf_counter()
+    terminal = np.asarray(
+        sim.simulate_gbm_paths(
+            n_paths=config.n_paths,
+            s0=params.s0,
+            mu=params.mu,
+            sigma=params.sigma,
+            t=config.years,
+            seed=42,
+            n_threads=config.n_threads,
+            jump_lambda=config.jump_lambda,
+            jump_mu=config.jump_mu,
+            jump_sigma=config.jump_sigma,
+        ),
+        dtype=np.float64,
+    )
+    path_matrix = np.asarray(
+        sim.simulate_gbm_path_matrix(
+            n_paths=config.fan_paths,
+            n_steps=config.n_steps,
+            s0=params.s0,
+            mu=params.mu,
+            sigma=params.sigma,
+            t=config.years,
+            seed=43,
+            n_threads=config.n_threads,
+            jump_lambda=config.jump_lambda,
+            jump_mu=config.jump_mu,
+            jump_sigma=config.jump_sigma,
+        ),
+        dtype=np.float64,
+    )
+    return EngineOutput(
+        terminal=terminal,
+        path_matrix=path_matrix,
+        elapsed=time.perf_counter() - t0,
+    )
+
+
+def _build_dashboard_result(
+    config: SidebarConfig,
+    market_data: MarketData,
+    engine_output: EngineOutput,
+) -> DashboardResult:
+    """Compute risk metrics and Plotly figures from engine output."""
+
+    params = market_data.params
+    metrics = compute_risk_metrics(engine_output.terminal, params.s0)
+    return DashboardResult(
+        ticker=config.ticker,
+        params=params,
+        terminal=engine_output.terminal,
+        path_matrix=engine_output.path_matrix,
+        metrics=metrics,
+        elapsed=engine_output.elapsed,
+        n_paths=config.n_paths,
+        years=config.years,
+        n_steps=config.n_steps,
+        n_threads=config.n_threads,
+        jump_lambda=config.jump_lambda,
+        jump_mu=config.jump_mu,
+        jump_sigma=config.jump_sigma,
+        hist_fig=build_hist(engine_output.terminal, params.s0, metrics, params.currency, config.ticker),
+        fan_fig=build_fan(engine_output.path_matrix, params.s0, config.years, params.currency, config.ticker),
+    )
+
+
+def _store_dashboard_result(result: DashboardResult, jump: JumpParams) -> None:
+    """Persist the render-ready result across Streamlit reruns."""
+
+    st.session_state.update(
+        dict(
+            ticker=result.ticker,
+            params=result.params,
+            terminal=result.terminal,
+            path_matrix=result.path_matrix,
+            metrics=result.metrics,
+            elapsed=result.elapsed,
+            n_paths=result.n_paths,
+            years=result.years,
+            n_steps=result.n_steps,
+            n_threads=result.n_threads,
+            jump_lambda=result.jump_lambda,
+            jump_mu=result.jump_mu,
+            jump_sigma=result.jump_sigma,
+            hist_fig=result.hist_fig,
+            fan_fig=result.fan_fig,
+            est_jump=jump,
+        )
+    )
+
+
+def _result_from_session_state() -> DashboardResult:
+    """Rehydrate the dashboard result after Streamlit reruns."""
+
+    ss = st.session_state
+    return DashboardResult(
+        ticker=ss["ticker"],
+        params=ss["params"],
+        terminal=ss["terminal"],
+        path_matrix=ss["path_matrix"],
+        metrics=ss["metrics"],
+        elapsed=ss["elapsed"],
+        n_paths=ss["n_paths"],
+        years=ss["years"],
+        n_steps=int(ss.get("n_steps", 252)),
+        n_threads=int(ss.get("n_threads", 0)),
+        jump_lambda=float(ss.get("jump_lambda", 0.0)),
+        jump_mu=float(ss.get("jump_mu", 0.0)),
+        jump_sigma=float(ss.get("jump_sigma", 0.0)),
+        hist_fig=ss.get("hist_fig"),
+        fan_fig=ss.get("fan_fig"),
+    )
+
+
+def _render_landing() -> None:
+    st.markdown(
+        f'<div style="margin:28px 0 0 0;color:{MUTED};font-size:0.95rem;'
+        f'line-height:1.7;letter-spacing:-0.02em;">'
+        f'결과가 생성되면 이 위치에 리스크 리포트 요약 카드가 표시됩니다.'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _run_simulation_flow(config: SidebarConfig) -> bool:
+    """Execute market-data loading, C++ simulation, metrics, and chart building."""
+
+    tick = config.ticker.strip()
+
+    loading = st.empty()
+    loading.markdown(
+        '<div class="sq-loading">데이터 분석 중...'
+        '<span>최근 1년 가격 데이터와 fallback 설정을 확인하고 있습니다.</span></div>',
+        unsafe_allow_html=True,
+    )
+    time.sleep(0.5)
+
+    if tick:
+        try:
+            market_data = _load_market_data(tick, period="1y")
+        except (YahooFinanceFetchError, ValueError) as err:
+            st.warning(
+                "**자동 시세 데이터를 사용할 수 없어 수동 입력값을 적용했습니다.**\n\n"
+                f"{err}"
+            )
+            market_data = _manual_market_data(config)
+    else:
+        st.warning("종목코드가 비어 있어 수동 fallback 값으로 진행합니다.")
+        market_data = _manual_market_data(config)
+
+    loading.markdown(
+        '<div class="sq-loading">C++ 엔진 시뮬레이션 가동 중...'
+        f'<span>{config.n_paths:,}개 경로를 멀티스레드로 계산합니다.</span></div>',
+        unsafe_allow_html=True,
+    )
+    time.sleep(0.5)
+    engine_output = _run_cpp_engine(config, market_data.params)
+
+    loading.markdown(
+        '<div class="sq-loading">결과 산출 완료'
+        '<span>리스크 지표와 상세 분석 화면을 정리하고 있습니다.</span></div>',
+        unsafe_allow_html=True,
+    )
+    time.sleep(0.5)
+    result = _build_dashboard_result(config, market_data, engine_output)
+    _store_dashboard_result(result, market_data.jump)
+    loading.empty()
+
+    if market_data.source == "yfinance":
+        st.caption(
+            f"자동 반영: S0={market_data.params.s0:,.2f}, "
+            f"σ={market_data.params.sigma:.4f} · 최근 1년 일간 수익률 기반"
+        )
+    else:
+        st.caption(
+            f"Fallback 적용: S0={market_data.params.s0:,.2f}, "
+            f"σ={market_data.params.sigma:.4f} · 사이드바 수동 입력값 기반"
+        )
+
+    st.toast("시뮬레이션 완료!", icon="✅")
+    return True
+
+
+def _risk_summary(metrics: dict[str, float]) -> tuple[str, str, str]:
+    """Return user-facing risk label, tone class, and short explanation."""
+
+    cvar = metrics["cvar_95_pct"]
+    up = metrics["up_probability_pct"]
+    if cvar >= 30 or up < 35:
+        return "위험도 매우 높음", "risk-pill-red", "꼬리 손실과 하락 가능성을 우선 확인하세요."
+    if cvar >= 18 or up < 45:
+        return "위험도 높음", "risk-pill-red", "손실 방어 관점에서 보수적인 해석이 필요합니다."
+    if cvar >= 10:
+        return "위험도 보통", "risk-pill-blue", "변동성은 있으나 기준 범위 안에서 관리 가능합니다."
+    return "위험도 낮음", "risk-pill-blue", "현재 입력값 기준 손실 압력이 상대적으로 낮습니다."
+
+
+def _render_risk_summary(result: DashboardResult) -> None:
+    metrics, params = result.metrics, result.params
+    fp = lambda v: _fp(v, params.currency)
+    title, tone, desc = _risk_summary(metrics)
+    median_pct = _dpct(metrics["p50"], params.s0)
+    up = metrics["up_probability_pct"]
+    up_cls = "risk-blue" if up >= 50 else "risk-red"
+    median_cls = "risk-blue" if median_pct >= 0 else "risk-red"
+
+    st.markdown(
+        f'<section class="risk-hero">'
+        f'<div class="risk-hero-head">'
+        f'<div>'
+        f'<div class="risk-label">Risk Report · {result.ticker}</div>'
+        f'<div class="risk-title">{title}</div>'
+        f'<p class="top-sub" style="margin-top:12px;">{desc}</p>'
+        f'</div>'
+        f'<span class="risk-pill {tone}">{result.elapsed:.2f}s · {result.n_paths:,} paths</span>'
+        f'</div>'
+        f'<div class="risk-grid">'
+        f'<div class="risk-item"><div class="risk-item-label">예상 중앙가</div>'
+        f'<div class="risk-item-value {median_cls}">{fp(metrics["p50"])}</div>'
+        f'<div class="mc-delta {"d-pos" if median_pct >= 0 else "d-neg"}">{"↑" if median_pct >= 0 else "↓"} {median_pct:+.2f}%</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">상승 확률</div>'
+        f'<div class="risk-item-value {up_cls}">{up:.1f}%</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">VaR 95% 손실</div>'
+        f'<div class="risk-item-value risk-red">{fp(metrics["var_95_abs"])}</div>'
+        f'<div class="mc-delta d-neg">↓ {metrics["var_95_pct"]:.1f}%</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">CVaR 95% 꼬리손실</div>'
+        f'<div class="risk-item-value risk-red">{fp(metrics["cvar_95_abs"])}</div>'
+        f'<div class="mc-delta d-neg">↓ {metrics["cvar_95_pct"]:.1f}%</div></div>'
+        f'</div>'
+        f'</section>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_key_metrics(result: DashboardResult) -> None:
+    metrics, s0, cur = result.metrics, result.params.s0, result.params.currency
+    fp = lambda v: _fp(v, cur)
     st.markdown(
         '<div class="stitle">핵심 지표<span class="stitle-sub">Key metrics</span></div>',
         unsafe_allow_html=True,
     )
     k1, k2, k3 = st.columns(3, gap="large")
-    p50d = _dpct(metrics["p50"], s0)
     with k1:
         st.markdown(
-            _mc(
-                "최종 예상가 Median (Sₜ 중앙)",
-                fp(metrics["p50"]),
-                _dhtml(p50d),
-                lg=True,
-            ),
+            _mc("최종 예상가 Median (Sₜ 중앙)", fp(metrics["p50"]), _dhtml(_dpct(metrics["p50"], s0)), lg=True),
             unsafe_allow_html=True,
         )
     with k2:
@@ -1688,12 +2072,11 @@ def main():
             unsafe_allow_html=True,
         )
 
-    # ── Charts ────────────────────────────────────────────
-    # session_state에 캐시된 figure 사용 (run 시 이미 빌드됨)
-    # 캐시 미존재 시(최초 로드 또는 rerun) fallback 빌드
-    _hist_fig = ss.get("hist_fig")
-    _fan_fig  = ss.get("fan_fig")
-    if _hist_fig is None or _fan_fig is None:
+
+def _render_charts(result: DashboardResult) -> None:
+    hist_fig = result.hist_fig
+    fan_fig = result.fan_fig
+    if hist_fig is None or fan_fig is None:
         _skel = st.empty()
         _skel.markdown(
             f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">'
@@ -1702,51 +2085,62 @@ def main():
             f'</div>',
             unsafe_allow_html=True,
         )
-        _hist_fig = build_hist(terminal, s0, metrics, cur, ticker)
-        _fan_fig  = build_fan(path_matrix, s0, years, cur, ticker)
-        ss["hist_fig"] = _hist_fig
-        ss["fan_fig"]  = _fan_fig
+        hist_fig = build_hist(result.terminal, result.params.s0, result.metrics, result.params.currency, result.ticker)
+        fan_fig = build_fan(result.path_matrix, result.params.s0, result.years, result.params.currency, result.ticker)
+        st.session_state["hist_fig"] = hist_fig
+        st.session_state["fan_fig"] = fan_fig
         _skel.empty()
 
     cfg = {"displayModeBar": False, "responsive": True}
     c1, c2 = st.columns(2, gap="large")
     with c1:
-        st.plotly_chart(_hist_fig, use_container_width=True, config=cfg)
+        st.plotly_chart(hist_fig, use_container_width=True, config=cfg)
     with c2:
-        st.plotly_chart(_fan_fig, use_container_width=True, config=cfg)
+        st.plotly_chart(fan_fig, use_container_width=True, config=cfg)
 
-    # ── Metric Cards — 보조 지표 ──────────────────────────
-    st.markdown('<div class="stitle">투자 전망<span class="stitle-sub">Outlook</span></div>',
-                unsafe_allow_html=True)
+
+def _render_outlook(result: DashboardResult) -> None:
+    metrics, terminal, s0, cur = result.metrics, result.terminal, result.params.s0, result.params.currency
+    fp = lambda v: _fp(v, cur)
+    st.markdown(
+        '<div class="stitle">투자 전망<span class="stitle-sub">Outlook</span></div>',
+        unsafe_allow_html=True,
+    )
     up = metrics["up_probability_pct"]
-    md = _dpct(float(terminal.mean()), s0)
     cols_a = st.columns(3, gap="large")
     with cols_a[0]:
         st.markdown(_mc("현재가 Current Price", fp(s0)), unsafe_allow_html=True)
     with cols_a[1]:
-        st.markdown(_mc("평균 예측가 Mean", fp(float(terminal.mean())),
-                    _dhtml(md)), unsafe_allow_html=True)
+        mean_price = float(terminal.mean())
+        st.markdown(_mc("평균 예측가 Mean", fp(mean_price), _dhtml(_dpct(mean_price, s0))), unsafe_allow_html=True)
     with cols_a[2]:
-        c = GREEN if up >= 50 else RED
-        st.markdown(_mc("상승 확률 Profit Prob.", f"{up:.1f}%",
-                    large=True, vc=c), unsafe_allow_html=True)
+        st.markdown(
+            _mc("상승 확률 Profit Prob.", f"{up:.1f}%", large=True, vc=GREEN if up >= 50 else RED),
+            unsafe_allow_html=True,
+        )
 
-    # ── Risk Table ────────────────────────────────────────
-    st.markdown('<div class="stitle">리스크 시나리오<span class="stitle-sub">Risk scenarios</span></div>',
-                unsafe_allow_html=True)
+
+def _render_risk_tables(result: DashboardResult) -> None:
+    metrics, params, s0, cur = result.metrics, result.params, result.params.s0, result.params.currency
+    fp = lambda v: _fp(v, cur)
+    st.markdown(
+        '<div class="stitle">리스크 시나리오<span class="stitle-sub">Risk scenarios</span></div>',
+        unsafe_allow_html=True,
+    )
     scn = [
         ("Best (최선)", "95th", fp(metrics["p95"]), _dpct(metrics["p95"], s0), GREEN),
-        ("Expected (기대)", "50th", fp(metrics["p50"]), _dpct(metrics["p50"], s0),
-         GREEN if metrics["p50"] >= s0 else RED),
+        ("Expected (기대)", "50th", fp(metrics["p50"]), _dpct(metrics["p50"], s0), GREEN if metrics["p50"] >= s0 else RED),
         ("Worst (최악)", "5th", fp(metrics["p05"]), _dpct(metrics["p05"], s0), RED),
     ]
     rows = ""
     for lb, pc, pr, dl, cl in scn:
         a = "↑" if dl >= 0 else "↓"
-        rows += (f'<tr><td style="font-weight:600">{lb}</td>'
-                 f'<td style="color:{MUTED}">{pc}</td>'
-                 f'<td style="font-weight:700">{pr}</td>'
-                 f'<td style="color:{cl};font-weight:700">{a} {dl:+.2f}%</td></tr>')
+        rows += (
+            f'<tr><td style="font-weight:600">{lb}</td>'
+            f'<td style="color:{MUTED}">{pc}</td>'
+            f'<td style="font-weight:700">{pr}</td>'
+            f'<td style="color:{cl};font-weight:700">{a} {dl:+.2f}%</td></tr>'
+        )
 
     tl, tr = st.columns([1.2, 1], gap="large")
     with tl:
@@ -1755,7 +2149,8 @@ def main():
             f'<th>Scenario (시나리오)</th><th>Percentile (백분위)</th>'
             f'<th>Price (가격)</th><th>Change (변동)</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>',
-            unsafe_allow_html=True)
+            unsafe_allow_html=True,
+        )
     with tr:
         st.markdown(
             f'<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
@@ -1763,28 +2158,63 @@ def main():
             f'<tr><td>μ Annual Drift</td><td>{params.mu:.6f}</td></tr>'
             f'<tr><td>σ Volatility</td><td>{params.sigma:.6f}</td></tr>'
             f'<tr><td>Jump λ / μ_J / σ_J</td>'
-            f'<td>{jl:.4f} / {jm:.4f} / {js:.4f}</td></tr>'
+            f'<td>{result.jump_lambda:.4f} / {result.jump_mu:.4f} / {result.jump_sigma:.4f}</td></tr>'
             f'<tr><td>90% Confidence</td>'
             f'<td>{fp(metrics["p05"])} — {fp(metrics["p95"])}</td></tr>'
-            f'<tr><td>Paths</td><td>{n_paths:,}</td></tr>'
+            f'<tr><td>Paths</td><td>{result.n_paths:,}</td></tr>'
             f'<tr><td>Fan steps / 스레드</td>'
-            f'<td>{n_steps_u} / {n_threads_u if n_threads_u else "auto"}</td></tr>'
-            f'<tr><td>C++ Engine</td><td>{elapsed:.3f}s</td></tr>'
+            f'<td>{result.n_steps} / {result.n_threads if result.n_threads else "auto"}</td></tr>'
+            f'<tr><td>C++ Engine</td><td>{result.elapsed:.3f}s</td></tr>'
             f'</tbody></table></div>',
-            unsafe_allow_html=True)
+            unsafe_allow_html=True,
+        )
 
-    # ── Math Formula Section ──────────────────────────────
-    st.markdown('<div class="stitle">수학 모델<span class="stitle-sub">Model reference</span></div>',
-                unsafe_allow_html=True)
-    _render_math_section(params, cur, jl, jm, js)
 
-    # ── Disclaimer ────────────────────────────────────────
-    st.markdown(
-        '<div class="disc toss-card">'
-        '※ 과거 2년 Yahoo Finance 데이터 기반 GBM 몬테카를로 시뮬레이션 결과입니다. '
-        '실제 투자 판단의 유일한 근거로 사용할 수 없습니다. '
-        'Past performance does not guarantee future results.</div>',
-        unsafe_allow_html=True)
+def _render_dashboard_result(result: DashboardResult) -> None:
+    _render_risk_summary(result)
+    with st.expander("상세 분석 결과 보기", expanded=False):
+        chart_tab, risk_tab, model_tab = st.tabs(["차트", "리스크 지표", "수학 모델"])
+        with chart_tab:
+            _render_charts(result)
+        with risk_tab:
+            _render_key_metrics(result)
+            _render_outlook(result)
+            _render_risk_tables(result)
+        with model_tab:
+            st.markdown(
+                '<div class="stitle">수학 모델<span class="stitle-sub">Model reference</span></div>',
+                unsafe_allow_html=True,
+            )
+            _render_math_section(
+                result.params,
+                result.params.currency,
+                result.jump_lambda,
+                result.jump_mu,
+                result.jump_sigma,
+            )
+            st.markdown(
+                '<div class="disc toss-card">'
+                '※ 최근 1년 Yahoo Finance 데이터 기반 GBM 몬테카를로 시뮬레이션 결과입니다. '
+                '데이터 조회 실패 시 사이드바의 수동 fallback 파라미터를 사용합니다. '
+                '실제 투자 판단의 유일한 근거로 사용할 수 없습니다. '
+                'Past performance does not guarantee future results.</div>',
+                unsafe_allow_html=True,
+            )
+
+
+def main():
+    st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
+    config = _render_sidebar()
+    config = _render_top_controls(config)
+
+    if not config.run and "metrics" not in st.session_state:
+        _render_landing()
+        return
+
+    if config.run and not _run_simulation_flow(config):
+        return
+
+    _render_dashboard_result(_result_from_session_state())
 
 
 if __name__ == "__main__":
