@@ -211,6 +211,32 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
   opacity: 0 !important;
 }}
 
+/* Sidebar collapsed 상태에서 다시 여는 컨트롤은 숨기지 않는다. */
+[data-testid="collapsedControl"],
+[data-testid="collapsedControl"] *,
+[data-testid="collapsedControl"] span,
+[data-testid="collapsedControl"] span:not(:empty),
+[data-testid="collapsedControl"] [data-testid="stIcon"] {{
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: auto !important;
+  height: auto !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  color: {ACCENT} !important;
+}}
+[data-testid="collapsedControl"] {{
+  position: fixed !important;
+  top: 14px !important;
+  left: 14px !important;
+  z-index: 999999 !important;
+  border-radius: 999px !important;
+  background: #101012 !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45) !important;
+  padding: 6px !important;
+}}
+
 [data-testid="stSidebar"] {{
   /* Streamlit 기본에는 스플리터 드래그 없음 → 컴팩트 고정 폭으로 밀도 최적화 */
   width: 288px !important;
@@ -355,7 +381,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
-  background: #1C1C1E !important;
+  background: #101012 !important;
   color: {TEXT} !important;
   padding: 12px 16px !important;
   margin-bottom: 8px !important;
@@ -370,7 +396,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
   box-shadow: 0 10px 28px rgba(0,100,255,0.12) !important;
 }}
 [data-testid="stExpander"] {{
-  background: #1C1C1E !important;
+  background: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
   outline: none !important;
@@ -383,13 +409,13 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
   transition: box-shadow 0.22s ease, background 0.22s ease, transform 0.22s ease !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] {{
-  background: #1C1C1E !important;
+  background: #101012 !important;
 }}
 [data-testid="stExpander"]:hover {{
   box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 48px rgba(0,0,0,0.62), 0 0 0 1px rgba(0,100,255,0.08) !important;
 }}
 [data-testid="stExpander"] details {{
-  background: #1C1C1E !important;
+  background: #101012 !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
@@ -397,7 +423,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
 }}
 [data-testid="stExpander"] .streamlit-expanderHeader,
 [data-testid="stExpander"] .streamlit-expanderContent {{
-  background: #1C1C1E !important;
+  background: #101012 !important;
   border: none !important;
   border-top: none !important;
   border-bottom: none !important;
@@ -412,7 +438,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   content: none !important;
 }}
 [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
-  background: #1C1C1E !important;
+  background: #101012 !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
@@ -436,7 +462,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   font-weight: 850 !important;
   font-family: var(--sans-ui) !important;
   color: {TEXT} !important;
-  background: #1C1C1E !important;
+  background: #101012 !important;
   border: none !important;
   border-bottom: none !important;
   outline: none !important;
@@ -446,7 +472,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   transition: background 0.22s ease, color 0.22s ease !important;
 }}
 [data-testid="stExpander"] summary:hover {{
-  background: linear-gradient(90deg, rgba(0,100,255,0.10), rgba(28,28,30,1) 42%) !important;
+  background: linear-gradient(90deg, rgba(0,100,255,0.10), rgba(16,16,18,1) 42%) !important;
 }}
 [data-testid="stExpander"] summary::-webkit-details-marker,
 [data-testid="stExpander"] summary::marker {{
@@ -1402,47 +1428,49 @@ def build_hist(terminal, s0, m, cur, ticker):
 def build_fan(pm, s0, yrs, cur, ticker):
     sym = currency_symbol(cur)
     hf = ",.0f" if cur == "KRW" else ",.2f"
-    np_, npt = pm.shape
+    _, npt = pm.shape
     tf = np.linspace(0.0, yrs, npt)
-    q05, q25, q50, q75, q95 = np.quantile(pm, [0.05,0.25,0.5,0.75,0.95], axis=0)
+    q025, q05, q125, q25, q50, q75, q875, q95, q975 = np.quantile(
+        pm,
+        [0.025, 0.05, 0.125, 0.25, 0.5, 0.75, 0.875, 0.95, 0.975],
+        axis=0,
+    )
 
-    di, _ = _ds(tf, 120)
+    di, _ = _ds(tf, 160)
     t = tf[di]
-    d05, d25, d50, d75, d95 = q05[di], q25[di], q50[di], q75[di], q95[di]
+    d025, d05, d125, d25 = q025[di], q05[di], q125[di], q25[di]
+    d50, d75, d875, d95, d975 = q50[di], q75[di], q875[di], q95[di], q975[di]
 
     fig = go.Figure()
-    rng = np.random.default_rng(123)
-    bc = min(60, np_)
-    bi = rng.choice(np_, size=bc, replace=False)
-    step = max(1, npt // 80)
-    tb = tf[::step]
-    xs, ys = [], []
-    for i in bi:
-        xs.extend(tb.tolist() + [None])
-        ys.extend(pm[i, ::step].tolist() + [None])
-    fig.add_trace(go.Scattergl(x=xs, y=ys, mode="lines",
-        line=dict(color="rgba(120,145,190,0.06)", width=0.45),
-        showlegend=False, hoverinfo="skip"))
-
     tr = t[::-1]
-    fig.add_trace(go.Scatter(x=np.concatenate([t,tr]),
-        y=np.concatenate([d95, d05[::-1]]),
-        fill="toself", fillcolor="rgba(118,156,238,0.10)",
-        line_width=0, name="5%-95% (신뢰구간)", hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=np.concatenate([t,tr]),
-        y=np.concatenate([d75, d25[::-1]]),
-        fill="toself", fillcolor="rgba(118,156,238,0.18)",
-        line_width=0, name="25%-75% (신뢰구간)", hoverinfo="skip"))
+    bands = [
+        ("95% 신뢰구간", d025, d975, "rgba(0,100,255,0.10)"),
+        ("75% 신뢰구간", d125, d875, "rgba(0,100,255,0.16)"),
+        ("50% 신뢰구간", d25, d75, "rgba(0,100,255,0.24)"),
+    ]
+    for name, lo, hi, color in bands:
+        fig.add_trace(go.Scatter(
+            x=np.concatenate([t, tr]),
+            y=np.concatenate([hi, lo[::-1]]),
+            fill="toself",
+            fillcolor=color,
+            line=dict(width=0),
+            name=name,
+            hoverinfo="skip",
+        ))
 
+    median_custom = np.column_stack([d05, d95, d25, d75])
     fig.add_trace(go.Scatter(x=t, y=d50, mode="lines",
-        line=dict(color=ACCENT, width=3.0, shape="spline", smoothing=0.45), name="Median (중간값)",
-        hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
-    fig.add_trace(go.Scatter(x=t, y=d05, mode="lines",
-        line=dict(color=RED, width=1.35, dash="dot"), name="5% (하한)",
-        hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
-    fig.add_trace(go.Scatter(x=t, y=d95, mode="lines",
-        line=dict(color=ACCENT, width=1.35, dash="dot"), name="95% (상한)",
-        hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
+        customdata=median_custom,
+        line=dict(color=ACCENT, width=4.2, shape="spline", smoothing=0.45),
+        name="Median (중앙값)",
+        hovertemplate=(
+            f"<b>%{{x:.2f}}Y 예측</b><br>"
+            f"Median: {sym}%{{y:{hf}}}<br>"
+            f"90% 범위: {sym}%{{customdata[0]:{hf}}} ~ {sym}%{{customdata[1]:{hf}}}<br>"
+            f"50% 범위: {sym}%{{customdata[2]:{hf}}} ~ {sym}%{{customdata[3]:{hf}}}"
+            "<extra></extra>"
+        )))
 
     fig.add_hline(y=s0, line_color="rgba(220,228,248,0.42)", line_dash="dash", line_width=1.35)
     fig.add_annotation(x=0.01, y=s0, xref="paper",
@@ -1450,22 +1478,78 @@ def build_fan(pm, s0, yrs, cur, ticker):
         font=dict(color="#fff", size=10), bgcolor="rgba(6,8,15,0.7)", borderpad=3)
 
     tp, tl = _mticks(yrs)
-    yl = min(float(q05.min()), s0) * 0.88
-    yh = float(q95.max()) * 1.12
+    yl = min(float(q025.min()), s0) * 0.88
+    yh = float(q975.max()) * 1.12
+
+    label_points = []
+    if yrs >= 0.5:
+        label_points.append((0.5, "6M"))
+    if yrs >= 1.0:
+        label_points.append((1.0, "1Y"))
+    elif yrs > 0:
+        label_points.append((yrs, f"{int(round(yrs * 12))}M"))
+
+    for xval, label in label_points:
+        idx = int(np.argmin(np.abs(tf - xval)))
+        yval = float(q50[idx])
+        fig.add_annotation(
+            x=float(tf[idx]),
+            y=yval,
+            text=f"<b>{label}</b> {fmt_price(yval, cur)}",
+            showarrow=True,
+            arrowhead=2,
+            arrowwidth=1.2,
+            arrowcolor=ACCENT,
+            ax=22,
+            ay=-34,
+            font=dict(color="#F4F5F7", size=11, family="Pretendard Variable, sans-serif"),
+            bgcolor="rgba(16,16,18,0.92)",
+            bordercolor="rgba(0,100,255,0.18)",
+            borderwidth=1,
+            borderpad=6,
+        )
+
+    target_t = 1.0 if yrs >= 1.0 else yrs
+    target_label = "1Y" if yrs >= 1.0 else f"{int(round(yrs * 12))}M"
+    target_idx = int(np.argmin(np.abs(tf - target_t)))
+    side_cards = [
+        ("최선 95th", float(q95[target_idx]), ACCENT),
+        ("기대 50th", float(q50[target_idx]), TEXT),
+        ("최악 5th", float(q05[target_idx]), RED),
+    ]
+    for ypaper, (label, value, color) in zip([0.78, 0.62, 0.46], side_cards):
+        fig.add_annotation(
+            x=1.02,
+            y=ypaper,
+            xref="paper",
+            yref="paper",
+            text=(
+                f"<span style='color:{MUTED};font-size:10px'>{target_label} · {label}</span>"
+                f"<br><b style='color:{color};font-size:15px'>{fmt_price(value, cur)}</b>"
+            ),
+            showarrow=False,
+            xanchor="left",
+            align="left",
+            font=dict(color=TEXT, family="Pretendard Variable, sans-serif"),
+            bgcolor="rgba(16,16,18,0.96)",
+            bordercolor="rgba(255,255,255,0)",
+            borderwidth=0,
+            borderpad=9,
+        )
 
     fig.update_layout(**_LAY,
         title=dict(
-            text=f"<b>Stock Price Simulation</b> <span style='color:#8B93A1;font-weight:500'>· 주가 경로 — {ticker}</span>",
+            text=f"<b>기간별 주가 예측 팬 차트</b> <span style='color:#8B93A1;font-weight:500'>· {ticker}</span>",
             font=dict(size=15, color="#F4F5F7", family="Pretendard Variable, Pretendard, sans-serif"),
             x=0.04,
             y=0.97,
             xanchor="left",
         ),
-        margin=dict(l=56, r=80, t=76, b=90),
+        margin=dict(l=56, r=210, t=76, b=90),
         legend=dict(
             orientation="h",
-            bgcolor="rgba(22,23,28,0.82)",
-            bordercolor="rgba(255,255,255,0.04)",
+            bgcolor="rgba(16,16,18,0.82)",
+            bordercolor="rgba(255,255,255,0)",
             borderwidth=0,
             font=dict(size=10, color="#8B93A1", family="Pretendard Variable, Pretendard, sans-serif"),
             x=0.5, y=-0.18, xanchor="center", yanchor="top",
@@ -1475,10 +1559,6 @@ def build_fan(pm, s0, yrs, cur, ticker):
                    tickformat=hf, tickprefix=sym),
         height=CH)
 
-    for v, c in [(float(q50[-1]), ACCENT), (float(q05[-1]), RED), (float(q95[-1]), ACCENT)]:
-        fig.add_annotation(x=yrs, y=v, text=f" <b>{_fp(v,cur)}</b> ",
-            showarrow=False, xanchor="left", font=dict(color=c, size=10.5),
-            bgcolor="rgba(6,8,15,0.55)", borderpad=2)
     return fig
 
 
@@ -1928,7 +2008,7 @@ def _build_dashboard_result(
         jump_lambda=config.jump_lambda,
         jump_mu=config.jump_mu,
         jump_sigma=config.jump_sigma,
-        hist_fig=build_hist(engine_output.terminal, params.s0, metrics, params.currency, config.ticker),
+        hist_fig=None,
         fan_fig=build_fan(engine_output.path_matrix, params.s0, config.years, params.currency, config.ticker),
     )
 
@@ -2135,29 +2215,21 @@ def _render_key_metrics(result: DashboardResult) -> None:
 
 
 def _render_charts(result: DashboardResult) -> None:
-    hist_fig = result.hist_fig
     fan_fig = result.fan_fig
-    if hist_fig is None or fan_fig is None:
+    if fan_fig is None:
         _skel = st.empty()
         _skel.markdown(
-            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">'
-            f'<div class="sq-skeleton sq-chart-skeleton"></div>'
+            f'<div style="display:grid;grid-template-columns:1fr;gap:18px;">'
             f'<div class="sq-skeleton sq-chart-skeleton"></div>'
             f'</div>',
             unsafe_allow_html=True,
         )
-        hist_fig = build_hist(result.terminal, result.params.s0, result.metrics, result.params.currency, result.ticker)
         fan_fig = build_fan(result.path_matrix, result.params.s0, result.years, result.params.currency, result.ticker)
-        st.session_state["hist_fig"] = hist_fig
         st.session_state["fan_fig"] = fan_fig
         _skel.empty()
 
     cfg = {"displayModeBar": False, "responsive": True}
-    c1, c2 = st.columns(2, gap="large")
-    with c1:
-        st.plotly_chart(hist_fig, use_container_width=True, config=cfg)
-    with c2:
-        st.plotly_chart(fan_fig, use_container_width=True, config=cfg)
+    st.plotly_chart(fan_fig, use_container_width=True, config=cfg)
 
 
 def _render_outlook(result: DashboardResult) -> None:
