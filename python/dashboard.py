@@ -127,28 +127,6 @@ section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
   display: block !important;
 }}
 
-/* Streamlit 위젯 아이콘: Material Symbols 폰트 미적용 시 ligature 문자열(keyboard_double*, arrow_* 등)이 그대로 노출됨 → 아이콘 글꼴 적용 */
-section[data-testid="stSidebar"] button[data-testid="baseButton-header"] > div > div:first-child span {{
-  font-family: 'Material Symbols Outlined', sans-serif !important;
-  font-weight: normal !important;
-  font-style: normal !important;
-  font-size: 1.35rem !important;
-  line-height: 1 !important;
-  letter-spacing: normal !important;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-  color: rgba(203, 213, 225, 0.95) !important;
-}}
-section[data-testid="stSidebar"] button[data-testid="baseButton-header"] > div > div:last-child span {{
-  font-family: var(--sans) !important;
-  font-size: 0.9375rem !important;
-}}
-/* 슬라이더·기타 위젯의 숨김(장식) 아이콘 슬롯 — 문자열로 노출되는 ligature만 아이콘 폰트로 매핑 */
-section[data-testid="stSidebar"] span[aria-hidden="true"] {{
-  font-family: 'Material Symbols Outlined', sans-serif !important;
-  font-weight: normal !important;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
-}}
-
 .sb-label {{
   font-size: 0.75rem;
   font-weight: 600;
@@ -393,6 +371,43 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   border: 1px solid {BORDER};
   border-radius: 8px;
   padding: 2px;
+}}
+
+/*
+ * Streamlit은 Material 아이콘 이름을 텍스트 ligature로 넣는데, 클라우드 등 환경에서
+ * Material Symbols 폰트가 없으면 keyboard_double_arrow_*, arrow_* 등 문자열이 그대로 보임.
+ * 헤더·툴바·배포 버튼·Expander·사이드바·슬라이더 장식 슬롯에 아이콘 폰트를 통일 적용.
+ */
+button[data-testid="baseButton-header"] > div > div:first-child span {{
+  font-family: 'Material Symbols Outlined', sans-serif !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-size: 1.35rem !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+  color: rgba(203, 213, 225, 0.95) !important;
+}}
+button[data-testid="baseButton-header"] > div > div:last-child span {{
+  font-family: var(--sans) !important;
+  font-size: 0.9375rem !important;
+}}
+
+[data-testid="stHeader"] span[aria-hidden="true"],
+[data-testid="stToolbar"] span[aria-hidden="true"],
+[data-testid="stDecoration"] span[aria-hidden="true"],
+[data-testid="stBottom"] span[aria-hidden="true"],
+[data-testid="stToolbarActions"] span[aria-hidden="true"],
+[data-testid="stDeployButton"] span[aria-hidden="true"],
+[data-testid="stLogoSpacer"] span[aria-hidden="true"],
+[data-testid="stChatFloatingButton"] span[aria-hidden="true"],
+[data-testid="stAppToolbar"] span[aria-hidden="true"],
+section[data-testid="stSidebar"] span[aria-hidden="true"],
+[data-baseweb="slider"] span[aria-hidden="true"] {{
+  font-family: 'Material Symbols Outlined', sans-serif !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
 }}
 </style>
 """
@@ -974,7 +989,8 @@ def main():
                 jump_sigma=j_sigma,
             )
         )
-        st.toast("시뮬레이션 완료!", icon="✦")
+        # ✦ 등은 ALL_EMOJIS 미등록 시 StreamlitAPIException — 검증 통과 이모지 또는 Material 단축코드만 사용
+        st.toast("시뮬레이션 완료!", icon="✅")
 
     # ── Read state ────────────────────────────────────────
     ss = st.session_state
