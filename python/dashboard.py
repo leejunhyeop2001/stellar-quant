@@ -249,18 +249,21 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 /* 메트릭 카드 — 토스 스타일 */
 .mc {{
   background: {CARD};
-  border: none;
+  border: 1px solid #2C2C2E;
   border-radius: 24px;
-  padding: 28px 28px 24px 28px;
-  min-height: 132px;
+  padding: 32px 32px 28px 32px;
+  min-height: 148px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  transition: transform 0.15s ease, background 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18);
+  overflow: hidden;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }}
 .mc:hover {{
   background: {CARD_HI};
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45), 0 8px 32px rgba(0,0,0,0.22);
 }}
 .mc-lbl {{
   font-size: 0.8125rem;
@@ -306,7 +309,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   font-weight: 700;
   color: {TEXT};
   letter-spacing: -0.03em;
-  margin: 40px 0 18px 2px;
+  margin: 56px 0 22px 2px;
   padding-bottom: 0;
   border-bottom: none;
 }}
@@ -318,12 +321,18 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   letter-spacing: -0.005em;
 }}
 
-/* 테이블 — 보더 없음, 행 간격 넓게 */
+/* 테이블 — 경계선 없음, 카드 래퍼 */
+.rtbl-wrap {{
+  border: 1px solid #2C2C2E;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18);
+}}
 .rtbl {{
   width: 100%;
   border-collapse: collapse;
   background: {CARD};
-  border-radius: 24px;
+  border-radius: 0;
   overflow: hidden;
   font-size: 0.9375rem;
 }}
@@ -359,22 +368,27 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .math-grid {{
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 24px;
 }}
 @media (max-width: 900px) {{
   .math-grid {{ grid-template-columns: 1fr; }}
 }}
 .math-panel {{
   background: {CARD};
-  border: none;
+  border: 1px solid #2C2C2E;
   border-radius: 24px;
-  padding: 32px 32px 28px 32px;
+  padding: 36px 36px 32px 36px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  transition: background 0.15s ease;
+  gap: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.18);
+  overflow: hidden;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }}
-.math-panel:hover {{ background: {CARD_HI}; }}
+.math-panel:hover {{
+  background: {CARD_HI};
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+}}
 .math-panel h3 {{
   font-size: 0.9375rem;
   font-weight: 700;
@@ -486,26 +500,59 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   max-width: 1440px !important;
 }}
 
-/* Plotly 차트 컨테이너 — 카드 형태로 감싸되 차트 자체는 투명 */
+/* Plotly 차트 컨테이너 — 카드 형태, border + shadow */
 [data-testid="stPlotlyChart"] {{
   background: {CARD};
-  border: none;
+  border: 1px solid #2C2C2E;
   border-radius: 24px;
-  padding: 12px;
+  padding: 16px 16px 8px 16px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 6px 24px rgba(0,0,0,0.2);
 }}
 [data-testid="stPlotlyChart"] .main-svg {{
   background: transparent !important;
 }}
 
-/* 입력 컨트롤(슬라이더, 셀렉트 슬라이더) 톤 */
+/* ── 슬라이더 — Toss Blue 단색 통일 ── */
+/* 썸 (드래그 핸들) */
 [data-baseweb="slider"] [role="slider"] {{
   background: {ACCENT} !important;
-  border-color: {ACCENT} !important;
-  box-shadow: 0 2px 8px rgba(49,130,246,0.35) !important;
+  border: 3px solid {ACCENT} !important;
+  box-shadow: 0 0 0 4px rgba(49,130,246,0.18), 0 2px 8px rgba(49,130,246,0.35) !important;
+  width: 18px !important;
+  height: 18px !important;
 }}
+/* 채워진 트랙 (활성 구간) */
+[data-baseweb="slider"] [data-testid="stSliderThumb"],
+[data-baseweb="slider"] div[class*="Track"]:first-of-type {{
+  background: {ACCENT} !important;
+}}
+/* 전체 트랙 배경 */
+[data-baseweb="slider"] div[class*="Track"] {{
+  background: rgba(255,255,255,0.08) !important;
+  height: 4px !important;
+  border-radius: 999px !important;
+}}
+/* 수치 텍스트 (min/max/현재값) */
+[data-baseweb="slider"] [data-testid="stSliderThumbValue"] {{
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  color: {TEXT} !important;
+  font-family: var(--mono) !important;
+}}
+[data-baseweb="slider"] [data-testid="stTickBar"] div,
 section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   background: rgba(255,255,255,0.04) !important;
+}}
+
+/* 고급설정 내부 라벨 */
+.sb-label-inner {{
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: {MUTED};
+  letter-spacing: 0;
+  padding: 12px 4px 6px 4px;
+  margin: 0;
 }}
 
 /* 토스트 톤 */
@@ -581,10 +628,10 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   margin: 4px 0 !important;
 }}
 
-/* ── 섹션 간격 확대 (앞의 .stitle margin override) ── */
+/* ── 섹션 간격 확대 override ── */
 .stitle {{
-  margin-top: 52px !important;
-  margin-bottom: 22px !important;
+  margin-top: 60px !important;
+  margin-bottom: 24px !important;
 }}
 
 /* ── 차트 컨테이너 상단 여백 ── */
@@ -682,7 +729,7 @@ _LAY = dict(
     hovermode="x unified",
 )
 
-CH = 440
+CH = 460
 
 
 # ---------------------------------------------------------------------------
@@ -735,13 +782,14 @@ def build_hist(terminal, s0, m, cur, ticker):
             y=0.97,
             xanchor="left",
         ),
-        margin=dict(l=48, r=20, t=70, b=48),
+        margin=dict(l=56, r=24, t=76, b=90),
         legend=dict(
-            bgcolor="rgba(28,29,35,0.7)",
+            orientation="h",
+            bgcolor="rgba(22,23,28,0.82)",
             bordercolor="rgba(255,255,255,0.04)",
-            borderwidth=1,
+            borderwidth=0,
             font=dict(size=10, color="#8B93A1", family="Pretendard Variable, Pretendard, sans-serif"),
-            x=0.98, y=0.98, xanchor="right", yanchor="top",
+            x=0.5, y=-0.18, xanchor="center", yanchor="top",
         ),
         xaxis=dict(**_AX, title=f"최종가 Final Price ({cur})",
                    range=[p01*0.95, p99*1.05], tickformat=hf, tickprefix=sym),
@@ -815,13 +863,14 @@ def build_fan(pm, s0, yrs, cur, ticker):
             y=0.97,
             xanchor="left",
         ),
-        margin=dict(l=52, r=72, t=70, b=48),
+        margin=dict(l=56, r=80, t=76, b=90),
         legend=dict(
-            bgcolor="rgba(28,29,35,0.7)",
+            orientation="h",
+            bgcolor="rgba(22,23,28,0.82)",
             bordercolor="rgba(255,255,255,0.04)",
-            borderwidth=1,
+            borderwidth=0,
             font=dict(size=10, color="#8B93A1", family="Pretendard Variable, Pretendard, sans-serif"),
-            x=0.02, y=0.98, xanchor="left", yanchor="top",
+            x=0.5, y=-0.18, xanchor="center", yanchor="top",
         ),
         xaxis=dict(**_AX, title="예측 기간 Period", tickvals=tp, ticktext=tl),
         yaxis=dict(**_AX, title=f"주가 Price ({cur})", range=[yl, yh],
@@ -968,18 +1017,20 @@ def main():
             key="sq_ticker_symbol",
         ).strip().upper()
 
-        st.markdown('<div class="sb-label">Simulation (시뮬레이션)</div>',
+        st.markdown('<div class="sb-label">Monte Carlo Paths (시뮬레이션 횟수)</div>',
                     unsafe_allow_html=True)
         n_paths = st.select_slider(
-            "Monte Carlo paths",
+            "시뮬레이션 횟수",
             options=[100_000, 500_000, 1_000_000, 5_000_000, 10_000_000],
             value=1_000_000,
             format_func=lambda x: f"{x:,}",
             label_visibility="collapsed",
             key="sq_n_paths",
         )
+        st.markdown('<div class="sb-label">Horizon (예측 기간)</div>',
+                    unsafe_allow_html=True)
         years = st.slider(
-            "Horizon",
+            "예측 기간",
             0.25,
             3.0,
             1.0,
@@ -990,9 +1041,10 @@ def main():
         )
 
         with st.expander("고급 설정", expanded=False):
-            st.markdown('<div class="sb-label">Fan chart</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sb-label-inner">Fan Chart Paths (경로 수)</div>',
+                        unsafe_allow_html=True)
             fan_paths = st.slider(
-                "Fan paths",
+                "Fan Chart Paths (경로 수)",
                 1000,
                 20000,
                 5000,
@@ -1001,8 +1053,10 @@ def main():
                 label_visibility="collapsed",
                 key="sq_fan_paths",
             )
+            st.markdown('<div class="sb-label-inner">Time Steps (시간 스텝)</div>',
+                        unsafe_allow_html=True)
             n_steps = st.slider(
-                "Time steps",
+                "Time Steps (시간 스텝)",
                 52,
                 504,
                 252,
@@ -1011,8 +1065,10 @@ def main():
                 label_visibility="collapsed",
                 key="sq_fan_steps",
             )
+            st.markdown('<div class="sb-label-inner">C++ Threads (스레드 수)</div>',
+                        unsafe_allow_html=True)
             n_threads = st.slider(
-                "C++ threads",
+                "C++ Threads (스레드 수)",
                 0,
                 32,
                 0,
@@ -1020,10 +1076,12 @@ def main():
                 label_visibility="collapsed",
                 key="sq_cpp_threads",
             )
-            st.markdown('<div class="sb-label">Jump diffusion (Merton)</div>',
+            st.markdown('<div class="sb-label-inner" style="margin-top:18px;">Jump Diffusion — Merton</div>',
+                        unsafe_allow_html=True)
+            st.markdown('<div class="sb-label-inner">λ Jump Intensity (점프 강도)</div>',
                         unsafe_allow_html=True)
             j_lambda = st.slider(
-                "Jump lambda",
+                "Jump Lambda",
                 0.0,
                 15.0,
                 0.0,
@@ -1032,8 +1090,10 @@ def main():
                 label_visibility="collapsed",
                 key="sq_jump_lambda",
             )
+            st.markdown('<div class="sb-label-inner">μ_J Jump Mean (점프 평균)</div>',
+                        unsafe_allow_html=True)
             j_mu = st.slider(
-                "Jump mu",
+                "Jump Mu",
                 -0.35,
                 0.35,
                 0.0,
@@ -1042,8 +1102,10 @@ def main():
                 label_visibility="collapsed",
                 key="sq_jump_mu",
             )
+            st.markdown('<div class="sb-label-inner">σ_J Jump Std (점프 변동성)</div>',
+                        unsafe_allow_html=True)
             j_sigma = st.slider(
-                "Jump sigma",
+                "Jump Sigma",
                 0.0,
                 1.0,
                 0.05,
@@ -1328,14 +1390,14 @@ def main():
     tl, tr = st.columns([1.2, 1], gap="large")
     with tl:
         st.markdown(
-            f'<table class="rtbl"><thead><tr>'
+            f'<div class="rtbl-wrap"><table class="rtbl"><thead><tr>'
             f'<th>Scenario (시나리오)</th><th>Percentile (백분위)</th>'
             f'<th>Price (가격)</th><th>Change (변동)</th>'
-            f'</tr></thead><tbody>{rows}</tbody></table>',
+            f'</tr></thead><tbody>{rows}</tbody></table></div>',
             unsafe_allow_html=True)
     with tr:
         st.markdown(
-            f'<table class="rtbl"><thead><tr>'
+            f'<div class="rtbl-wrap"><table class="rtbl"><thead><tr>'
             f'<th>Parameter (파라미터)</th><th>Value (값)</th></tr></thead><tbody>'
             f'<tr><td>μ Annual Drift</td><td>{params.mu:.6f}</td></tr>'
             f'<tr><td>σ Volatility</td><td>{params.sigma:.6f}</td></tr>'
@@ -1347,7 +1409,7 @@ def main():
             f'<tr><td>Fan steps / 스레드</td>'
             f'<td>{n_steps_u} / {n_threads_u if n_threads_u else "auto"}</td></tr>'
             f'<tr><td>C++ Engine</td><td>{elapsed:.3f}s</td></tr>'
-            f'</tbody></table>',
+            f'</tbody></table></div>',
             unsafe_allow_html=True)
 
     # ── Math Formula Section ──────────────────────────────
