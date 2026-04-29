@@ -145,7 +145,9 @@ def fetch_prices(ticker: str, period: str = "2y") -> pd.Series:
 
     for attempt in range(3):
         for p in (period, "1y", "6mo", "3mo"):
-            s = try_history(p) or try_download(p)
+            s = try_history(p)
+            if s is None:
+                s = try_download(p)
             if s is not None:
                 return s
         time.sleep(0.5 * (attempt + 1))

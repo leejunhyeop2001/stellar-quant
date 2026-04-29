@@ -51,6 +51,7 @@ GREEN = "#10b981"
 GLOBAL_CSS = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
 :root {{
   --sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
@@ -124,6 +125,28 @@ section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
 [data-testid="stExpander"] summary svg {{
   flex-shrink: 0 !important;
   display: block !important;
+}}
+
+/* Streamlit 위젯 아이콘: Material Symbols 폰트 미적용 시 ligature 문자열(keyboard_double*, arrow_* 등)이 그대로 노출됨 → 아이콘 글꼴 적용 */
+section[data-testid="stSidebar"] button[data-testid="baseButton-header"] > div > div:first-child span {{
+  font-family: 'Material Symbols Outlined', sans-serif !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-size: 1.35rem !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+  color: rgba(203, 213, 225, 0.95) !important;
+}}
+section[data-testid="stSidebar"] button[data-testid="baseButton-header"] > div > div:last-child span {{
+  font-family: var(--sans) !important;
+  font-size: 0.9375rem !important;
+}}
+/* 슬라이더·기타 위젯의 숨김(장식) 아이콘 슬롯 — 문자열로 노출되는 ligature만 아이콘 폰트로 매핑 */
+section[data-testid="stSidebar"] span[aria-hidden="true"] {{
+  font-family: 'Material Symbols Outlined', sans-serif !important;
+  font-weight: normal !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
 }}
 
 .sb-label {{
