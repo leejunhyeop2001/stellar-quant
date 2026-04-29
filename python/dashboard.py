@@ -179,8 +179,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
 }}
 [data-testid="stHeader"] {{
   background: transparent !important;
-  height: 0 !important;
-  min-height: 0 !important;
+  height: 3.25rem !important;
+  min-height: 3.25rem !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  z-index: 999998 !important;
 }}
 [data-testid="stToolbar"], [data-testid="stDecoration"] {{
   display: none !important;
@@ -193,12 +196,8 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
  * ────────────────────────────────────────────────────────────────── */
 [data-testid="stIconMaterial"],
 [data-testid="stMaterialIcon"],
-[data-testid="stIcon"],
 [data-testid="stExpanderToggleIcon"],
-button[data-testid="baseButton-header"] [data-testid="stMarkdownContainer"]:first-child span,
-[data-testid="collapsedControl"] span:not(:empty),
 section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span:not(:empty),
-[data-testid="stHeader"] span[aria-hidden="true"],
 [data-testid="stSidebar"] [data-baseweb="slider"] [aria-hidden="true"],
 .material-icons,
 .material-symbols-outlined {{
@@ -231,6 +230,7 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
   top: 14px !important;
   left: 14px !important;
   z-index: 999999 !important;
+  pointer-events: auto !important;
   border-radius: 999px !important;
   background: #101012 !important;
   box-shadow: 0 10px 28px rgba(0,0,0,0.45) !important;
@@ -999,7 +999,16 @@ button[kind="primary"]:hover {{
   opacity: 0.5;
 }}
 
-#MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden !important; height: 0 !important; }}
+#MainMenu, footer {{ visibility: hidden !important; height: 0 !important; }}
+header[data-testid="stHeader"] {{
+  visibility: visible !important;
+  background: transparent !important;
+  pointer-events: none !important;
+}}
+header[data-testid="stHeader"] [data-testid="collapsedControl"],
+header[data-testid="stHeader"] button {{
+  pointer-events: auto !important;
+}}
 .block-container {{
   padding: 1.25rem 1.75rem 2.25rem 1.75rem !important;
   max-width: 1400px !important;
