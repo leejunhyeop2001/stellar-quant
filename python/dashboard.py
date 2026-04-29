@@ -371,21 +371,31 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
 [data-testid="stExpander"] {{
   background-color: #101012 !important;
   background-clip: padding-box !important;
-  border: none !important;
+  border: 1px solid rgba(255,255,255,0.045) !important;
   box-shadow: var(--shadow-card) !important;
-  border-radius: 18px !important;
-  margin-top: 0 !important;
-  margin-bottom: 14px !important;
+  border-radius: 22px !important;
+  margin-top: 10px !important;
+  margin-bottom: 34px !important;
   overflow: hidden !important;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   background-color: #101012 !important;
 }}
-[data-testid="stExpander"] details {{ background: transparent !important; }}
+[data-testid="stExpander"]:hover {{
+  border-color: rgba(255,255,255,0.075) !important;
+  box-shadow: var(--shadow-card-hover) !important;
+}}
+[data-testid="stExpander"] details {{
+  background: transparent !important;
+}}
 [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
-  padding: 18px 16px !important;
-  padding-top: 10px !important;
-  gap: 14px !important;
+  padding: 24px 22px 28px 22px !important;
+  padding-top: 14px !important;
+  gap: 22px !important;
+}}
+[data-testid="stExpander"] details[open] > div {{
+  animation: sq-expander-open 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }}
 [data-testid="stExpander"] summary {{
   list-style: none !important;
@@ -394,14 +404,18 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   flex-direction: row !important;
   align-items: center !important;
   gap: 0 !important;
-  min-height: 2.5rem !important;
-  padding: 14px 16px !important;
-  font-size: 0.875rem !important;
-  font-weight: 700 !important;
+  min-height: 3.1rem !important;
+  padding: 18px 22px !important;
+  font-size: 1rem !important;
+  font-weight: 850 !important;
   font-family: var(--sans-ui) !important;
   color: {TEXT} !important;
   letter-spacing: -0.02em !important;
   cursor: pointer !important;
+  transition: background 0.22s ease, color 0.22s ease !important;
+}}
+[data-testid="stExpander"] summary:hover {{
+  background: rgba(255,255,255,0.018) !important;
 }}
 [data-testid="stExpander"] summary::-webkit-details-marker,
 [data-testid="stExpander"] summary::marker {{
@@ -417,14 +431,29 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
 [data-testid="stExpander"] summary::after {{
   content: "+";
   margin-left: auto;
-  font-weight: 400;
-  color: {MUTED};
-  font-size: 1.35rem;
+  font-weight: 600;
+  color: {ACCENT};
+  font-size: 1.28rem;
   line-height: 1;
   padding-left: 8px;
+  transition: transform 0.22s ease, color 0.22s ease !important;
 }}
 [data-testid="stExpander"] details[open] summary::after {{
   content: "−";
+  transform: rotate(180deg);
+}}
+
+@keyframes sq-expander-open {{
+  from {{
+    opacity: 0;
+    transform: translateY(-8px);
+    filter: blur(2px);
+  }}
+  to {{
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }}
 }}
 
 .sb-section-hd {{
@@ -2172,7 +2201,7 @@ def _render_risk_tables(result: DashboardResult) -> None:
 
 def _render_dashboard_result(result: DashboardResult) -> None:
     _render_risk_summary(result)
-    with st.expander("상세 분석 결과 보기", expanded=False):
+    with st.expander("💡 상세 지표와 수학 모델 보기", expanded=False):
         chart_tab, risk_tab, model_tab = st.tabs(["차트", "리스크 지표", "수학 모델"])
         with chart_tab:
             _render_charts(result)
