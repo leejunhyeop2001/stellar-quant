@@ -22,218 +22,320 @@ from loader import import_simulator
 # Page config
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Stellar-Quant",
+    page_title="Stellar-Quant · 이준협",
     page_icon="✦",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 # ---------------------------------------------------------------------------
-# Palette — deep space
+# Palette — enterprise dark (corporate / 대기업 스타일 톤)
 # ---------------------------------------------------------------------------
-BG       = "#0a0e17"
-BG2      = "#0e1322"
-CARD     = "rgba(14,19,34,0.82)"
-BORDER   = "rgba(120,140,180,0.12)"
-TEXT     = "#c8d6e5"
-MUTED    = "#7889a8"
-ACCENT   = "#6b8cc7"
-CYAN     = "#7eb8da"
-TEAL     = "#6bc9a0"
-PINK     = "#e8856c"
-ORANGE   = "#e8a44c"
-RED      = "#e06060"
-GREEN    = "#5ec49a"
-MEDIAN_C = "#e8856c"
-Q_CLR    = "#6bc9a0"
+BG = "#0b0d10"
+CARD = "rgba(255,255,255,0.045)"
+BORDER = "rgba(255,255,255,0.08)"
+TEXT = "#e8eaee"
+MUTED = "#8f96a3"
+ACCENT = "#3b82f6"
+CYAN = "#38bdf8"
+TEAL = "#22c55e"
+PINK = "#a78bfa"
+ORANGE = "#f59e0b"
+RED = "#ef4444"
+GREEN = "#10b981"
 
 # ---------------------------------------------------------------------------
-# CSS — cosmic / nebula
+# Typography — Pretendard + mono for figures
 # ---------------------------------------------------------------------------
 GLOBAL_CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 :root {{
-  --sans: 'Inter','Malgun Gothic',sans-serif;
-  --mono: 'JetBrains Mono','Consolas',monospace;
+  --sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+          'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  --mono: 'SF Mono', 'Consolas', 'JetBrains Mono', ui-monospace, monospace;
 }}
 
-/* ── Cosmic background ─────────────────────────────────── */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
-  background: radial-gradient(ellipse at 20% 0%, rgba(80,120,200,0.05) 0%, transparent 50%),
-              radial-gradient(ellipse at 80% 100%, rgba(80,160,200,0.03) 0%, transparent 50%),
-              {BG} !important;
+  background: {BG} !important;
   color: {TEXT} !important;
   font-family: var(--sans) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }}
 [data-testid="stHeader"] {{ background: transparent !important; }}
 
-/* ── Sidebar ───────────────────────────────────────────── */
 [data-testid="stSidebar"] {{
-  background: linear-gradient(180deg, #0c1120 0%, #0e1528 50%, #101828 100%) !important;
+  background: #0e1117 !important;
   border-right: 1px solid {BORDER} !important;
 }}
-[data-testid="stSidebar"] * {{ color: {TEXT} !important; font-family: var(--sans) !important; }}
+[data-testid="stSidebar"] * {{ font-family: var(--sans) !important; }}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {{
-  border: none !important; background: none !important;
+  border: none !important;
+  background: none !important;
 }}
 section[data-testid="stSidebar"] hr {{ display: none !important; }}
+
 section[data-testid="stSidebar"] .stTextInput > div > div {{
-  background: rgba(80,120,200,0.06) !important;
-  border: 1px solid rgba(80,120,200,0.12) !important;
-  border-radius: 10px !important;
-  transition: all 0.25s ease !important;
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid {BORDER} !important;
+  border-radius: 6px !important;
 }}
 section[data-testid="stSidebar"] .stTextInput > div > div:focus-within {{
-  background: rgba(80,120,200,0.10) !important;
-  border-color: rgba(80,120,200,0.3) !important;
-  box-shadow: 0 0 16px rgba(80,120,200,0.08) !important;
-}}
-section[data-testid="stSidebar"] label {{
-  color: {MUTED} !important; font-size: 0.7rem !important;
-  font-weight: 600 !important; letter-spacing: 0.06em !important;
-}}
-.sb-label {{
-  font-size: 0.62rem; font-weight: 700; color: rgba(107,140,199,0.6);
-  text-transform: uppercase; letter-spacing: 0.12em;
-  padding: 18px 0 6px 0; margin: 0;
-}}
-section[data-testid="stSidebar"] button[kind="primary"] {{
-  background: linear-gradient(135deg, {ACCENT}, #4a6db0) !important;
-  border: none !important; color: #fff !important;
-  font-weight: 700 !important; border-radius: 10px !important;
-  padding: 11px !important; font-size: 0.88rem !important;
-  box-shadow: 0 0 16px rgba(80,120,200,0.12) !important;
-  transition: box-shadow 0.3s ease !important;
-}}
-section[data-testid="stSidebar"] button[kind="primary"]:hover {{
-  box-shadow: 0 0 24px rgba(80,120,200,0.25) !important;
-}}
-.sb-foot {{
-  margin-top: 12px; font-size: 0.6rem; color: rgba(107,127,163,0.35);
-  line-height: 1.6;
+  border-color: rgba(59,130,246,0.45) !important;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.25) !important;
 }}
 
-/* ── Cards ─────────────────────────────────────────────── */
+/* Collapsed labels: Streamlit 기본 라벨 숨김 (key_double·중복 라벨 방지) */
+section[data-testid="stSidebar"] label[data-testid="stWidgetLabel"],
+section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
+  display: none !important;
+}}
+
+.sb-label {{
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: {MUTED};
+  letter-spacing: -0.01em;
+  padding: 16px 0 8px 0;
+  margin: 0;
+}}
+
+.brand-bar {{
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid {BORDER};
+}}
+.brand-title {{
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: {TEXT};
+}}
+.brand-sep {{
+  color: {MUTED};
+  font-weight: 400;
+  font-size: 1rem;
+}}
+.brand-author {{
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: {MUTED};
+  letter-spacing: -0.02em;
+}}
+
+section[data-testid="stSidebar"] button[kind="primary"] {{
+  background: {ACCENT} !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  padding: 10px !important;
+  font-size: 0.875rem !important;
+  letter-spacing: -0.01em !important;
+}}
+section[data-testid="stSidebar"] button[kind="primary"]:hover {{
+  background: #2563eb !important;
+}}
+
+.sb-foot {{
+  margin-top: 14px;
+  font-size: 0.6875rem;
+  color: #6b7280;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}}
+
 .mc {{
   background: {CARD};
   border: 1px solid {BORDER};
-  border-radius: 14px; padding: 18px 20px;
-  backdrop-filter: blur(6px);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
-}}
-.mc:hover {{
-  border-color: rgba(100,140,200,0.2);
-  box-shadow: 0 0 20px rgba(100,140,200,0.05);
+  border-radius: 8px;
+  padding: 16px 18px;
 }}
 .mc-lbl {{
-  font-size: 0.68rem; font-weight: 600; color: {MUTED};
-  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: {MUTED};
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
 }}
 .mc-val {{
-  font-size: 1.5rem; font-weight: 800; line-height: 1.2;
-  font-family: var(--mono); color: {TEXT};
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  font-family: var(--mono);
+  color: {TEXT};
+  letter-spacing: -0.02em;
 }}
 .mc-val-lg {{
-  font-size: 1.85rem; font-weight: 800; line-height: 1.2;
+  font-size: 1.625rem;
+  font-weight: 600;
+  line-height: 1.2;
   font-family: var(--mono);
+  letter-spacing: -0.02em;
 }}
-.mc-delta {{ font-size: 0.8rem; font-weight: 600; margin-top: 3px; font-family: var(--mono); }}
+.mc-delta {{
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-top: 4px;
+  font-family: var(--mono);
+  letter-spacing: -0.01em;
+}}
 .d-pos {{ color: {GREEN}; }}
 .d-neg {{ color: {RED}; }}
 
-/* ── Section title ─────────────────────────────────────── */
 .stitle {{
-  font-size: 0.75rem; font-weight: 700; color: {MUTED};
-  text-transform: uppercase; letter-spacing: 0.1em;
-  margin: 16px 0 10px 0; padding-bottom: 7px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: {MUTED};
+  letter-spacing: -0.01em;
+  margin: 20px 0 12px 0;
+  padding-bottom: 8px;
   border-bottom: 1px solid {BORDER};
 }}
 
-/* ── Tables ────────────────────────────────────────────── */
 .rtbl {{
-  width:100%; border-collapse:separate; border-spacing:0;
-  border-radius:12px; overflow:hidden;
-  border:1px solid {BORDER}; font-size:0.82rem;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid {BORDER};
+  font-size: 0.8125rem;
 }}
 .rtbl th {{
-  background: rgba(6,8,15,0.8); color: {MUTED}; font-weight:600;
-  text-align:left; padding:9px 14px;
-  font-size:0.68rem; letter-spacing:0.06em; text-transform:uppercase;
+  background: rgba(255,255,255,0.04);
+  color: {MUTED};
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
 }}
 .rtbl td {{
-  background: {CARD}; color: {TEXT}; padding:9px 14px;
-  border-top:1px solid {BORDER}; font-family:var(--mono); font-size:0.8rem;
+  background: {CARD};
+  color: {TEXT};
+  padding: 10px 14px;
+  border-top: 1px solid {BORDER};
+  font-family: var(--mono);
+  font-size: 0.8125rem;
 }}
-.rtbl tr {{ transition: background 0.2s ease; }}
-.rtbl tr:hover td {{ background: rgba(80,120,200,0.05); }}
+.rtbl tr:hover td {{ background: rgba(255,255,255,0.03); }}
 
-/* ── Math formula panel ────────────────────────────────── */
 .math-panel {{
   background: {CARD};
   border: 1px solid {BORDER};
-  border-radius: 14px; padding: 24px 28px;
-  backdrop-filter: blur(6px);
+  border-radius: 8px;
+  padding: 22px 24px;
   margin-top: 8px;
 }}
 .math-panel h3 {{
-  font-size: 0.88rem; font-weight: 800; color: {ACCENT};
-  margin: 0 0 14px 0; letter-spacing: 0.02em;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: {TEXT};
+  margin: 0 0 12px 0;
+  letter-spacing: -0.02em;
 }}
 .math-eq {{
   font-family: var(--mono);
-  font-size: 1.0rem; color: {CYAN};
-  background: rgba(100,160,200,0.04);
-  border-left: 3px solid rgba(100,160,200,0.2);
-  padding: 10px 16px; border-radius: 0 8px 8px 0;
-  margin: 10px 0;
-  letter-spacing: 0.02em;
-  line-height: 1.7;
+  font-size: 0.875rem;
+  color: #93c5fd;
+  background: rgba(59,130,246,0.06);
+  border-left: 2px solid rgba(59,130,246,0.35);
+  padding: 12px 14px;
+  border-radius: 0 6px 6px 0;
+  margin: 8px 0;
+  line-height: 1.65;
 }}
 .math-desc {{
-  font-size: 0.78rem; color: {MUTED}; line-height: 1.7;
-  padding: 2px 0 0 4px;
+  font-size: 0.8125rem;
+  color: {MUTED};
+  line-height: 1.65;
+  letter-spacing: -0.01em;
 }}
-.math-desc b {{ color: {TEXT}; font-weight: 700; }}
+.math-desc b {{ color: {TEXT}; font-weight: 600; }}
 .math-var {{
   display: inline-block;
-  font-family: var(--mono); color: {CYAN};
-  font-weight: 600; min-width: 26px;
+  font-family: var(--mono);
+  color: #7dd3fc;
+  font-weight: 500;
+  min-width: 24px;
 }}
 
-/* ── Header bar ────────────────────────────────────────── */
 .hbar {{
-  display:flex; align-items:center; gap:14px;
-  margin-bottom:8px; padding-bottom:8px;
-  border-bottom:1px solid {BORDER};
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid {BORDER};
 }}
-.hbar h1 {{ font-size:1.3rem; font-weight:800; margin:0; color:{TEXT}; }}
+.hbar-brand {{
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}}
+.hbar h1 {{
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: {TEXT};
+  letter-spacing: -0.03em;
+}}
+.hbar .hbar-author {{
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: {MUTED};
+  letter-spacing: -0.02em;
+}}
 .hbar .badge {{
-  background: linear-gradient(135deg, {ACCENT}, #4a6db0);
-  color:#fff; font-weight:700; font-size:0.76rem;
-  padding:3px 10px; border-radius:6px; font-family:var(--mono);
+  background: rgba(59,130,246,0.2);
+  color: #93c5fd;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  border: 1px solid rgba(59,130,246,0.25);
 }}
 .hbar .perf {{
-  color:{MUTED}; font-size:0.7rem; margin-left:auto; font-family:var(--mono);
+  color: {MUTED};
+  font-size: 0.75rem;
+  margin-left: auto;
+  font-family: var(--mono);
+  letter-spacing: -0.01em;
 }}
 
 .disc {{
-  font-size:0.68rem; color:{MUTED}; margin-top:10px;
-  padding:8px 12px; background:rgba(6,8,15,0.5);
-  border-radius:8px; border-left:3px solid {BORDER};
+  font-size: 0.75rem;
+  color: {MUTED};
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  border: 1px solid {BORDER};
+  line-height: 1.55;
+  letter-spacing: -0.01em;
 }}
 
-#MainMenu, footer, header {{ visibility:hidden; }}
+#MainMenu, footer, header {{ visibility: hidden; }}
 .block-container {{
-  padding-top:1rem !important; padding-bottom:0.5rem !important;
-  max-width:100% !important;
+  padding-top: 1rem !important;
+  padding-bottom: 0.5rem !important;
+  max-width: 100% !important;
 }}
 [data-testid="stPlotlyChart"] {{
   background: {CARD};
-  border:1px solid {BORDER};
-  border-radius:14px; padding:4px;
-  backdrop-filter: blur(6px);
+  border: 1px solid {BORDER};
+  border-radius: 8px;
+  padding: 2px;
 }}
 </style>
 """
@@ -289,18 +391,48 @@ def _ds(arr, mx=120):
 
 
 # ---------------------------------------------------------------------------
-# Chart common
+# Chart common — Plotly dark theme
 # ---------------------------------------------------------------------------
-_AX = dict(gridcolor="rgba(160,175,200,0.08)", zerolinecolor="rgba(160,175,200,0.08)",
-           gridwidth=1, tickfont=dict(size=10.5, family="JetBrains Mono"),
-           title_font=dict(size=11, color=MUTED))
+_PLOT_BG = "#0e1218"
+_PAPER_BG = "#0a0e14"
+_GRID = "rgba(130,150,185,0.12)"
+_AXLINE = "rgba(130,150,185,0.18)"
+
+_AX = dict(
+    gridcolor=_GRID,
+    zerolinecolor=_AXLINE,
+    gridwidth=0.85,
+    zerolinewidth=0.85,
+    tickfont=dict(
+        size=11,
+        family="SF Mono, Consolas, JetBrains Mono, monospace",
+        color="#9ca3af",
+    ),
+    title_font=dict(
+        size=12,
+        color="#9ca3af",
+        family="Pretendard Variable, Pretendard, sans-serif",
+    ),
+    showline=True,
+    linecolor="rgba(100,120,160,0.25)",
+    mirror=False,
+)
 
 _LAY = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(10,14,22,0.55)",
-    font=dict(family="Inter, Malgun Gothic, sans-serif", color=TEXT, size=12),
-    hoverlabel=dict(bgcolor="rgba(12,17,30,0.92)", bordercolor="rgba(140,155,180,0.25)",
-                    font_size=12, font_family="Inter, Malgun Gothic"),
+    paper_bgcolor=_PAPER_BG,
+    plot_bgcolor=_PLOT_BG,
+    font=dict(
+        family="Pretendard Variable, Pretendard, Malgun Gothic, Apple SD Gothic Neo, sans-serif",
+        color="#e8eaee",
+        size=13,
+    ),
+    hoverlabel=dict(
+        bgcolor="rgba(17,24,39,0.95)",
+        bordercolor="rgba(148,163,184,0.35)",
+        font_size=12,
+        font_family="Pretendard Variable, Pretendard, sans-serif",
+        font_color="#f3f4f6",
+    ),
     hovermode="x unified",
 )
 
@@ -319,8 +451,8 @@ def build_hist(terminal, s0, m, cur, ticker):
     fig = go.Figure()
     fig.add_trace(go.Histogram(
         x=cl, nbinsx=120, histnorm="probability density",
-        marker=dict(color="rgba(100,160,220,0.40)", line_width=0),
-        opacity=0.75, name="분포 (Distribution)",
+        marker=dict(color="rgba(118,156,238,0.38)", line_width=0),
+        opacity=0.82, name="분포 (Distribution)",
         hovertemplate=f"{sym}%{{x:{hf}}}<br>밀도: %{{y:.5f}}<extra></extra>",
     ))
     lp = np.log(terminal[terminal > 0])
@@ -330,14 +462,14 @@ def build_hist(terminal, s0, m, cur, ticker):
     pm = float(yp.max()) if len(yp) else 1.0
 
     fig.add_trace(go.Scatter(x=xp, y=yp, mode="lines",
-        line=dict(color="#e8856c", width=2.5, shape="spline", smoothing=1.3),
+        line=dict(color="#d4a853", width=2.8, shape="spline", smoothing=1.2),
         name="PDF (확률밀도)", hoverinfo="skip"))
 
     for v, c, d, w, n in [
-        (s0, "rgba(255,255,255,0.7)", "dash", 1.8, "현재가 (Current)"),
-        (m["p05"], "#e8a44c", "solid", 2.0, "VaR 5% (최대손실)"),
-        (m["p50"], "#e8856c", "solid", 1.8, "Median (중앙값)"),
-        (m["p95"], "#6bc9a0", "dash", 1.3, "95th (상한선)"),
+        (s0, "rgba(230,236,252,0.55)", "dash", 1.6, "현재가 (Current)"),
+        (m["p05"], "#e8a85c", "solid", 2.2, "VaR 5% (최대손실)"),
+        (m["p50"], "#c9a0e8", "solid", 2.0, "Median (중앙값)"),
+        (m["p95"], "#5ec9a8", "dash", 1.4, "95th (상한선)"),
     ]:
         fig.add_trace(go.Scatter(x=[v,v], y=[0, pm*1.02], mode="lines",
             line=dict(color=c, width=w, dash=d),
@@ -345,16 +477,25 @@ def build_hist(terminal, s0, m, cur, ticker):
 
     fig.add_annotation(x=m["p05"], y=pm*0.88,
         text=f"<b>VaR 5%</b><br>{_fp(m['p05'],cur)}",
-        showarrow=True, arrowhead=2, arrowwidth=1.5, arrowcolor="#e8a44c",
-        ax=50, ay=-30, font=dict(color="#e8a44c", size=10.5),
-        bgcolor="rgba(6,8,15,0.85)", bordercolor="#e8a44c", borderwidth=1, borderpad=4)
+        showarrow=True, arrowhead=2, arrowwidth=1.5, arrowcolor="#e8a85c",
+        ax=50, ay=-30, font=dict(color="#fcd34d", size=11, family="Pretendard Variable, sans-serif"),
+        bgcolor="rgba(14,18,28,0.92)", bordercolor="#c99a4a", borderwidth=1, borderpad=5)
 
     fig.update_layout(**_LAY,
-        title=dict(text=f"<b>Terminal Price Distribution (최종가 분포)</b> — {ticker}",
-                   font=dict(size=12.5, color=TEXT), x=0.5, y=0.97),
+        title=dict(
+            text=f"<b>Terminal Price Distribution</b> <span style='color:#64748b;font-weight:500'>(최종가 분포)</span> — {ticker}",
+            font=dict(size=14, color="#f1f5f9", family="Pretendard Variable, Pretendard, sans-serif"),
+            x=0.5,
+            y=0.97,
+        ),
         margin=dict(l=55, r=15, t=70, b=50),
-        legend=dict(bgcolor="rgba(6,8,15,0.7)", bordercolor=BORDER, borderwidth=1,
-                    font=dict(size=9, color=TEXT), x=0.98, y=0.98, xanchor="right", yanchor="top"),
+        legend=dict(
+            bgcolor="rgba(15,23,42,0.92)",
+            bordercolor="rgba(148,163,184,0.2)",
+            borderwidth=1,
+            font=dict(size=10, color="#cbd5e1", family="Pretendard Variable, Pretendard, sans-serif"),
+            x=0.98, y=0.98, xanchor="right", yanchor="top",
+        ),
         xaxis=dict(**_AX, title=f"최종가 Final Price ({cur})",
                    range=[p01*0.95, p99*1.05], tickformat=hf, tickprefix=sym),
         yaxis=dict(**_AX, title="확률밀도 Density"),
@@ -387,30 +528,30 @@ def build_fan(pm, s0, yrs, cur, ticker):
         xs.extend(tb.tolist() + [None])
         ys.extend(pm[i, ::step].tolist() + [None])
     fig.add_trace(go.Scattergl(x=xs, y=ys, mode="lines",
-        line=dict(color="rgba(140,160,190,0.05)", width=0.5),
+        line=dict(color="rgba(120,145,190,0.06)", width=0.45),
         showlegend=False, hoverinfo="skip"))
 
     tr = t[::-1]
     fig.add_trace(go.Scatter(x=np.concatenate([t,tr]),
         y=np.concatenate([d95, d05[::-1]]),
-        fill="toself", fillcolor="rgba(100,160,220,0.07)",
+        fill="toself", fillcolor="rgba(118,156,238,0.10)",
         line_width=0, name="5%-95% (신뢰구간)", hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=np.concatenate([t,tr]),
         y=np.concatenate([d75, d25[::-1]]),
-        fill="toself", fillcolor="rgba(100,160,220,0.16)",
+        fill="toself", fillcolor="rgba(118,156,238,0.18)",
         line_width=0, name="25%-75% (신뢰구간)", hoverinfo="skip"))
 
     fig.add_trace(go.Scatter(x=t, y=d50, mode="lines",
-        line=dict(color="#e8856c", width=2.8), name="Median (중간값)",
+        line=dict(color="#c9a0e8", width=3.0, shape="spline", smoothing=0.45), name="Median (중간값)",
         hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
     fig.add_trace(go.Scatter(x=t, y=d05, mode="lines",
-        line=dict(color="#6bc9a0", width=1.2, dash="dot"), name="5% (하한)",
+        line=dict(color="#5ec9a8", width=1.35, dash="dot"), name="5% (하한)",
         hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
     fig.add_trace(go.Scatter(x=t, y=d95, mode="lines",
-        line=dict(color="#6bc9a0", width=1.2, dash="dot"), name="95% (상한)",
+        line=dict(color="#7eb8da", width=1.35, dash="dot"), name="95% (상한)",
         hovertemplate=f"%{{x:.2f}}Y — {sym}%{{y:{hf}}}<extra></extra>"))
 
-    fig.add_hline(y=s0, line_color="rgba(255,255,255,0.45)", line_dash="dash", line_width=1.5)
+    fig.add_hline(y=s0, line_color="rgba(220,228,248,0.42)", line_dash="dash", line_width=1.35)
     fig.add_annotation(x=0.01, y=s0, xref="paper",
         text=f" 현재가 {_fp(s0,cur)} ", showarrow=False, yanchor="bottom",
         font=dict(color="#fff", size=10), bgcolor="rgba(6,8,15,0.7)", borderpad=3)
@@ -420,17 +561,26 @@ def build_fan(pm, s0, yrs, cur, ticker):
     yh = float(q95.max()) * 1.12
 
     fig.update_layout(**_LAY,
-        title=dict(text=f"<b>Stock Price Simulation (주가 경로 시뮬레이션)</b> — {ticker}",
-                   font=dict(size=12.5, color=TEXT), x=0.5, y=0.97),
-        margin=dict(l=60, r=70, t=70, b=50),
-        legend=dict(bgcolor="rgba(6,8,15,0.7)", bordercolor=BORDER, borderwidth=1,
-                    font=dict(size=9, color=TEXT), x=0.02, y=0.98, xanchor="left", yanchor="top"),
+        title=dict(
+            text=f"<b>Stock Price Simulation</b> <span style='color:#64748b;font-weight:500'>(주가 경로)</span> — {ticker}",
+            font=dict(size=14, color="#f1f5f9", family="Pretendard Variable, Pretendard, sans-serif"),
+            x=0.5,
+            y=0.97,
+        ),
+        margin=dict(l=60, r=70, t=72, b=50),
+        legend=dict(
+            bgcolor="rgba(15,23,42,0.92)",
+            bordercolor="rgba(148,163,184,0.2)",
+            borderwidth=1,
+            font=dict(size=10, color="#cbd5e1", family="Pretendard Variable, Pretendard, sans-serif"),
+            x=0.02, y=0.98, xanchor="left", yanchor="top",
+        ),
         xaxis=dict(**_AX, title="예측 기간 Period", tickvals=tp, ticktext=tl),
         yaxis=dict(**_AX, title=f"주가 Price ({cur})", range=[yl, yh],
                    tickformat=hf, tickprefix=sym),
         height=CH)
 
-    for v, c in [(float(q50[-1]), PINK), (float(q05[-1]), TEAL), (float(q95[-1]), TEAL)]:
+    for v, c in [(float(q50[-1]), "#c9a0e8"), (float(q05[-1]), "#5ec9a8"), (float(q95[-1]), "#7eb8da")]:
         fig.add_annotation(x=yrs, y=v, text=f" <b>{_fp(v,cur)}</b> ",
             showarrow=False, xanchor="left", font=dict(color=c, size=10.5),
             bgcolor="rgba(6,8,15,0.55)", borderpad=2)
@@ -545,52 +695,117 @@ def main():
     # ── Sidebar ───────────────────────────────────────────
     with st.sidebar:
         st.markdown(
-            f'<div style="padding:4px 0 14px 0;">'
-            f'<span style="font-size:1.15rem;font-weight:800;color:{TEXT};">'
-            f'✦ Stellar-Quant</span></div>',
-            unsafe_allow_html=True)
+            '<div class="brand-bar">'
+            '<span class="brand-title">Stellar-Quant</span>'
+            '<span class="brand-sep">·</span>'
+            '<span class="brand-author">이준협</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
         st.markdown('<div class="sb-label">Ticker (종목코드)</div>',
                     unsafe_allow_html=True)
         ticker = st.text_input(
-            "Ticker", value="TSLA", max_chars=20,
+            "Ticker",
+            value="TSLA",
+            max_chars=20,
             placeholder="AAPL, TSLA, 005930.KS …",
             label_visibility="collapsed",
+            key="sq_ticker_symbol",
         ).strip().upper()
 
-        st.markdown('<div class="sb-label">Simulation (시뮬레이션 설정)</div>',
+        st.markdown('<div class="sb-label">Simulation (시뮬레이션)</div>',
                     unsafe_allow_html=True)
         n_paths = st.select_slider(
-            "Paths (경로 수)",
+            "Monte Carlo paths",
             options=[100_000, 500_000, 1_000_000, 5_000_000, 10_000_000],
-            value=1_000_000, format_func=lambda x: f"{x:,}",
+            value=1_000_000,
+            format_func=lambda x: f"{x:,}",
+            label_visibility="collapsed",
+            key="sq_n_paths",
         )
-        years = st.slider("Horizon (예측 기간)", 0.25, 3.0, 1.0, 0.25,
-                           format="%.2f yr")
-        fan_paths = st.slider("Fan Chart Paths (경로 수)", 1000, 20000, 5000, 1000)
+        years = st.slider(
+            "Horizon",
+            0.25,
+            3.0,
+            1.0,
+            0.25,
+            format="%.2f yr",
+            label_visibility="collapsed",
+            key="sq_horizon_years",
+        )
 
-        st.markdown('<div class="sb-label">Jump diffusion — Merton</div>',
-                    unsafe_allow_html=True)
-        j_lambda = st.slider(
-            "λ — annual jump intensity (연간 점프 강도)",
-            0.0, 15.0, 0.0, 0.01,
-            format="%.3f",
-            help="Historical estimates shown below after each run.",
-        )
-        j_mu = st.slider(
-            "μ_J — mean log jump (평균 로그 점프)",
-            -0.35, 0.35, 0.0, 0.005,
-            format="%.4f",
-        )
-        j_sigma = st.slider(
-            "σ_J — log jump volatility (로그 점프 변동성)",
-            0.0, 1.0, 0.05, 0.005,
-            format="%.4f",
-        )
+        with st.expander("고급 설정", expanded=False):
+            st.markdown('<div class="sb-label">Fan chart</div>', unsafe_allow_html=True)
+            fan_paths = st.slider(
+                "Fan paths",
+                1000,
+                20000,
+                5000,
+                1000,
+                help="Fan chart에 그리는 개별 경로 수입니다.",
+                label_visibility="collapsed",
+                key="sq_fan_paths",
+            )
+            n_steps = st.slider(
+                "Time steps",
+                52,
+                504,
+                252,
+                26,
+                help="경로를 나누는 시간 스텝 수 (거래일 스케일).",
+                label_visibility="collapsed",
+                key="sq_fan_steps",
+            )
+            n_threads = st.slider(
+                "C++ threads",
+                0,
+                32,
+                0,
+                help="0이면 사용 가능한 코어 수에 맞춥니다.",
+                label_visibility="collapsed",
+                key="sq_cpp_threads",
+            )
+            st.markdown('<div class="sb-label">Jump diffusion (Merton)</div>',
+                        unsafe_allow_html=True)
+            j_lambda = st.slider(
+                "Jump lambda",
+                0.0,
+                15.0,
+                0.0,
+                0.01,
+                format="%.3f",
+                label_visibility="collapsed",
+                key="sq_jump_lambda",
+            )
+            j_mu = st.slider(
+                "Jump mu",
+                -0.35,
+                0.35,
+                0.0,
+                0.005,
+                format="%.4f",
+                label_visibility="collapsed",
+                key="sq_jump_mu",
+            )
+            j_sigma = st.slider(
+                "Jump sigma",
+                0.0,
+                1.0,
+                0.05,
+                0.005,
+                format="%.4f",
+                label_visibility="collapsed",
+                key="sq_jump_sigma",
+            )
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-        run = st.button("Run Simulation  →",
-                        use_container_width=True, type="primary")
+        run = st.button(
+            "Run Simulation  →",
+            use_container_width=True,
+            type="primary",
+            key="sq_run_simulation",
+        )
 
         st.markdown(
             '<div class="sb-foot">'
@@ -610,13 +825,14 @@ def main():
         st.markdown(
             f'<div style="display:flex;flex-direction:column;align-items:center;'
             f'justify-content:center;height:58vh;text-align:center;">'
-            f'<div style="font-size:3.5rem;margin-bottom:8px;">✦</div>'
-            f'<h2 style="color:{TEXT};font-weight:800;margin:0;font-size:1.6rem;">'
+            f'<div style="font-size:3rem;margin-bottom:12px;opacity:0.9;">✦</div>'
+            f'<h2 style="color:{TEXT};font-weight:700;margin:0;font-size:1.5rem;letter-spacing:-0.03em;">'
             f'Stellar-Quant</h2>'
-            f'<p style="color:{MUTED};margin-top:8px;font-size:0.95rem;max-width:420px;">'
-            f'Monte Carlo GBM 시뮬레이터<br>'
-            f'좌측에서 종목코드를 입력하고 '
-            f'<b style="color:{ACCENT};">Run Simulation</b>을 클릭하세요.</p></div>',
+            f'<p style="color:{MUTED};margin:8px 0 0 0;font-size:0.9375rem;font-weight:500;letter-spacing:-0.02em;">'
+            f'이준협</p>'
+            f'<p style="color:{MUTED};margin-top:16px;font-size:0.875rem;max-width:420px;line-height:1.55;letter-spacing:-0.01em;">'
+            f'Monte Carlo 시뮬레이션<br>'
+            f'좌측에서 설정 후 <b style="color:{ACCENT};">Run Simulation</b>을 실행하세요.</p></div>',
             unsafe_allow_html=True)
         return
 
@@ -626,7 +842,7 @@ def main():
         if not tick:
             st.error("종목 코드를 입력해 주세요.")
             return
-        with st.spinner("데이터 수집 중 …"):
+        with st.spinner("시세 데이터 수집 중…"):
             try:
                 close = fetch_prices(tick, period="2y")
                 params = estimate_gbm_params(close, ticker=tick)
@@ -637,7 +853,12 @@ def main():
                     f"{err}"
                 )
                 return
-        with st.spinner(f"C++ 시뮬레이션 ({n_paths:,} paths) …"):
+        spinner_engine = (
+            "엔진 가동 중: 1,000만 경로 연산 중…"
+            if n_paths >= 10_000_000
+            else f"엔진 가동 중: {n_paths:,} 경로 연산 중…"
+        )
+        with st.spinner(spinner_engine):
             sim = import_simulator()
             t0 = time.perf_counter()
             terminal = np.asarray(
@@ -648,7 +869,7 @@ def main():
                     sigma=params.sigma,
                     t=years,
                     seed=42,
-                    n_threads=0,
+                    n_threads=int(n_threads),
                     jump_lambda=j_lambda,
                     jump_mu=j_mu,
                     jump_sigma=j_sigma,
@@ -658,13 +879,13 @@ def main():
             path_matrix = np.asarray(
                 sim.simulate_gbm_path_matrix(
                     n_paths=fan_paths,
-                    n_steps=252,
+                    n_steps=int(n_steps),
                     s0=params.s0,
                     mu=params.mu,
                     sigma=params.sigma,
                     t=years,
                     seed=43,
-                    n_threads=0,
+                    n_threads=int(n_threads),
                     jump_lambda=j_lambda,
                     jump_mu=j_mu,
                     jump_sigma=j_sigma,
@@ -683,11 +904,14 @@ def main():
                 elapsed=elapsed,
                 n_paths=n_paths,
                 years=years,
+                n_steps=int(n_steps),
+                n_threads=int(n_threads),
                 jump_lambda=j_lambda,
                 jump_mu=j_mu,
                 jump_sigma=j_sigma,
             )
         )
+        st.toast("시뮬레이션 완료!", icon="✦")
 
     # ── Read state ────────────────────────────────────────
     ss = st.session_state
@@ -699,6 +923,8 @@ def main():
     elapsed  = ss["elapsed"]
     n_paths  = ss["n_paths"]
     years    = ss["years"]
+    n_steps_u = int(ss.get("n_steps", 252))
+    n_threads_u = int(ss.get("n_threads", 0))
     jl = float(ss.get("jump_lambda", 0.0))
     jm = float(ss.get("jump_mu", 0.0))
     js = float(ss.get("jump_sigma", 0.0))
@@ -709,12 +935,54 @@ def main():
     # ── Header ────────────────────────────────────────────
     otxt, oclr = _outlook(metrics["up_probability_pct"])
     st.markdown(
-        f'<div class="hbar"><h1>✦ Stellar-Quant</h1>'
+        f'<div class="hbar">'
+        f'<div class="hbar-brand">'
+        f'<h1>Stellar-Quant</h1>'
+        f'<span class="hbar-author">이준협</span>'
+        f'</div>'
         f'<span class="badge">{ticker}</span>'
-        f'<span style="color:{oclr};font-weight:700;font-size:0.8rem;">{otxt}</span>'
-        f'<span class="perf">⚡ {elapsed:.3f}s · {thru:,.0f} paths/s · '
+        f'<span style="color:{oclr};font-weight:600;font-size:0.8125rem;letter-spacing:-0.01em;">{otxt}</span>'
+        f'<span class="perf">{elapsed:.3f}s · {thru:,.0f} paths/s · '
         f'{n_paths:,} simulations</span></div>',
         unsafe_allow_html=True)
+
+    # ── Key metrics (최종 예상가 · VaR · CVaR) ─────────────
+    st.markdown(
+        '<div class="stitle" style="margin-top:4px;">핵심 지표 · Key metrics</div>',
+        unsafe_allow_html=True,
+    )
+    k1, k2, k3 = st.columns(3, gap="medium")
+    p50d = _dpct(metrics["p50"], s0)
+    c50 = GREEN if p50d >= 0 else RED
+    with k1:
+        st.markdown(
+            _mc(
+                "최종 예상가 Median (Sₜ 중앙)",
+                fp(metrics["p50"]),
+                _dhtml(p50d),
+                lg=True,
+                vc=c50,
+            ),
+            unsafe_allow_html=True,
+        )
+    with k2:
+        st.markdown(
+            _mc(
+                "VaR (95%) 최대 손실",
+                fp(metrics["var_95_abs"]),
+                f'<div class="mc-delta d-neg">▼ {metrics["var_95_pct"]:.1f}%</div>',
+            ),
+            unsafe_allow_html=True,
+        )
+    with k3:
+        st.markdown(
+            _mc(
+                "CVaR (95%) ES 꼬리 손실",
+                fp(metrics["cvar_95_abs"]),
+                f'<div class="mc-delta d-neg">▼ {metrics["cvar_95_pct"]:.1f}%</div>',
+            ),
+            unsafe_allow_html=True,
+        )
 
     # ── Charts ────────────────────────────────────────────
     c1, c2 = st.columns(2, gap="medium")
@@ -726,39 +994,25 @@ def main():
         st.plotly_chart(build_fan(path_matrix, s0, years, cur, ticker),
                         use_container_width=True, config=cfg)
 
-    # ── Metric Cards ──────────────────────────────────────
-    st.markdown('<div class="stitle">📊 Investment Outlook (투자 전망)</div>',
+    # ── Metric Cards — 보조 지표 ──────────────────────────
+    st.markdown('<div class="stitle">투자 전망 · Outlook</div>',
                 unsafe_allow_html=True)
     up = metrics["up_probability_pct"]
-    p50d = _dpct(metrics["p50"], s0)
     md = _dpct(float(terminal.mean()), s0)
     cols_a = st.columns(3, gap="small")
-    cols_b = st.columns(3, gap="small")
     with cols_a[0]:
         st.markdown(_mc("현재가 Current Price", fp(s0)), unsafe_allow_html=True)
     with cols_a[1]:
-        c = GREEN if p50d >= 0 else RED
-        st.markdown(_mc("중앙 예측가 Median", fp(metrics["p50"]),
-                    _dhtml(p50d), True, c), unsafe_allow_html=True)
-    with cols_a[2]:
         st.markdown(_mc("평균 예측가 Mean", fp(float(terminal.mean())),
                     _dhtml(md)), unsafe_allow_html=True)
-    with cols_b[0]:
+    with cols_a[2]:
         ico = "📈 🟢" if up >= 50 else "📉 🔴"
         c = GREEN if up >= 50 else RED
         st.markdown(_mc("상승 확률 Profit Prob.", f"{ico} {up:.1f}%",
                     large=True, vc=c), unsafe_allow_html=True)
-    with cols_b[1]:
-        st.markdown(_mc("VaR(95%) 최대 손실", fp(metrics["var_95_abs"]),
-                    f'<div class="mc-delta d-neg">▼ {metrics["var_95_pct"]:.1f}%</div>'),
-                    unsafe_allow_html=True)
-    with cols_b[2]:
-        st.markdown(_mc("CVaR(95%) ES 꼬리 손실", fp(metrics["cvar_95_abs"]),
-                    f'<div class="mc-delta d-neg">▼ {metrics["cvar_95_pct"]:.1f}%</div>'),
-                    unsafe_allow_html=True)
 
     # ── Risk Table ────────────────────────────────────────
-    st.markdown('<div class="stitle">⚠️ Risk Scenarios (리스크 시나리오)</div>',
+    st.markdown('<div class="stitle">리스크 시나리오 · Risk scenarios</div>',
                 unsafe_allow_html=True)
     scn = [
         ("Best (최선)", "95th", fp(metrics["p95"]), _dpct(metrics["p95"], s0), GREEN),
@@ -796,13 +1050,15 @@ def main():
             f'<td>{fp(metrics["p05"])} — {fp(metrics["p95"])}</td></tr>'
             f'<tr><td style="font-family:var(--sans)">Paths (시뮬레이션 횟수)</td>'
             f'<td>{n_paths:,}</td></tr>'
+            f'<tr><td style="font-family:var(--sans)">Fan steps / 스레드</td>'
+            f'<td>{n_steps_u} / {n_threads_u if n_threads_u else "auto"}</td></tr>'
             f'<tr><td style="font-family:var(--sans)">C++ Engine (엔진 시간)</td>'
             f'<td>{elapsed:.3f}s</td></tr>'
             f'</tbody></table>',
             unsafe_allow_html=True)
 
     # ── Math Formula Section ──────────────────────────────
-    st.markdown('<div class="stitle">✦ Mathematical Model (수학 모델)</div>',
+    st.markdown('<div class="stitle">수학 모델 · Model reference</div>',
                 unsafe_allow_html=True)
     st.markdown(_build_math_section(params, cur, jl, jm, js), unsafe_allow_html=True)
 
