@@ -93,6 +93,38 @@ section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
   display: none !important;
 }}
 
+/* Expander: <summary> 기본 삼각(▶) + Streamlit chevron(→/↓) 겹침 방지 */
+[data-testid="stExpander"] summary {{
+  list-style: none !important;
+  list-style-type: none !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  min-height: 2.25rem !important;
+  padding-inline: 0.15rem 0.35rem !important;
+}}
+[data-testid="stExpander"] summary::-webkit-details-marker,
+[data-testid="stExpander"] summary::marker {{
+  display: none !important;
+  content: "" !important;
+  width: 0 !important;
+  height: 0 !important;
+}}
+[data-testid="stExpander"] summary::-moz-list-bullet {{
+  list-style: none !important;
+}}
+/* 아이콘 한 줄 정렬 */
+[data-testid="stExpander"] summary > div,
+[data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] {{
+  display: inline-flex !important;
+  align-items: center !important;
+}}
+[data-testid="stExpander"] summary svg {{
+  flex-shrink: 0 !important;
+  display: block !important;
+}}
+
 .sb-label {{
   font-size: 0.75rem;
   font-weight: 600;
