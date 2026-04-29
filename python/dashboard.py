@@ -148,13 +148,20 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
 }}
 
 [data-testid="stSidebar"] {{
+  /* Streamlit 기본에는 스플리터 드래그 없음 → 컴팩트 고정 폭으로 밀도 최적화 */
+  width: 288px !important;
+  min-width: 288px !important;
+  max-width: 288px !important;
+  flex: 0 0 288px !important;
+  box-sizing: border-box !important;
   background: {BG} !important;
   background-clip: padding-box !important;
   border-right: none !important;
-  box-shadow: 8px 0 48px rgba(0,0,0,0.45) !important;
-  padding: 18px 24px 36px 24px !important;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.35) !important;
+  padding: 10px 12px 18px 12px !important;
   font-family: var(--sans-ui) !important;
   overflow-x: hidden !important;
+  overflow-y: auto !important;
 }}
 [data-testid="stSidebar"] * {{ font-family: inherit !important; }}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {{
@@ -162,29 +169,33 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
   background: none !important;
 }}
 section[data-testid="stSidebar"] > div [data-testid="stVerticalBlock"] {{
-  gap: 30px !important;
+  gap: 14px !important;
 }}
 
+/* 종목 입력 — 카드형 과대 패딩 제거, 한 줄 입력에 맞춤 */
 section[data-testid="stSidebar"] .stTextInput > div > div {{
   background-color: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px !important;
-  box-shadow: var(--shadow-card) !important;
-  padding: 18px 24px !important;
-  margin-bottom: 30px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 6px 20px rgba(0,0,0,0.4) !important;
+  padding: 3px 6px !important;
+  margin-bottom: 12px !important;
+  min-height: 0 !important;
   overflow: hidden !important;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+  transition: box-shadow 0.18s ease, background 0.18s ease !important;
 }}
 section[data-testid="stSidebar"] .stTextInput > div > div:hover {{
-  transform: scale(1.02);
-  box-shadow: var(--shadow-card-hover) !important;
-  background-color: #16161A !important;
+  transform: none !important;
+  background-color: #141418 !important;
+  box-shadow: 0 0 0 1px rgba(0,100,255,0.15), 0 8px 24px rgba(0,0,0,0.45) !important;
 }}
 section[data-testid="stSidebar"] .stTextInput input {{
-  font-size: 0.9375rem !important;
+  font-size: 0.875rem !important;
   font-weight: 500 !important;
-  padding: 12px 14px !important;
+  padding: 11px 12px !important;
+  min-height: 44px !important;
+  line-height: 1.35 !important;
   letter-spacing: -0.02em !important;
 }}
 section[data-testid="stSidebar"] .stTextInput > div > div:focus-within {{
@@ -196,15 +207,15 @@ section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
   display: flex !important;
   align-items: center !important;
   flex-wrap: wrap !important;
-  gap: 10px !important;
-  font-size: 0.8125rem !important;
+  gap: 6px !important;
+  font-size: 0.78rem !important;
   font-weight: 600 !important;
   color: {TEXT} !important;
   letter-spacing: -0.02em !important;
   text-transform: none !important;
-  margin: 0 0 18px 2px !important;
+  margin: 0 0 8px 2px !important;
   padding: 0 !important;
-  line-height: 1.45 !important;
+  line-height: 1.35 !important;
   opacity: 1 !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stWidgetHelp"] {{
@@ -230,65 +241,66 @@ section[data-testid="stSidebar"] [data-testid="stCaption"] {{
 }}
 
 section[data-testid="stSidebar"] .stSelectSlider {{
-  padding: 24px 30px 18px 30px !important;
-  margin-bottom: 6px !important;
+  padding: 14px 16px 12px 16px !important;
+  margin-bottom: 4px !important;
   background-color: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px !important;
+  border-radius: 18px !important;
   box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+  transition: box-shadow 0.18s ease, background 0.18s ease !important;
 }}
 section[data-testid="stSidebar"] .stSelectSlider:hover {{
-  transform: scale(1.02);
+  transform: none !important;
+  background-color: #141418 !important;
   box-shadow: var(--shadow-card-hover) !important;
-  background-color: #16161A !important;
 }}
 section[data-testid="stSidebar"] .stSlider {{
-  padding: 24px 30px 18px 30px !important;
-  margin-bottom: 6px !important;
+  padding: 14px 16px 12px 16px !important;
+  margin-bottom: 4px !important;
   background-color: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px !important;
+  border-radius: 18px !important;
   box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+  transition: box-shadow 0.18s ease, background 0.18s ease !important;
 }}
 section[data-testid="stSidebar"] .stSlider:hover {{
-  transform: scale(1.02);
+  transform: none !important;
+  background-color: #141418 !important;
   box-shadow: var(--shadow-card-hover) !important;
-  background-color: #16161A !important;
 }}
 .sb-rec-caption {{
   font-family: var(--sans-ui) !important;
-  font-size: 0.65rem !important;
+  font-size: 0.625rem !important;
   font-weight: 400 !important;
   color: {SUBTLE} !important;
-  line-height: 1.5 !important;
-  margin: 6px 0 0 4px !important;
+  line-height: 1.4 !important;
+  margin: 3px 0 0 3px !important;
   padding: 0 !important;
   letter-spacing: -0.02em !important;
-  opacity: 0.5 !important;
+  opacity: 0.45 !important;
 }}
 
 section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"] {{
-  border-radius: 28px !important;
+  border-radius: 18px !important;
   font-weight: 600 !important;
   font-family: var(--sans-ui) !important;
   border: none !important;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.06), var(--shadow-card) !important;
   background: #101012 !important;
   color: {TEXT} !important;
-  padding: 18px 22px !important;
-  margin-bottom: 12px !important;
+  padding: 12px 16px !important;
+  margin-bottom: 8px !important;
   overflow: hidden !important;
   letter-spacing: -0.02em !important;
-  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease !important;
+  font-size: 0.8125rem !important;
+  transition: background 0.18s ease, box-shadow 0.18s ease !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"]:hover {{
-  transform: scale(1.02);
+  transform: none !important;
   background: rgba(0,100,255,0.12) !important;
   box-shadow: 0 0 0 1px rgba(0,100,255,0.25), var(--shadow-card-hover) !important;
 }}
@@ -297,20 +309,19 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
   background-clip: padding-box !important;
   border: none !important;
   box-shadow: var(--shadow-card) !important;
-  border-radius: 28px !important;
+  border-radius: 18px !important;
   margin-top: 0 !important;
-  margin-bottom: 30px !important;
+  margin-bottom: 14px !important;
   overflow: hidden !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   background-color: #101012 !important;
 }}
 [data-testid="stExpander"] details {{ background: transparent !important; }}
-[data-testid="stExpander"] .stElementContainer,
 [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
-  padding: 36px !important;
-  padding-top: 18px !important;
-  gap: 30px !important;
+  padding: 18px 16px !important;
+  padding-top: 10px !important;
+  gap: 14px !important;
 }}
 [data-testid="stExpander"] summary {{
   list-style: none !important;
@@ -319,9 +330,9 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   flex-direction: row !important;
   align-items: center !important;
   gap: 0 !important;
-  min-height: 3rem !important;
-  padding: 26px 36px !important;
-  font-size: 0.9375rem !important;
+  min-height: 2.5rem !important;
+  padding: 14px 16px !important;
+  font-size: 0.875rem !important;
   font-weight: 700 !important;
   font-family: var(--sans-ui) !important;
   color: {TEXT} !important;
@@ -359,10 +370,10 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   color: #0064FF;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 24px 4px 10px 4px;
+  padding: 14px 2px 8px 2px;
   margin: 0;
   border-top: none !important;
-  margin-top: 12px;
+  margin-top: 6px;
   opacity: 0.85;
 }}
 
@@ -370,9 +381,9 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 10px 12px;
-  padding: 18px 6px 30px 6px;
-  margin-bottom: 12px;
+  gap: 8px 10px;
+  padding: 6px 2px 14px 2px;
+  margin-bottom: 4px;
 }}
 .brand-title {{
   font-family: var(--sans-ui) !important;
@@ -396,20 +407,20 @@ section[data-testid="stSidebar"] button[kind="primary"] {{
   color: #fff !important;
   font-weight: 800 !important;
   font-family: var(--sans-ui) !important;
-  border-radius: 28px !important;
-  padding: 21px !important;
-  font-size: 0.9375rem !important;
+  border-radius: 16px !important;
+  padding: 14px !important;
+  font-size: 0.875rem !important;
   letter-spacing: -0.02em !important;
-  min-height: 56px !important;
-  margin-bottom: 30px !important;
+  min-height: 48px !important;
+  margin-bottom: 14px !important;
   overflow: hidden !important;
-  box-shadow: 0 8px 32px rgba(0,100,255,0.35) !important;
-  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease !important;
+  box-shadow: 0 6px 24px rgba(0,100,255,0.3) !important;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease !important;
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   background: #0052CC !important;
-  transform: scale(1.02);
-  box-shadow: 0 12px 40px rgba(0,100,255,0.45) !important;
+  transform: scale(1.01);
+  box-shadow: 0 8px 28px rgba(0,100,255,0.4) !important;
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:active {{
   transform: scale(0.99);
@@ -417,12 +428,12 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 
 .sb-foot {{
   font-family: var(--sans-ui) !important;
-  margin-top: 12px;
-  padding: 27px 12px 12px 12px;
-  font-size: 0.65rem;
+  margin-top: 8px;
+  padding: 14px 4px 8px 4px;
+  font-size: 0.625rem;
   font-weight: 400;
   color: {SUBTLE};
-  line-height: 1.65;
+  line-height: 1.55;
   border-top: none !important;
   opacity: 0.5;
 }}
@@ -431,7 +442,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .toss-card {{
   background: #101012 !important;
   background-clip: padding-box !important;
-  border-radius: 28px !important;
+  border-radius: 22px !important;
   border: none !important;
   box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
@@ -441,27 +452,27 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   background: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px !important;
-  padding: 48px;
-  min-height: 168px;
+  border-radius: 22px !important;
+  padding: 26px 28px;
+  min-height: 122px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   box-shadow: var(--shadow-card);
   overflow: hidden !important;
-  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease !important;
 }}
 .mc:hover {{
   background: {CARD_HI} !important;
-  transform: scale(1.02);
+  transform: scale(1.01);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 .mc-lbl {{
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 500;
   color: {MUTED};
   letter-spacing: -0.02em;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   opacity: 0.5;
 }}
 .mc-val, .mc-val-lg {{
@@ -480,11 +491,11 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .mc-delta {{
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
+  gap: 5px;
+  font-size: 0.72rem;
   font-weight: 600;
-  margin-top: 18px;
-  padding: 8px 14px;
+  margin-top: 10px;
+  padding: 6px 11px;
   border-radius: 999px;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -495,12 +506,12 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .d-neg {{ color: {RED};   background: rgba(255,77,79,0.14); opacity: 1; }}
 
 .stitle {{
-  font-size: 1rem;
+  font-size: 0.97rem;
   font-weight: 700;
   color: {TEXT};
   letter-spacing: -0.02em;
-  margin: 0 0 30px 4px !important;
-  padding: 0.6rem 0 0 0;
+  margin: 0 0 18px 2px !important;
+  padding: 0.25rem 0 0 0;
   border: none !important;
 }}
 .stitle-sub {{
@@ -516,14 +527,14 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   background: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px;
+  border-radius: 22px;
   overflow: hidden !important;
   box-shadow: var(--shadow-card);
-  padding: 48px 48px 42px 48px;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+  padding: 22px 24px 20px 24px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease !important;
 }}
 .rtbl-wrap:hover {{
-  transform: scale(1.01);
+  transform: scale(1.005);
   box-shadow: var(--shadow-card-hover) !important;
   background-color: #16161A !important;
 }}
@@ -569,7 +580,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .math-grid {{
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 36px;
+  gap: 18px;
 }}
 @media (max-width: 900px) {{
   .math-grid {{ grid-template-columns: 1fr; }}
@@ -585,18 +596,18 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   background: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px;
-  padding: 48px;
+  border-radius: 22px;
+  padding: 26px 28px;
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 14px;
   box-shadow: var(--shadow-card);
   overflow: hidden !important;
-  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease !important;
 }}
 .math-panel:hover {{
   background: {CARD_HI} !important;
-  transform: scale(1.02);
+  transform: scale(1.01);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 .math-panel h3 .math-h-sub {{
@@ -645,8 +656,8 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 18px 24px;
-  margin: 12px 4px 12px 4px;
+  gap: 12px 16px;
+  margin: 6px 2px 8px 2px;
   padding: 0;
   border: none !important;
 }}
@@ -685,47 +696,47 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 }}
 
 .disc {{
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: {MUTED};
-  margin: 48px 0 18px 0;
-  padding: 48px;
+  margin: 28px 0 12px 0;
+  padding: 22px 24px;
   background: #101012 !important;
   background-clip: padding-box !important;
-  border-radius: 28px;
+  border-radius: 22px;
   border: none !important;
   box-shadow: var(--shadow-card);
   overflow: hidden !important;
-  line-height: 1.75;
+  line-height: 1.65;
   letter-spacing: -0.02em;
   opacity: 0.5;
 }}
 
 #MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden !important; height: 0 !important; }}
 .block-container {{
-  padding: 3rem 3.75rem 6rem 3.75rem !important;
-  max-width: 1480px !important;
+  padding: 1.25rem 1.75rem 2.25rem 1.75rem !important;
+  max-width: 1400px !important;
 }}
 
 .block-container [data-testid="stVerticalBlock"] {{
-  gap: 4.5rem !important;
+  gap: 2.25rem !important;
 }}
 .block-container [data-testid="stHorizontalBlock"] {{
-  gap: 4.5rem !important;
+  gap: 1.75rem !important;
 }}
 
 [data-testid="stPlotlyChart"] {{
   background: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px !important;
-  padding: 48px 48px 36px 48px !important;
+  border-radius: 22px !important;
+  padding: 20px 20px 14px 20px !important;
   overflow: hidden !important;
   box-shadow: var(--shadow-card) !important;
   margin-bottom: 0 !important;
-  transition: transform 0.22s ease, box-shadow 0.22s ease !important;
+  transition: transform 0.18s ease, box-shadow 0.18s ease !important;
 }}
 [data-testid="stPlotlyChart"]:hover {{
-  transform: scale(1.01);
+  transform: scale(1.005);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 [data-testid="stPlotlyChart"] > div,
@@ -733,7 +744,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 [data-testid="stPlotlyChart"] .plotly,
 [data-testid="stPlotlyChart"] .user-select-none {{
   overflow: hidden !important;
-  border-radius: 22px !important;
+  border-radius: 18px !important;
   box-sizing: border-box !important;
 }}
 [data-testid="stPlotlyChart"] .main-svg {{
@@ -744,10 +755,10 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   text-align: center !important;
   background: rgba(0,100,255,0.07) !important;
   background-clip: padding-box !important;
-  border-radius: 18px !important;
+  border-radius: 14px !important;
   border: none !important;
-  padding: 26px 22px !important;
-  margin: 12px 0 !important;
+  padding: 16px 14px !important;
+  margin: 8px 0 !important;
   overflow: hidden !important;
 }}
 
@@ -767,16 +778,16 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   background: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px !important;
-  padding: 48px !important;
+  border-radius: 22px !important;
+  padding: 26px 22px !important;
   box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
-  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease !important;
 }}
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
   [data-testid="stColumn"] > [data-testid="stVerticalBlock"]:hover {{
   background: {CARD_HI} !important;
-  transform: scale(1.02);
+  transform: scale(1.01);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
@@ -823,7 +834,7 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   background: {CARD_HI} !important;
   border: none !important;
   box-shadow: var(--shadow-card-hover) !important;
-  border-radius: 28px !important;
+  border-radius: 22px !important;
   color: {TEXT} !important;
 }}
 
@@ -844,7 +855,7 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   );
   background-size: 1800px 100%;
   animation: sq-shimmer 1.5s infinite linear, sq-pulse-soft 2.2s ease-in-out infinite;
-  border-radius: 28px;
+  border-radius: 22px;
   box-shadow: var(--shadow-card);
 }}
 .sq-chart-skeleton {{
@@ -885,10 +896,10 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   background: #101012 !important;
   background-clip: padding-box !important;
   border: none !important;
-  border-radius: 28px !important;
+  border-radius: 22px !important;
   box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
-  padding: 30px 36px !important;
+  padding: 22px 26px !important;
   color: {TEXT} !important;
   box-sizing: border-box !important;
 }}
@@ -906,7 +917,7 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
 .block-container [data-testid="stPlotlyChart"],
 .block-container .math-panel,
 .block-container .sq-math-start ~ [data-testid="stHorizontalBlock"] {{
-  margin-bottom: 60px !important;
+  margin-bottom: 32px !important;
 }}
 
 .block-container [data-testid="element-container"],
@@ -1685,7 +1696,7 @@ def main():
     if _hist_fig is None or _fan_fig is None:
         _skel = st.empty()
         _skel.markdown(
-            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:36px;">'
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">'
             f'<div class="sq-skeleton sq-chart-skeleton"></div>'
             f'<div class="sq-skeleton sq-chart-skeleton"></div>'
             f'</div>',
