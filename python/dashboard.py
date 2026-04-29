@@ -38,10 +38,10 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 # Palette — Toss-inspired premium dark
 # ---------------------------------------------------------------------------
-BG = "#0F1014"            # Page background
-CARD = "#1C1C1E"          # Toss card surface (unified)
-CARD_HI = "#23242A"       # Slightly elevated / hover
-BORDER = "rgba(255,255,255,0.04)"
+BG = "#000000"            # 앱 전체 배경 (깊이)
+CARD = "#101012"          # 카드 표면
+CARD_HI = "#16161A"       # 호버/약한 상승
+BORDER = "transparent"    # 테두리 제거 — 그림자로만 구획
 TEXT = "#F4F5F7"
 MUTED = "#8B93A1"
 SUBTLE = "#5C6573"
@@ -84,31 +84,41 @@ def _sb_rec_line(text: str) -> None:
 # ---------------------------------------------------------------------------
 GLOBAL_CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 :root {{
-  --sans: 'Pretendard Variable', Pretendard, 'Inter', -apple-system, BlinkMacSystemFont,
+  --sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
           'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-  --sans-ui: 'Inter', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
+  --sans-ui: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
   --toss-blue: #0064FF;
   --mono: 'SF Mono', 'Consolas', 'JetBrains Mono', ui-monospace, monospace;
+  --card: #101012;
+  --card-hi: #16161A;
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 40px rgba(0,0,0,0.55);
+  --shadow-card-hover: 0 1px 0 rgba(255,255,255,0.06) inset, 0 18px 48px rgba(0,0,0,0.65);
+}}
+
+*,
+*::before,
+*::after {{
+  box-sizing: border-box !important;
 }}
 
 html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
   background: {BG} !important;
+  background-clip: padding-box !important;
   color: {TEXT} !important;
   font-family: var(--sans) !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  letter-spacing: -0.012em;
+  letter-spacing: -0.02em !important;
 }}
 [data-testid="stHeader"] {{
   background: transparent !important;
   height: 0 !important;
   min-height: 0 !important;
 }}
-[data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"] {{
+[data-testid="stToolbar"], [data-testid="stDecoration"] {{
   display: none !important;
 }}
 
@@ -139,9 +149,12 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
 
 [data-testid="stSidebar"] {{
   background: {BG} !important;
-  border-right: 1px solid {BORDER} !important;
-  padding: 8px 12px 20px 12px !important;
+  background-clip: padding-box !important;
+  border-right: none !important;
+  box-shadow: 8px 0 48px rgba(0,0,0,0.45) !important;
+  padding: 18px 24px 36px 24px !important;
   font-family: var(--sans-ui) !important;
+  overflow-x: hidden !important;
 }}
 [data-testid="stSidebar"] * {{ font-family: inherit !important; }}
 [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {{
@@ -149,124 +162,155 @@ section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span
   background: none !important;
 }}
 section[data-testid="stSidebar"] > div [data-testid="stVerticalBlock"] {{
-  gap: 1.125rem !important;
+  gap: 30px !important;
 }}
 
 section[data-testid="stSidebar"] .stTextInput > div > div {{
-  background-color: #1c1c1e !important;
+  background-color: #101012 !important;
+  background-clip: padding-box !important;
   border: none !important;
-  border-radius: 24px !important;
-  padding: 10px 14px !important;
-  margin-bottom: 20px !important;
+  border-radius: 28px !important;
+  box-shadow: var(--shadow-card) !important;
+  padding: 18px 24px !important;
+  margin-bottom: 30px !important;
   overflow: hidden !important;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+}}
+section[data-testid="stSidebar"] .stTextInput > div > div:hover {{
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card-hover) !important;
+  background-color: #16161A !important;
 }}
 section[data-testid="stSidebar"] .stTextInput input {{
   font-size: 0.9375rem !important;
   font-weight: 500 !important;
-  padding: 10px 12px !important;
+  padding: 12px 14px !important;
+  letter-spacing: -0.02em !important;
 }}
 section[data-testid="stSidebar"] .stTextInput > div > div:focus-within {{
-  box-shadow: 0 0 0 3px {ACCENT_GLOW} !important;
+  box-shadow: 0 0 0 3px {ACCENT_GLOW}, var(--shadow-card-hover) !important;
 }}
 
-/* 사이드바 위젯 라벨 — 위계: 제목 굵게 */
+/* 사이드바 라벨 / 보조 — 시각적 노이즈 ↓ */
 section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {{
   display: flex !important;
   align-items: center !important;
   flex-wrap: wrap !important;
-  gap: 8px !important;
+  gap: 10px !important;
   font-size: 0.8125rem !important;
   font-weight: 600 !important;
   color: {TEXT} !important;
   letter-spacing: -0.02em !important;
   text-transform: none !important;
-  margin: 0 0 14px 2px !important;
+  margin: 0 0 18px 2px !important;
   padding: 0 !important;
   line-height: 1.45 !important;
+  opacity: 1 !important;
 }}
-/* (?) 도움말 아이콘과 텍스트 간격 */
 section[data-testid="stSidebar"] [data-testid="stWidgetHelp"] {{
   margin-left: 2px !important;
   margin-top: 1px !important;
+  opacity: 0.5 !important;
 }}
 section[data-testid="stSidebar"] [data-baseweb="slider"],
 section[data-testid="stSidebar"] [data-testid="stSlider"] {{
-  margin-top: 4px !important;
-  margin-bottom: 2px !important;
+  margin-top: 8px !important;
+  margin-bottom: 4px !important;
 }}
 section[data-testid="stSidebar"] .stSelectSlider [data-baseweb="slider"] {{
-  margin-top: 4px !important;
+  margin-top: 8px !important;
 }}
 
 section[data-testid="stSidebar"] [data-testid="stCaption"] {{
   font-family: var(--sans-ui) !important;
-  font-size: 0.6875rem !important;
+  font-size: 0.65rem !important;
   font-weight: 400 !important;
   color: {SUBTLE} !important;
+  opacity: 0.5 !important;
 }}
 
-/* Select slider 행 (기본 설정) — 카드 톤 */
 section[data-testid="stSidebar"] .stSelectSlider {{
-  padding: 18px 22px 10px 22px !important;
-  margin-bottom: 4px !important;
-  background-color: #1c1c1e !important;
+  padding: 24px 30px 18px 30px !important;
+  margin-bottom: 6px !important;
+  background-color: #101012 !important;
+  background-clip: padding-box !important;
   border: none !important;
-  border-radius: 24px !important;
+  border-radius: 28px !important;
+  box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+}}
+section[data-testid="stSidebar"] .stSelectSlider:hover {{
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card-hover) !important;
+  background-color: #16161A !important;
 }}
 section[data-testid="stSidebar"] .stSlider {{
-  padding: 18px 22px 8px 22px !important;
-  margin-bottom: 4px !important;
-  background-color: #1c1c1e !important;
+  padding: 24px 30px 18px 30px !important;
+  margin-bottom: 6px !important;
+  background-color: #101012 !important;
+  background-clip: padding-box !important;
   border: none !important;
-  border-radius: 24px !important;
+  border-radius: 28px !important;
+  box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
+}}
+section[data-testid="stSidebar"] .stSlider:hover {{
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card-hover) !important;
+  background-color: #16161A !important;
 }}
 .sb-rec-caption {{
   font-family: var(--sans-ui) !important;
-  font-size: 0.6875rem !important;
+  font-size: 0.65rem !important;
   font-weight: 400 !important;
   color: {SUBTLE} !important;
-  line-height: 1.45 !important;
-  margin: 2px 0 0 2px !important;
+  line-height: 1.5 !important;
+  margin: 6px 0 0 4px !important;
   padding: 0 !important;
-  letter-spacing: -0.01em !important;
+  letter-spacing: -0.02em !important;
+  opacity: 0.5 !important;
 }}
 
-/* 고급 설정 — 추천 초기화 보조 버튼 */
 section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"] {{
-  border-radius: 14px !important;
+  border-radius: 28px !important;
   font-weight: 600 !important;
   font-family: var(--sans-ui) !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  background: rgba(255,255,255,0.05) !important;
+  border: none !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), var(--shadow-card) !important;
+  background: #101012 !important;
   color: {TEXT} !important;
-  padding: 12px 16px !important;
-  margin-bottom: 8px !important;
+  padding: 18px 22px !important;
+  margin-bottom: 12px !important;
   overflow: hidden !important;
+  letter-spacing: -0.02em !important;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"]:hover {{
-  border-color: rgba(0,100,255,0.4) !important;
-  background: rgba(0,100,255,0.1) !important;
+  transform: scale(1.02);
+  background: rgba(0,100,255,0.12) !important;
+  box-shadow: 0 0 0 1px rgba(0,100,255,0.25), var(--shadow-card-hover) !important;
 }}
 [data-testid="stExpander"] {{
-  background-color: #1c1c1e !important;
+  background-color: #101012 !important;
+  background-clip: padding-box !important;
   border: none !important;
-  box-shadow: none !important;
-  border-radius: 24px !important;
+  box-shadow: var(--shadow-card) !important;
+  border-radius: 28px !important;
   margin-top: 0 !important;
-  margin-bottom: 20px !important;
+  margin-bottom: 30px !important;
   overflow: hidden !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] {{
-  background-color: #1c1c1e !important;
+  background-color: #101012 !important;
 }}
 [data-testid="stExpander"] details {{ background: transparent !important; }}
 [data-testid="stExpander"] .stElementContainer,
 [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
-  padding: 30px !important;
-  padding-top: 12px !important;
-  gap: 1.25rem !important;
+  padding: 36px !important;
+  padding-top: 18px !important;
+  gap: 30px !important;
 }}
 [data-testid="stExpander"] summary {{
   list-style: none !important;
@@ -275,12 +319,13 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   flex-direction: row !important;
   align-items: center !important;
   gap: 0 !important;
-  min-height: 2.75rem !important;
-  padding: 22px 30px !important;
+  min-height: 3rem !important;
+  padding: 26px 36px !important;
   font-size: 0.9375rem !important;
   font-weight: 700 !important;
   font-family: var(--sans-ui) !important;
   color: {TEXT} !important;
+  letter-spacing: -0.02em !important;
   cursor: pointer !important;
 }}
 [data-testid="stExpander"] summary::-webkit-details-marker,
@@ -307,178 +352,207 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   content: "−";
 }}
 
-.sb-label {{
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: {MUTED};
-  letter-spacing: 0.02em;
-  padding: 20px 4px 8px 4px;
-  margin: 0;
-  text-transform: uppercase;
-}}
 .sb-section-hd {{
   font-family: var(--sans-ui) !important;
-  font-size: 0.6875rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: #0064FF;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 16px 4px 6px 4px;
+  padding: 24px 4px 10px 4px;
   margin: 0;
-  border-top: 1px solid {BORDER};
-  margin-top: 4px;
+  border-top: none !important;
+  margin-top: 12px;
+  opacity: 0.85;
 }}
 
 .brand-bar {{
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 8px 10px;
-  padding: 12px 4px 20px 4px;
-  margin-bottom: 8px;
+  gap: 10px 12px;
+  padding: 18px 6px 30px 6px;
+  margin-bottom: 12px;
 }}
 .brand-title {{
   font-family: var(--sans-ui) !important;
   font-size: 1.125rem;
   font-weight: 800;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
   color: {TEXT};
 }}
-.brand-sep {{ color: {SUBTLE}; font-weight: 400; }}
+.brand-sep {{ color: {SUBTLE}; font-weight: 400; opacity: 0.5; }}
 .brand-author {{
   font-family: var(--sans-ui) !important;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: {MUTED};
+  opacity: 0.5;
 }}
 
 section[data-testid="stSidebar"] button[kind="primary"] {{
   background: #0064FF !important;
   border: none !important;
   color: #fff !important;
-  font-weight: 700 !important;
+  font-weight: 800 !important;
   font-family: var(--sans-ui) !important;
-  border-radius: 16px !important;
-  padding: 14px !important;
+  border-radius: 28px !important;
+  padding: 21px !important;
   font-size: 0.9375rem !important;
-  letter-spacing: -0.01em !important;
-  height: 52px !important;
-  margin-bottom: 20px !important;
+  letter-spacing: -0.02em !important;
+  min-height: 56px !important;
+  margin-bottom: 30px !important;
   overflow: hidden !important;
-  transition: transform 0.08s ease, background 0.15s ease !important;
+  box-shadow: 0 8px 32px rgba(0,100,255,0.35) !important;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease !important;
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   background: #0052CC !important;
-  transform: translateY(-1px);
+  transform: scale(1.02);
+  box-shadow: 0 12px 40px rgba(0,100,255,0.45) !important;
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:active {{
-  transform: translateY(0);
+  transform: scale(0.99);
 }}
 
 .sb-foot {{
   font-family: var(--sans-ui) !important;
-  margin-top: 8px;
-  padding: 18px 8px 8px 8px;
-  font-size: 0.6875rem;
+  margin-top: 12px;
+  padding: 27px 12px 12px 12px;
+  font-size: 0.65rem;
   font-weight: 400;
   color: {SUBTLE};
   line-height: 1.65;
-  border-top: 1px solid {BORDER};
+  border-top: none !important;
+  opacity: 0.5;
 }}
 
-/* ── Toss 카드 시스템 (강제 디자인 토큰) ── */
+/* ── Toss 카드 — 테두리 없음, 그림자 + clip ── */
 .toss-card {{
-  background: #1C1C1E !important;
-  border-radius: 24px !important;
-  border: 1px solid #2C2C2E !important;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border-radius: 28px !important;
+  border: none !important;
+  box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
 }}
 
-/* 메트릭 카드 */
 .mc {{
-  background: #1C1C1E;
-  border: 1px solid #2C2C2E;
-  border-radius: 24px;
-  padding: 32px;
-  min-height: 148px;
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-radius: 28px !important;
+  padding: 48px;
+  min-height: 168px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: var(--shadow-card);
+  overflow: hidden !important;
+  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
 }}
 .mc:hover {{
   background: {CARD_HI} !important;
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card-hover) !important;
 }}
 .mc-lbl {{
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: {MUTED};
-  letter-spacing: -0.005em;
-  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px;
+  opacity: 0.5;
+}}
+.mc-val, .mc-val-lg {{
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #0064FF;
 }}
 .mc-val {{
   font-size: 1.875rem;
-  font-weight: 800;
-  line-height: 1.15;
-  color: {TEXT};
-  letter-spacing: -0.035em;
-  font-variant-numeric: tabular-nums;
 }}
 .mc-val-lg {{
   font-size: 2.375rem;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
 }}
 .mc-delta {{
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  margin-top: 12px;
-  padding: 5px 11px;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 18px;
+  padding: 8px 14px;
   border-radius: 999px;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   width: fit-content;
+  opacity: 0.5;
 }}
-.d-pos {{ color: {GREEN}; background: rgba(26,188,114,0.12); }}
-.d-neg {{ color: {RED};   background: rgba(255,77,79,0.12); }}
+.d-pos {{ color: {GREEN}; background: rgba(26,188,114,0.14); opacity: 1; }}
+.d-neg {{ color: {RED};   background: rgba(255,77,79,0.14); opacity: 1; }}
 
-/* 섹션 타이틀 */
 .stitle {{
-  font-size: 1.0625rem;
+  font-size: 1rem;
   font-weight: 700;
   color: {TEXT};
-  letter-spacing: -0.03em;
-  margin: 0 0 1.25rem 2px !important;
-  padding: 0.35rem 0 0 0;
-  border-bottom: none;
+  letter-spacing: -0.02em;
+  margin: 0 0 30px 4px !important;
+  padding: 0.6rem 0 0 0;
+  border: none !important;
 }}
 .stitle-sub {{
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: {MUTED};
-  margin-left: 8px;
-  letter-spacing: -0.005em;
+  margin-left: 10px;
+  letter-spacing: -0.02em;
+  opacity: 0.5;
 }}
 
-/* 테이블 — 경계선 없음, 카드 래퍼 */
 .rtbl-wrap {{
-  background: #1C1C1E;
-  border: 1px solid #2C2C2E;
-  border-radius: 24px;
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-radius: 28px;
   overflow: hidden !important;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  padding: 32px 32px 28px 32px;
+  box-shadow: var(--shadow-card);
+  padding: 48px 48px 42px 48px;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease !important;
 }}
+.rtbl-wrap:hover {{
+  transform: scale(1.01);
+  box-shadow: var(--shadow-card-hover) !important;
+  background-color: #16161A !important;
+}}
+.rtbl th {{
+  background: transparent;
+  color: {MUTED};
+  font-weight: 500;
+  text-align: left;
+  padding: 12px 4px 18px 4px;
+  font-size: 0.7rem;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  border: none;
+  opacity: 0.5;
+}}
+.rtbl td {{
+  background: transparent;
+  color: {TEXT};
+  padding: 21px 4px;
+  border: none;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}}
+.rtbl tbody tr {{
+  border-top: none !important;
+  transition: background 0.12s ease;
+}}
+.rtbl tbody tr:hover {{ background: rgba(255,255,255,0.03); }}
+
 .rtbl {{
   width: 100%;
   border-collapse: collapse;
@@ -490,70 +564,49 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 .rtbl thead tr {{
   background: transparent;
 }}
-.rtbl th {{
-  background: transparent;
-  color: {MUTED};
-  font-weight: 500;
-  text-align: left;
-  padding: 8px 4px 12px 4px;
-  font-size: 0.75rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  border: none;
-}}
-.rtbl td {{
-  background: transparent;
-  color: {TEXT};
-  padding: 14px 4px;
-  border: none;
-  font-size: 0.9375rem;
-  font-variant-numeric: tabular-nums;
-}}
-.rtbl tbody tr {{
-  border-top: 1px solid {BORDER};
-  transition: background 0.12s ease;
-}}
-.rtbl tbody tr:hover {{ background: rgba(255,255,255,0.025); }}
 
 /* 수학 패널 — 토스 카드 스타일 + 큰 수식 */
 .math-grid {{
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 36px;
 }}
 @media (max-width: 900px) {{
   .math-grid {{ grid-template-columns: 1fr; }}
-}}
-.math-panel {{
-  background: #1C1C1E;
-  border: 1px solid #2C2C2E;
-  border-radius: 24px;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  overflow: hidden !important;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-}}
-.math-panel:hover {{
-  background: {CARD_HI} !important;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
 }}
 .math-panel h3 {{
   font-size: 0.9375rem;
   font-weight: 700;
   color: {TEXT};
   margin: 0;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
+}}
+.math-panel {{
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-radius: 28px;
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden !important;
+  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
+}}
+.math-panel:hover {{
+  background: {CARD_HI} !important;
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card-hover) !important;
 }}
 .math-panel h3 .math-h-sub {{
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
   color: {MUTED};
-  margin-top: 4px;
-  letter-spacing: 0;
+  margin-top: 6px;
+  letter-spacing: -0.02em;
+  opacity: 0.5;
 }}
 .math-eq {{
   font-family: 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', Georgia, serif;
@@ -568,15 +621,16 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   line-height: 1.6;
   letter-spacing: 0;
 }}
-.math-eq small {{ font-size: 1.125rem; color: {MUTED}; }}
+.math-eq small {{ font-size: 1.125rem; color: {MUTED}; opacity: 0.5; }}
 .math-desc {{
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: {MUTED};
   line-height: 1.7;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.02em;
   margin: 0;
+  opacity: 0.5;
 }}
-.math-desc b {{ color: {TEXT}; font-weight: 600; }}
+.math-desc b {{ color: {TEXT}; font-weight: 600; opacity: 1; }}
 .math-var {{
   display: inline-block;
   font-family: 'Cambria Math', Georgia, serif;
@@ -591,174 +645,158 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px 16px;
-  margin: 8px 2px 4px 2px;
+  gap: 18px 24px;
+  margin: 12px 4px 12px 4px;
   padding: 0;
-  border-bottom: none;
-}}
-.hbar-brand {{
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
+  border: none !important;
 }}
 .hbar h1 {{
   font-size: 1.625rem;
   font-weight: 800;
   margin: 0;
   color: {TEXT};
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
 }}
 .hbar .hbar-author {{
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: {MUTED};
+  opacity: 0.5;
+  letter-spacing: -0.02em;
 }}
 .hbar .badge {{
-  background: rgba(49,130,246,0.12);
-  color: #6BA8FF;
+  background: rgba(0,100,255,0.15);
+  color: #4D94FF;
   font-weight: 700;
-  font-size: 0.75rem;
-  padding: 6px 12px;
+  font-size: 0.7rem;
+  padding: 10px 16px;
   border-radius: 999px;
-  letter-spacing: 0.02em;
-  border: none;
+  letter-spacing: -0.02em;
+  border: none !important;
+  box-shadow: 0 0 0 1px rgba(0,100,255,0.12) inset;
 }}
 .hbar .perf {{
   color: {MUTED};
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   margin-left: auto;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.02em;
+  opacity: 0.5;
 }}
 
 .disc {{
   font-size: 0.75rem;
   color: {MUTED};
-  margin: 32px 0 8px 0;
-  padding: 32px;
-  background: #1C1C1E;
-  border-radius: 24px;
-  border: 1px solid #2C2C2E;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  margin: 48px 0 18px 0;
+  padding: 48px;
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border-radius: 28px;
+  border: none !important;
+  box-shadow: var(--shadow-card);
   overflow: hidden !important;
-  line-height: 1.7;
-  letter-spacing: -0.005em;
+  line-height: 1.75;
+  letter-spacing: -0.02em;
+  opacity: 0.5;
 }}
 
-/* Streamlit 기본 크롬 정리 */
 #MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden !important; height: 0 !important; }}
 .block-container {{
-  padding: 2rem 2.5rem 4rem 2.5rem !important;
-  max-width: 1440px !important;
+  padding: 3rem 3.75rem 6rem 3.75rem !important;
+  max-width: 1480px !important;
 }}
 
-/* 메인 영역 세로 리듬 — 박스 간 간격 혁신 */
 .block-container [data-testid="stVerticalBlock"] {{
-  gap: 3rem !important;
+  gap: 4.5rem !important;
 }}
 .block-container [data-testid="stHorizontalBlock"] {{
-  gap: 3rem !important;
+  gap: 4.5rem !important;
 }}
 
-/* Plotly 차트 컨테이너 — toss-card + 모서리 칼질 */
 [data-testid="stPlotlyChart"] {{
-  background: #1C1C1E !important;
-  border: 1px solid #2C2C2E !important;
-  border-radius: 24px !important;
-  padding: 32px 32px 24px 32px !important;
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-radius: 28px !important;
+  padding: 48px 48px 36px 48px !important;
   overflow: hidden !important;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: var(--shadow-card) !important;
   margin-bottom: 0 !important;
+  transition: transform 0.22s ease, box-shadow 0.22s ease !important;
+}}
+[data-testid="stPlotlyChart"]:hover {{
+  transform: scale(1.01);
+  box-shadow: var(--shadow-card-hover) !important;
 }}
 [data-testid="stPlotlyChart"] > div,
 [data-testid="stPlotlyChart"] .js-plotly-plot,
 [data-testid="stPlotlyChart"] .plotly,
 [data-testid="stPlotlyChart"] .user-select-none {{
   overflow: hidden !important;
-  border-radius: 16px !important;
+  border-radius: 22px !important;
+  box-sizing: border-box !important;
 }}
 [data-testid="stPlotlyChart"] .main-svg {{
   background: transparent !important;
 }}
 
-/* ── st.latex — KaTeX 렌더링 스타일 ── */
 [data-testid="stLatex"] {{
   text-align: center !important;
-  background: rgba(49,130,246,0.05) !important;
-  border-radius: 14px !important;
-  padding: 20px 16px !important;
-  margin: 8px 0 !important;
+  background: rgba(0,100,255,0.07) !important;
+  background-clip: padding-box !important;
+  border-radius: 18px !important;
+  border: none !important;
+  padding: 26px 22px !important;
+  margin: 12px 0 !important;
   overflow: hidden !important;
 }}
+
 [data-testid="stLatex"] .katex-display {{
   margin: 0 !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
 }}
 [data-testid="stLatex"] .katex {{
-  color: {TEXT} !important;
-  font-size: 1.3rem !important;
+  color: #0064FF !important;
+  font-size: 1.35rem !important;
+  font-weight: 800 !important;
 }}
 
-/* ── Math 카드 — sentinel CSS trick ──────────────────────────────────
- * st.markdown('<div class="sq-math-start">') 이후 나오는 stHorizontalBlock의
- * stColumn > stVerticalBlock 을 카드로 스타일링.
- * 이 방법으로 st.latex를 포함한 Streamlit 네이티브 컴포넌트를 카드 안에 배치.
- * ────────────────────────────────────────────────────────────────── */
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
   [data-testid="stColumn"] > [data-testid="stVerticalBlock"] {{
-  background: #1C1C1E !important;
-  border: 1px solid #2C2C2E !important;
-  border-radius: 24px !important;
-  padding: 32px !important;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-radius: 28px !important;
+  padding: 48px !important;
+  box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
-  transition: background 0.15s ease, box-shadow 0.15s ease !important;
+  transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
 }}
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
   [data-testid="stColumn"] > [data-testid="stVerticalBlock"]:hover {{
   background: {CARD_HI} !important;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38) !important;
+  transform: scale(1.02);
+  box-shadow: var(--shadow-card-hover) !important;
 }}
-/* math 카드 안의 라텍스 배경은 살짝 어둡게 */
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
   [data-testid="stLatex"] {{
-  background: rgba(49,130,246,0.07) !important;
-  border-radius: 12px !important;
-}}
-/* math 카드 헤더 */
-.math-card-head {{
-  margin-bottom: 4px;
-}}
-.math-card-title {{
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: {TEXT};
-  letter-spacing: -0.025em;
-  display: block;
-}}
-.math-h-sub {{
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: {MUTED};
-  margin-top: 3px;
-  letter-spacing: 0;
-}}
-/* math 카드 하단 설명 */
-.math-desc-pad {{
-  margin: 4px 0 0 0 !important;
-  padding: 0 !important;
+  background: rgba(0,100,255,0.08) !important;
+  border-radius: 16px !important;
 }}
 
-/* ── 슬라이더 — Toss 브랜드 블루 #0064FF (레드/기본색 무력화) ── */
+/* 슬라이더 — 얇은 트랙 #2C2C2E, 큰 핸들 */
 [data-baseweb="slider"] [role="slider"] {{
-  background: #0064FF !important;
+  background: #FFFFFF !important;
   border: 3px solid #0064FF !important;
-  box-shadow: 0 0 0 4px rgba(0,100,255,0.2), 0 2px 10px rgba(0,100,255,0.35) !important;
-  width: 18px !important;
-  height: 18px !important;
+  box-shadow: 0 0 0 4px rgba(0,100,255,0.18), 0 4px 14px rgba(0,0,0,0.35) !important;
+  width: 22px !important;
+  height: 22px !important;
+}}
+[data-baseweb="slider"] div[class*="Track"] {{
+  background: #2C2C2E !important;
+  height: 2px !important;
+  border-radius: 999px !important;
 }}
 [data-baseweb="slider"] [data-testid="stSliderThumb"],
 [data-baseweb="slider"] div[class*="Track"]:first-of-type,
@@ -766,35 +804,36 @@ section[data-testid="stSidebar"] button[kind="primary"]:active {{
 [data-baseweb="slider"] [class*="InnerTrack"] {{
   background: #0064FF !important;
 }}
-[data-baseweb="slider"] div[class*="Track"] {{
-  background: rgba(255,255,255,0.09) !important;
-  height: 4px !important;
-  border-radius: 999px !important;
+[data-baseweb="slider"] div[class*="Track"]:not(:first-of-type) {{
+  background: #2C2C2E !important;
 }}
-/* 수치 텍스트 (min/max/현재값) */
 [data-baseweb="slider"] [data-testid="stSliderThumbValue"] {{
   font-size: 0.875rem !important;
   font-weight: 600 !important;
   color: {TEXT} !important;
   font-family: var(--mono) !important;
+  opacity: 0.5 !important;
 }}
 [data-baseweb="slider"] [data-testid="stTickBar"] div,
 section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   background: rgba(255,255,255,0.04) !important;
 }}
 
-/* 토스트 톤 */
 [data-testid="stToast"] {{
   background: {CARD_HI} !important;
-  border: 1px solid {BORDER} !important;
-  border-radius: 16px !important;
+  border: none !important;
+  box-shadow: var(--shadow-card-hover) !important;
+  border-radius: 28px !important;
   color: {TEXT} !important;
 }}
 
-/* ── 로딩 스켈레톤 shimmer ── */
 @keyframes sq-shimmer {{
   0%   {{ background-position: -900px 0; }}
   100% {{ background-position:  900px 0; }}
+}}
+@keyframes sq-pulse-soft {{
+  0%, 100% {{ opacity: 0.55; filter: brightness(0.92); }}
+  50%      {{ opacity: 1; filter: brightness(1.06); }}
 }}
 .sq-skeleton {{
   background: linear-gradient(
@@ -804,67 +843,125 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
     {CARD} 75%
   );
   background-size: 1800px 100%;
-  animation: sq-shimmer 1.5s infinite linear;
-  border-radius: 24px;
+  animation: sq-shimmer 1.5s infinite linear, sq-pulse-soft 2.2s ease-in-out infinite;
+  border-radius: 28px;
+  box-shadow: var(--shadow-card);
 }}
 .sq-chart-skeleton {{
   height: 460px;
 }}
-.sq-card-skeleton {{
-  height: 132px;
-}}
 
-/* ── 스피너 링 ── */
 @keyframes sq-spin {{
   to {{ transform: rotate(360deg); }}
-}}
-.sq-ring-wrap {{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  padding: 60px 0 40px 0;
 }}
 .sq-ring {{
   width: 48px;
   height: 48px;
-  border: 3px solid rgba(49,130,246,0.15);
+  border: 3px solid rgba(0,100,255,0.12);
   border-top-color: {ACCENT};
   border-radius: 50%;
-  animation: sq-spin 0.75s linear infinite;
-}}
-.sq-ring-label {{
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: {MUTED};
-  letter-spacing: -0.01em;
+  animation: sq-spin 0.85s linear infinite, sq-pulse-soft 2s ease-in-out infinite;
 }}
 
-/* ── st.status 스타일 ── */
+@keyframes sq-status-pulse {{
+  0%, 100% {{ opacity: 0.45; transform: scaleX(0.92); }}
+  50%      {{ opacity: 1; transform: scaleX(1); }}
+}}
+[data-testid="stStatusContainer"] {{
+  position: relative !important;
+}}
+[data-testid="stStatusContainer"]::before {{
+  content: "";
+  display: block;
+  height: 3px;
+  margin: 0 0 18px 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(0,100,255,0.4), #0064FF, rgba(0,100,255,0.4), transparent);
+  animation: sq-status-pulse 1.6s ease-in-out infinite;
+  opacity: 0.85;
+}}
 [data-testid="stStatusWidget"],
 [data-testid="stStatusContainer"] {{
-  background: #1C1C1E !important;
-  border: 1px solid #2C2C2E !important;
-  border-radius: 24px !important;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25) !important;
+  background: #101012 !important;
+  background-clip: padding-box !important;
+  border: none !important;
+  border-radius: 28px !important;
+  box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
-  padding: 20px 24px !important;
+  padding: 30px 36px !important;
   color: {TEXT} !important;
+  box-sizing: border-box !important;
 }}
 [data-testid="stStatusWidget"] p,
 [data-testid="stStatusContainer"] p {{
   color: {MUTED} !important;
-  font-size: 0.875rem !important;
-  margin: 4px 0 !important;
+  font-size: 0.8125rem !important;
+  margin: 8px 0 !important;
+  opacity: 0.5 !important;
+  letter-spacing: -0.02em !important;
 }}
 
-/* 주요 카드류 — 추가 하단 리듬 (세로 gap 과 병행) */
 .block-container .mc,
 .block-container .rtbl-wrap,
 .block-container [data-testid="stPlotlyChart"],
 .block-container .math-panel,
 .block-container .sq-math-start ~ [data-testid="stHorizontalBlock"] {{
-  margin-bottom: 40px !important;
+  margin-bottom: 60px !important;
+}}
+
+.block-container [data-testid="element-container"],
+section[data-testid="stSidebar"] [data-testid="element-container"] {{
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}}
+/* math 카드 헤더 */
+.math-card-head {{
+  margin-bottom: 8px;
+}}
+.math-card-title {{
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: {TEXT};
+  letter-spacing: -0.02em !important;
+  display: block;
+}}
+.math-h-sub {{
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: {MUTED};
+  margin-top: 6px;
+  letter-spacing: -0.02em !important;
+  opacity: 0.5 !important;
+}}
+/* math 카드 하단 설명 */
+.math-desc-pad {{
+  margin: 4px 0 0 0 !important;
+  padding: 0 !important;
+}}
+
+.hbar-brand {{
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}}
+.sq-ring-wrap {{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 72px 0 48px 0;
+}}
+.sq-ring-label {{
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: {MUTED};
+  letter-spacing: -0.02em;
+  opacity: 0.5;
+}}
+.sq-card-skeleton {{
+  height: 132px;
 }}
 </style>
 """
@@ -1240,12 +1337,13 @@ def _render_math_section(
 # ---------------------------------------------------------------------------
 # Metric card
 # ---------------------------------------------------------------------------
-def _mc(label, value, delta="", lg=False, large=False, vc=TEXT):
+def _mc(label, value, delta="", lg=False, large=False, vc: str | None = None):
     c = "mc-val-lg" if (lg or large) else "mc-val"
+    sty = f' style="color:{vc}"' if vc is not None else ""
     return (
         f'<div class="mc toss-card">'
         f'<div class="mc-lbl">{label}</div>'
-        f'<div class="{c}" style="color:{vc}">{value}</div>'
+        f'<div class="{c}"{sty}>{value}</div>'
         f'{delta}'
         f'</div>'
     )
@@ -1550,7 +1648,6 @@ def main():
     )
     k1, k2, k3 = st.columns(3, gap="large")
     p50d = _dpct(metrics["p50"], s0)
-    c50 = GREEN if p50d >= 0 else RED
     with k1:
         st.markdown(
             _mc(
@@ -1558,7 +1655,6 @@ def main():
                 fp(metrics["p50"]),
                 _dhtml(p50d),
                 lg=True,
-                vc=c50,
             ),
             unsafe_allow_html=True,
         )
@@ -1589,7 +1685,7 @@ def main():
     if _hist_fig is None or _fan_fig is None:
         _skel = st.empty()
         _skel.markdown(
-            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">'
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:36px;">'
             f'<div class="sq-skeleton sq-chart-skeleton"></div>'
             f'<div class="sq-skeleton sq-chart-skeleton"></div>'
             f'</div>',
