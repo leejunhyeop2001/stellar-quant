@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 project(StellarQuantSimulator LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+# ISO C++25 미발표 — 툴체인 기준 최신 안정 표준은 C++23. ( MSVC: /std:c++23 )
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

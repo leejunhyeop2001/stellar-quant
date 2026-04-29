@@ -185,22 +185,43 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {{
   pointer-events: none !important;
   z-index: 999998 !important;
 }}
-[data-testid="stToolbar"], [data-testid="stDecoration"] {{
+/* 상단 툴바는 숨기지 않는다 — 최신 Streamlit은 사이드바 열기/접기가 stToolbar에 있음 */
+[data-testid="stDecoration"] {{
   display: none !important;
+}}
+[data-testid="stToolbar"] {{
+  display: flex !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  background: transparent !important;
+  gap: 4px !important;
+}}
+[data-testid="stHeader"] [data-testid="stToolbar"],
+[data-testid="stHeader"] [data-testid="stToolbar"] * {{
+  pointer-events: auto !important;
+}}
+[data-testid="stToolbar"] button,
+[data-testid="stToolbar"] [data-testid="baseButton-secondary"] {{
+  color: {TEXT} !important;
+  background: rgba(16,16,18,0.92) !important;
+  border-radius: 12px !important;
 }}
 
 /* ──────────────────────────────────────────────────────────────────
- * Material 아이콘 ligature 누출 방지
- * Streamlit 컴포넌트가 폰트 미적용 시 keyboard_double_arrow_*, arrow_*
- * 등의 텍스트가 그대로 노출됨 → 모두 숨김.
+ * Material 아이콘 ligature 누출 방지 (사이드바·본문 위젯만)
+ * 헤더/stToolbar는 제외 — 햄버거 등 네비게이션 아이콘이 사라지지 않게 함.
  * ────────────────────────────────────────────────────────────────── */
-[data-testid="stIconMaterial"],
-[data-testid="stMaterialIcon"],
-[data-testid="stExpanderToggleIcon"],
+section[data-testid="stSidebar"] [data-testid="stIconMaterial"],
+section[data-testid="stSidebar"] [data-testid="stMaterialIcon"],
+section[data-testid="stSidebar"] [data-testid="stExpanderToggleIcon"],
 section[data-testid="stSidebar"] [data-testid="baseButton-headerNoPadding"] span:not(:empty),
 [data-testid="stSidebar"] [data-baseweb="slider"] [aria-hidden="true"],
-.material-icons,
-.material-symbols-outlined {{
+[data-testid="stExpander"] [data-testid="stExpanderToggleIcon"],
+.block-container [data-baseweb="slider"] [aria-hidden="true"],
+section[data-testid="stSidebar"] .material-icons,
+section[data-testid="stSidebar"] .material-symbols-outlined,
+[data-testid="stExpander"] .material-icons,
+[data-testid="stExpander"] .material-symbols-outlined {{
   display: none !important;
   visibility: hidden !important;
   width: 0 !important;
@@ -1896,7 +1917,7 @@ def _render_sidebar() -> SidebarConfig:
 
         st.markdown(
             '<div class="sb-foot">'
-            'C++17 Multi-threaded GBM Engine<br>'
+            'C++23 Multi-threaded GBM Engine<br>'
             'pybind11 · zero-copy · WebGL</div>',
             unsafe_allow_html=True,
         )
@@ -1930,7 +1951,7 @@ def _render_top_controls(config: SidebarConfig) -> SidebarConfig:
 
     st.markdown(
         '<div class="top-shell">'
-        '<p class="top-kicker">C++17 Monte Carlo Risk Engine</p>'
+        '<p class="top-kicker">C++23 Monte Carlo Risk Engine</p>'
         '<h1 class="top-title">투자 위험을 한눈에 확인하세요</h1>'
         '<p class="top-sub">'
         '종목코드만 입력하면 최근 1년 yfinance 데이터로 현재가와 변동성을 자동 반영합니다. '

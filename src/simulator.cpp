@@ -180,7 +180,7 @@ py::array_t<double> py_simulate_path_matrix(std::size_t n_paths, std::size_t n_s
 }  // namespace
 
 PYBIND11_MODULE(gbm_simulator, m) {
-    m.doc() = "GBM / Merton jump-diffusion Monte Carlo — multi-threaded C++17 / pybind11 "
+    m.doc() = "GBM / Merton jump-diffusion Monte Carlo — multi-threaded C++23 / pybind11 "
               "(antithetic variates on diffusion; Poisson jump counts per thread)";
 
     m.def("simulate_gbm_paths", &py_simulate_terminal,
