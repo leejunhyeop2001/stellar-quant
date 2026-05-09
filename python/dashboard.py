@@ -1483,10 +1483,10 @@ def _build_portfolio_fan(
     fig.update_layout(
         paper_bgcolor="#101012",
         plot_bgcolor="#101012",
-        height=400,
+        height=560,
         autosize=False,
         dragmode=False,
-        margin=dict(l=16, r=140, t=28, b=28),
+        margin=dict(l=48, r=160, t=56, b=56),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
