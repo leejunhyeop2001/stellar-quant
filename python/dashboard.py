@@ -1359,6 +1359,18 @@ def _dpct(v: float, s0: float) -> float:
     return (v - s0) / s0 * 100.0 if s0 else 0.0
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_exchange_rate() -> float:
+    """USD/KRW 환율 (1 USD = ? KRW). 실패 시 기본값 1350 반환."""
+    try:
+        rate_series = fetch_prices("KRW=X", period="5d")
+        if not rate_series.empty:
+            return float(rate_series.iloc[-1])
+    except Exception:
+        pass
+    return 1350.0
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -1474,6 +1486,22 @@ def _load_market_data(ticker: str, period: str = "1y") -> MarketData:
     n_ret = max(1, len(close) - 1)
     sample_years = max(0.25, n_ret / 252.0)
     mu_uncertainty = float(np.clip(params.sigma / np.sqrt(sample_years), 0.05, 0.30))
+
+    # EWMA 가중 변동성 (λ=0.94, RiskMetrics 방식) — 최근 시장 충격에 더 민감하게 반응
+    if len(close) >= 31:
+        log_ret = np.log(close.values[1:] / close.values[:-1]).astype(np.float64)
+        n = len(log_ret)
+        decay = 0.94
+        weights = np.array([decay ** i for i in range(n - 1, -1, -1)], dtype=np.float64)
+        weights /= weights.sum()
+        ewma_sigma = float(np.sqrt(float(np.sum(weights * log_ret ** 2)) * 252))
+        # 역사적 vol(40%)와 EWMA vol(60%) 혼합, 역사적 sigma의 70~150% 범위로 제한
+        blended = float(np.clip(
+            0.6 * ewma_sigma + 0.4 * params.sigma,
+            params.sigma * 0.70, params.sigma * 1.50,
+        ))
+        params = replace(params, sigma=blended)
+
     return MarketData(
         params=params,
         jump=estimate_jump_params(close),
@@ -1751,26 +1779,26 @@ def _risk_summary(metrics: dict[str, float]) -> tuple[str, str, str]:
     fk = float(metrics.get("fat_tail_feel_index", 0.0))
     if rs >= 3.5:
         return (
-            "위험도 매우 높음 (Critical)",
+            "투자 성향 및 예측 시나리오: 매우 고위험",
             "risk-pill-red",
-            f"Fat-tail·VaR 부담이 σ√T 스케일 대비 매우 큽니다. (Risk Score {rs:.2f}, 체감 꼬리 {fk:.2f})",
+            f"시장 충격·꼬리 손실 위험이 매우 큽니다. 원금 손실 가능성이 높습니다. (Risk Score {rs:.2f})",
         )
     if rs >= 2.5:
         return (
-            "위험도 높음 (High)",
+            "투자 성향 및 예측 시나리오: 고위험",
             "risk-pill-red",
-            f"점프·꼬리로 인한 손실 위험이 큽니다. (Score {rs:.2f}, 체감 꼬리 {fk:.2f})",
+            f"급락 이벤트 발생 시 큰 손실이 예상됩니다. 분산 투자를 권장합니다. (Score {rs:.2f})",
         )
     if rs >= 1.5:
         return (
-            "위험도 보통 (Moderate)",
+            "투자 성향 및 예측 시나리오: 중간 위험",
             "risk-pill-blue",
-            f"단순 BS 스케일 대비 VaR 부담이 다소 큽니다. (Score {rs:.2f})",
+            f"평균적인 주식 시장 수준의 변동성입니다. (Score {rs:.2f})",
         )
     return (
-        "위험도 낮음 (Low)",
+        "투자 성향 및 예측 시나리오: 낮은 위험",
         "risk-pill-blue",
-        f"통계적 허용 범위 내 — σ√T 대비 상대 VaR이 낮습니다. (Score {rs:.2f})",
+        f"상대적으로 안정적인 시나리오입니다. (Score {rs:.2f})",
     )
 
 
@@ -1812,20 +1840,126 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<div class="risk-item"><div class="risk-item-label">예상 중앙가 (50th)</div>'
         f'<div class="risk-item-value {median_cls}">{fp(metrics["p50"])}</div>'
         f'<div class="mc-delta {median_delta_cls}">{median_arrow} {median_pct:+.2f}%</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">VaR 95% 손실</div>'
+        f'<div class="risk-item"><div class="risk-item-label">95% 확률 하한선</div>'
         f'<div class="risk-item-value risk-red">{fp(metrics["var_95_abs"])}</div>'
-        f'<div class="mc-delta d-neg">↓ {metrics["var_95_pct"]:.1f}%</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">CVaR 95% 꼬리손실</div>'
+        f'<div class="mc-delta d-neg">↓ {metrics["var_95_pct"]:.1f}% · 95% 확률로 이 가격 이상 유지</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">시장 폭락 시 예상 손실</div>'
         f'<div class="risk-item-value risk-red">{fp(metrics["cvar_95_abs"])}</div>'
-        f'<div class="mc-delta d-neg">↓ {metrics["cvar_95_pct"]:.1f}%</div></div>'
+        f'<div class="mc-delta d-neg">↓ {metrics["cvar_95_pct"]:.1f}% · 최악 5% 상황 평균 손실</div></div>'
         f'</div>'
         f'</section>',
         unsafe_allow_html=True,
     )
 
 
+def _render_investment_section(result: DashboardResult) -> None:
+    """KRW/USD 탭 스위처 + 포트폴리오 메트릭 + 공포 지수."""
+    s0 = result.params.s0
+    cur = result.params.currency
+    terminal = result.terminal
+    metrics = result.metrics
+    rate = _fetch_exchange_rate()
+
+    # ── KRW / USD 통화 탭 스위처 ──────────────────────────────────────────
+    st.markdown(
+        '<div class="stitle" style="margin-top:24px">투자금 시뮬레이터'
+        '<span class="stitle-sub">투자 원금 기준 예측</span></div>',
+        unsafe_allow_html=True,
+    )
+    tab_krw, tab_usd = st.tabs(["🇰🇷 KRW 원화", "🇺🇸 USD 달러"])
+
+    with tab_krw:
+        krw_input = st.number_input(
+            "투자 예정 금액 (원)", min_value=0.0, value=1_000_000.0,
+            step=100_000.0, format="%.0f", key="sq_inv_krw",
+        )
+        st.caption(f"≈ ${krw_input / rate:,.0f} USD  ·  환율 {rate:,.0f} KRW/USD 기준")
+        inv_krw = krw_input
+        inv_usd = krw_input / rate
+
+    with tab_usd:
+        usd_input = st.number_input(
+            "투자 예정 금액 (USD)", min_value=0.0, value=1_000.0,
+            step=100.0, format="%.2f", key="sq_inv_usd",
+        )
+        st.caption(f"≈ ₩{usd_input * rate:,.0f} KRW  ·  환율 {rate:,.0f} KRW/USD 기준")
+        inv_krw = usd_input * rate
+        inv_usd = usd_input
+
+    # 시뮬레이션 네이티브 통화로 투자금 변환
+    inv_amt = inv_krw if cur == "KRW" else inv_usd
+    if inv_amt <= 0.0 or s0 <= 0.0:
+        return
+
+    shares = inv_amt / s0
+    mean_price = float(np.mean(terminal))
+    expected_value = shares * mean_price
+    ret_pct = (mean_price - s0) / s0 * 100.0
+    cvar_pct = metrics["cvar_95_pct"]
+    cvar_loss = inv_amt * cvar_pct / 100.0
+
+    # ── 포트폴리오 메트릭 3개 ──────────────────────────────────────────────
+    c1, c2, c3 = st.columns(3)
+    c1.metric(
+        "예상 수익률 (1Y 평균 경로)",
+        f"{ret_pct:+.1f}%",
+        help="1년 뒤 평균 시뮬레이션 경로 기준 예상 수익률입니다.",
+    )
+    c2.metric(
+        "예상 최종 자산",
+        _fp(expected_value, cur),
+        delta=f"{ret_pct:+.1f}%",
+        help=f"투자금 {_fp(inv_amt, cur)} 기준 1년 뒤 평균 예상 자산가치입니다.",
+    )
+    c3.metric(
+        "시장 폭락 시 예상 손실",
+        _fp(cvar_loss, cur),
+        delta=f"-{cvar_pct:.1f}%",
+        help=f"최악 5% 상황의 평균 손실액입니다. 투자금 {_fp(inv_amt, cur)} 기준.",
+    )
+
+    # ── 공포 지수 ──────────────────────────────────────────────────────────
+    st.markdown(
+        '<div class="stitle" style="margin-top:20px">리스크 공포 지수'
+        '<span class="stitle-sub">피부로 느끼는 리스크</span></div>',
+        unsafe_allow_html=True,
+    )
+    halved_prob = float(np.mean(terminal < 0.5 * s0)) * 100.0
+    loss_prob = float(np.mean(terminal < s0)) * 100.0
+    double_prob = float(np.mean(terminal > 2.0 * s0)) * 100.0
+    q10_price = float(np.quantile(terminal, 0.10))
+    q10_loss_pct = (q10_price - s0) / s0 * 100.0
+
+    f1, f2, f3, f4 = st.columns(4)
+    f1.metric(
+        "반토막(-50%) 확률",
+        f"{halved_prob:.1f}%",
+        help=f"1년 뒤 주가가 현재의 절반({_fp(s0 * 0.5, cur)}) 이하로 떨어질 확률입니다.",
+    )
+    f2.metric(
+        "원금 손실 확률",
+        f"{loss_prob:.1f}%",
+        help=f"1년 뒤 주가가 현재가({_fp(s0, cur)}) 미만일 확률입니다.",
+    )
+    f3.metric(
+        "2배 달성 확률",
+        f"{double_prob:.1f}%",
+        help=f"1년 뒤 주가가 현재의 2배({_fp(s0 * 2.0, cur)}) 이상일 확률입니다.",
+    )
+    f4.metric(
+        "하위 10% 최악 시나리오",
+        f"{q10_loss_pct:+.1f}%",
+        help=f"하위 10% 경로에서 예상 주가는 {_fp(q10_price, cur)}입니다.",
+    )
+    st.caption(
+        f"현재 주가 {_fp(s0, cur)} 기준. 투자금 {_fp(inv_amt, cur)}으로 반토막 시 "
+        f"예상 손실 ≈ {_fp(inv_amt * 0.5, cur)}"
+    )
+
+
 def _render_dashboard_result(result: DashboardResult) -> None:
     _render_risk_summary(result)
+    _render_investment_section(result)
 
 
 def main():
