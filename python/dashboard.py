@@ -1485,7 +1485,6 @@ def _build_portfolio_fan(
         plot_bgcolor="#101012",
         height=450,
         autosize=False,
-        automargin=True,
         dragmode=False,
         margin=dict(l=10, r=100, t=20, b=20),
         font=dict(
