@@ -1393,86 +1393,146 @@ def _build_portfolio_fan(
     years: float,
     currency: str,
 ) -> go.Figure:
-    """투자금 기준 포트폴리오 팬 차트 (GBM 경로 행렬 → 자산가치 분포)."""
+    """투자금 기준 포트폴리오 팬 차트 — 주식 사이트 스타일."""
+    cur_sym = "₩" if currency == "KRW" else "$"
     scale = inv_amt / s0
     pm = path_matrix * scale
     n_steps = pm.shape[1]
-    t = np.linspace(0.0, years * 12.0, n_steps)
 
-    q05 = np.quantile(pm, 0.05, axis=0)
-    q25 = np.quantile(pm, 0.25, axis=0)
-    q50 = np.quantile(pm, 0.50, axis=0)
-    q75 = np.quantile(pm, 0.75, axis=0)
-    q95 = np.quantile(pm, 0.95, axis=0)
+    # 253 → ~80 pts 다운샘플: SVG 렌더링 매끄러움 확보
+    step = max(1, n_steps // 80)
+    idx = list(range(0, n_steps, step))
+    if idx[-1] != n_steps - 1:
+        idx.append(n_steps - 1)
+    pm_ds = pm[:, idx]
+    t = np.linspace(0.0, years * 12.0, len(idx))
+
+    q05 = np.quantile(pm_ds, 0.05, axis=0)
+    q25 = np.quantile(pm_ds, 0.25, axis=0)
+    q50 = np.quantile(pm_ds, 0.50, axis=0)
+    q75 = np.quantile(pm_ds, 0.75, axis=0)
+    q95 = np.quantile(pm_ds, 0.95, axis=0)
 
     fig = go.Figure()
+
+    # 개별 경로 20개 — 시뮬레이션 질감 표현
+    samp = np.random.default_rng(42).choice(pm_ds.shape[0], size=min(20, pm_ds.shape[0]), replace=False)
+    for i in samp:
+        fig.add_trace(go.Scatter(
+            x=t.tolist(), y=pm_ds[i].tolist(),
+            mode="lines",
+            line=dict(color="rgba(0,100,255,0.05)", width=0.8),
+            showlegend=False, hoverinfo="skip",
+        ))
+
+    # 90% 채움
     fig.add_trace(go.Scatter(
         x=np.concatenate([t, t[::-1]]).tolist(),
         y=np.concatenate([q95, q05[::-1]]).tolist(),
-        fill="toself",
-        fillcolor="rgba(0,100,255,0.10)",
-        line=dict(width=0),
-        name="90% 구간",
-        hoverinfo="skip",
+        fill="toself", fillcolor="rgba(0,100,255,0.07)",
+        line=dict(width=0), name="90% 구간", hoverinfo="skip",
     ))
+    # 50% 채움
     fig.add_trace(go.Scatter(
         x=np.concatenate([t, t[::-1]]).tolist(),
         y=np.concatenate([q75, q25[::-1]]).tolist(),
-        fill="toself",
-        fillcolor="rgba(0,100,255,0.25)",
-        line=dict(width=0),
-        name="50% 구간",
-        hoverinfo="skip",
+        fill="toself", fillcolor="rgba(0,100,255,0.20)",
+        line=dict(width=0), name="50% 구간", hoverinfo="skip",
     ))
+    # P95 테두리
     fig.add_trace(go.Scatter(
-        x=t.tolist(), y=q50.tolist(),
-        mode="lines",
+        x=t.tolist(), y=q95.tolist(), mode="lines",
+        line=dict(color="rgba(0,100,255,0.45)", width=1),
+        name="상위 95%",
+        hovertemplate=f"상위 95%: {cur_sym}%{{y:,.0f}}<extra></extra>",
+    ))
+    # P05 테두리
+    fig.add_trace(go.Scatter(
+        x=t.tolist(), y=q05.tolist(), mode="lines",
+        line=dict(color="rgba(255,75,75,0.45)", width=1),
+        name="하위 5%",
+        hovertemplate=f"하위 5%: {cur_sym}%{{y:,.0f}}<extra></extra>",
+    ))
+    # 중앙값
+    fig.add_trace(go.Scatter(
+        x=t.tolist(), y=q50.tolist(), mode="lines",
         line=dict(color="#0064FF", width=2.5),
-        name="중앙값 (50th)",
+        name="중앙값",
+        hovertemplate=f"중앙값: {cur_sym}%{{y:,.0f}}<extra></extra>",
     ))
+    # 투자 원금 기준선
     fig.add_trace(go.Scatter(
-        x=[float(t[0]), float(t[-1])],
-        y=[inv_amt, inv_amt],
+        x=[float(t[0]), float(t[-1])], y=[inv_amt, inv_amt],
         mode="lines",
-        line=dict(color="rgba(255,255,255,0.25)", width=1, dash="dash"),
+        line=dict(color="rgba(255,255,255,0.30)", width=1.5, dash="dash"),
         name="투자 원금",
+        hovertemplate=f"투자 원금: {cur_sym}%{{y:,.0f}}<extra></extra>",
     ))
-    cur_sym = "₩" if currency == "KRW" else "$"
+
+    # Y 범위 — 극단값 클립 후 여백 추가
+    y_lo = min(float(q05.min()), inv_amt) * 0.90
+    y_hi = max(float(q95.max()), inv_amt) * 1.08
+
+    # X 눈금: 2개월 간격, 끝은 항상 포함
+    total_months = int(round(years * 12))
+    x_ticks = list(range(0, total_months + 1, 2))
+    if x_ticks[-1] != total_months:
+        x_ticks.append(total_months)
+    x_labels = [f"{m}M" for m in x_ticks]
+
+    final_median = float(q50[-1])
+
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(16,16,18,0.6)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=400,
+        margin=dict(l=8, r=72, t=44, b=8),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
-            color="#F4F5F7",
-            size=12,
+            color="#F4F5F7", size=12,
         ),
         xaxis=dict(
-            title="기간 (개월)",
-            gridcolor="rgba(255,255,255,0.05)",
-            zerolinecolor="rgba(255,255,255,0.08)",
-            tickfont=dict(size=11),
+            range=[0, total_months],
+            tickvals=x_ticks, ticktext=x_labels,
+            tickfont=dict(size=11, color="#8B93A1"),
+            gridcolor="rgba(255,255,255,0.04)",
+            zeroline=False,
+            showspikes=True,
+            spikecolor="rgba(255,255,255,0.18)",
+            spikethickness=1, spikedash="dot", spikesnap="cursor",
         ),
         yaxis=dict(
-            title=f"포트폴리오 가치 ({currency})",
-            gridcolor="rgba(255,255,255,0.05)",
-            tickprefix=cur_sym,
-            tickformat=",.0f",
-            zerolinecolor="rgba(255,255,255,0.08)",
-            tickfont=dict(size=11),
+            range=[y_lo, y_hi],
+            tickprefix=cur_sym, tickformat="~s",
+            tickfont=dict(size=11, color="#8B93A1"),
+            gridcolor="rgba(255,255,255,0.04)",
+            zeroline=False,
+            showspikes=True,
+            spikecolor="rgba(255,255,255,0.18)",
+            spikethickness=1, spikedash="dot",
         ),
         legend=dict(
-            bgcolor="rgba(16,16,18,0.85)",
-            bordercolor="rgba(255,255,255,0.08)",
-            borderwidth=1,
-            font=dict(size=11),
+            bgcolor="rgba(0,0,0,0)", borderwidth=0,
+            font=dict(size=10.5, color="#8B93A1"),
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0,
+            yanchor="bottom", y=1.01,
+            xanchor="left", x=0,
+            itemsizing="constant",
         ),
-        margin=dict(l=12, r=12, t=36, b=12),
-        height=320,
+        hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor="#101012",
+            bordercolor="rgba(0,100,255,0.35)",
+            font=dict(size=12, family="Pretendard Variable, sans-serif"),
+        ),
+        annotations=[dict(
+            x=float(t[-1]), y=final_median,
+            xanchor="left", yanchor="middle",
+            text=f" {cur_sym}{final_median:,.0f}",
+            font=dict(color="#0064FF", size=12,
+                      family="Pretendard Variable, sans-serif"),
+            showarrow=False,
+        )],
     )
     return fig
 
