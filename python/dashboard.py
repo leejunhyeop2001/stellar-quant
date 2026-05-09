@@ -14,11 +14,8 @@ from data_utils import (
     YahooFinanceFetchError,
     MU_MARKET_PRIOR,
     MU_SHRINKAGE_SAMPLE_WEIGHT,
-    RISK_FREE_RATE_ANNUAL,
     clamp_gbm_for_simulation,
-    compute_kelly_leverage_fraction,
     compute_risk_metrics,
-    compute_sortino_from_terminal,
     currency_symbol,
     detect_currency,
     estimate_gbm_params,
@@ -74,9 +71,14 @@ JUMP_MODE_CONSERVATIVE = "conservative"
 JUMP_MODE_HISTORICAL = "historical"
 JUMP_MODE_OFF = "off"
 JUMP_MODE_LABELS = {
-    JUMP_MODE_CONSERVATIVE: "보수적 스트레스",
-    JUMP_MODE_HISTORICAL: "역사적 추정",
-    JUMP_MODE_OFF: "순수 GBM",
+    JUMP_MODE_CONSERVATIVE: "위기 상황 가정 (Crisis)",
+    JUMP_MODE_HISTORICAL: "과거의 반복 (History)",
+    JUMP_MODE_OFF: "평온한 시장 (Smooth)",
+}
+JUMP_MODE_CAPTIONS = {
+    JUMP_MODE_CONSERVATIVE: "최악의 시나리오를 가정합니다. 하방 충격을 고정 적용해 리스크를 보수적으로 평가합니다.",
+    JUMP_MODE_HISTORICAL: "과거 데이터에서 탐지한 실제 급락 패턴을 반영합니다.",
+    JUMP_MODE_OFF: "순수한 GBM 확산만 적용합니다. 갑작스러운 시장 충격이 없다고 가정합니다.",
 }
 # yfinance 실패 시 Manual Fallback (GBM 입력)
 FIXED_MANUAL_S0 = 250.0
@@ -1753,18 +1755,6 @@ def _render_math_section(
 # ---------------------------------------------------------------------------
 # Metric card
 # ---------------------------------------------------------------------------
-def _mc(label, value, delta="", lg=False, large=False, vc: str | None = None):
-    c = "mc-val-lg" if (lg or large) else "mc-val"
-    sty = f' style="color:{vc}"' if vc is not None else ""
-    return (
-        f'<div class="mc toss-card">'
-        f'<div class="mc-lbl">{label}</div>'
-        f'<div class="{c}"{sty}>{value}</div>'
-        f'{delta}'
-        f'</div>'
-    )
-
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1802,13 +1792,13 @@ def _render_sidebar() -> tuple[str, str]:
             unsafe_allow_html=True,
         )
         jump_mode = st.selectbox(
-            "점프 모드",
+            "시장 상황 가정",
             options=[JUMP_MODE_CONSERVATIVE, JUMP_MODE_HISTORICAL, JUMP_MODE_OFF],
             format_func=lambda s: JUMP_MODE_LABELS[s],
             index=0,
             key="sq_jump_mode",
-            help="보수적 스트레스는 하방 점프를 고정 적용하고, 역사적 추정은 최근 데이터에서 탐지한 점프만 사용합니다.",
         )
+        st.caption(JUMP_MODE_CAPTIONS.get(jump_mode, ""))
 
         st.markdown(
             '<div class="sb-foot">'
@@ -2417,48 +2407,6 @@ def _render_risk_summary(result: DashboardResult) -> None:
     )
 
 
-def _render_action_metrics(result: DashboardResult) -> None:
-    """Kelly·Sortino 참고 지표 카드 (상세 탭 전용)."""
-    p = result.params
-    kelly = compute_kelly_leverage_fraction(p.mu, p.sigma, RISK_FREE_RATE_ANNUAL)
-    sortino, _ = compute_sortino_from_terminal(result.terminal, p.s0, RISK_FREE_RATE_ANNUAL)
-    term = np.asarray(result.terminal, dtype=np.float64)
-    rlg = np.log(np.maximum(term, np.finfo(np.float64).tiny) / p.s0)
-    rf_lg = float(np.log(1.0 + RISK_FREE_RATE_ANNUAL))
-    excess = float(np.mean(rlg) - rf_lg) if rlg.size else 0.0
-    sharpe = excess / max(float(np.std(rlg, ddof=1)) if rlg.size > 1 else 1e-12, 1e-12)
-
-    st.markdown(
-        '<div class="stitle">모형 참고 지표<span class="stitle-sub">실제 운용 전 축소 필요</span></div>',
-        unsafe_allow_html=True,
-    )
-    c1, c2 = st.columns(2, gap="large")
-    with c1:
-        k_vc = ACCENT if kelly >= 0.2 else MUTED
-        st.markdown(
-            _mc(
-                f"Kelly 참고 비중 · r={RISK_FREE_RATE_ANNUAL:.0%}",
-                f"{kelly * 100:.1f}%",
-                f'<div class="mc-delta" style="opacity:0.65">f = (μ−r)/σ² · 입력 오차에 매우 민감</div>',
-                lg=True,
-                vc=k_vc,
-            ),
-            unsafe_allow_html=True,
-        )
-    with c2:
-        so_vc = GREEN if sortino > 0 else RED
-        st.markdown(
-            _mc(
-                "Sortino (하방 σ 기준)",
-                f"{sortino:.3f}",
-                f'<div class="mc-delta" style="opacity:0.75">Sharpe {sharpe:.3f} — 하방 경로만 분모</div>',
-                lg=True,
-                vc=so_vc,
-            ),
-            unsafe_allow_html=True,
-        )
-
-
 def _render_charts(result: DashboardResult, investment_amount: float = 0.0) -> None:
     cfg = {"displayModeBar": False, "responsive": True}
     if investment_amount > 0.0:
@@ -2480,58 +2428,6 @@ def _render_charts(result: DashboardResult, investment_amount: float = 0.0) -> N
             st.session_state["fan_fig"] = fan_fig
             _skel.empty()
     st.plotly_chart(fan_fig, use_container_width=True, config=cfg)
-
-
-def _render_risk_tables(result: DashboardResult) -> None:
-    metrics, params, s0, cur = result.metrics, result.params, result.params.s0, result.params.currency
-    fp = lambda v: _fp(v, cur)
-    st.markdown(
-        '<div class="stitle">리스크 시나리오<span class="stitle-sub">Risk scenarios</span></div>',
-        unsafe_allow_html=True,
-    )
-    scn = [
-        ("Best (최선)", "95th", fp(metrics["p95"]), _dpct(metrics["p95"], s0), GREEN),
-        ("Expected (기대)", "50th", fp(metrics["p50"]), _dpct(metrics["p50"], s0), GREEN if metrics["p50"] >= s0 else RED),
-        ("Worst (최악)", "5th", fp(metrics["p05"]), _dpct(metrics["p05"], s0), RED),
-    ]
-    rows = ""
-    for lb, pc, pr, dl, cl in scn:
-        a = "↑" if dl >= 0 else "↓"
-        rows += (
-            f'<tr><td style="font-weight:600">{lb}</td>'
-            f'<td style="color:{MUTED}">{pc}</td>'
-            f'<td style="font-weight:700">{pr}</td>'
-            f'<td style="color:{cl};font-weight:700">{a} {dl:+.2f}%</td></tr>'
-        )
-
-    tl, tr = st.columns([1.2, 1], gap="large")
-    with tl:
-        st.markdown(
-            f'<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
-            f'<th>Scenario (시나리오)</th><th>Percentile (백분위)</th>'
-            f'<th>Price (가격)</th><th>Change (변동)</th>'
-            f'</tr></thead><tbody>{rows}</tbody></table></div>',
-            unsafe_allow_html=True,
-        )
-    with tr:
-        st.markdown(
-            f'<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
-            f'<th>Parameter (파라미터)</th><th>Value (값)</th></tr></thead><tbody>'
-            f'<tr><td>μ Annual Drift</td><td>{params.mu:.6f}</td></tr>'
-            f'<tr><td>σ Volatility</td><td>{params.sigma:.6f}</td></tr>'
-            f'<tr><td>Jump λ / μ_J / σ_J</td>'
-            f'<td>{result.jump_lambda:.4f} / {result.jump_mu:.4f} / {result.jump_sigma:.4f}</td></tr>'
-            f'<tr><td>Jump mode</td><td>{JUMP_MODE_LABELS.get(result.jump_mode, result.jump_mode)}</td></tr>'
-            f'<tr><td>μ uncertainty</td><td>±{result.mu_uncertainty:.1%} annual std</td></tr>'
-            f'<tr><td>90% Confidence</td>'
-            f'<td>{fp(metrics["p05"])} — {fp(metrics["p95"])}</td></tr>'
-            f'<tr><td>Paths</td><td>{result.n_paths:,}</td></tr>'
-            f'<tr><td>Fan steps / 스레드</td>'
-            f'<td>{result.n_steps} / {result.n_threads if result.n_threads else "auto"}</td></tr>'
-            f'<tr><td>C++ Engine</td><td>{result.elapsed:.3f}s</td></tr>'
-            f'</tbody></table></div>',
-            unsafe_allow_html=True,
-        )
 
 
 def _render_validation_reference(result: DashboardResult) -> None:
@@ -2592,7 +2488,7 @@ def _render_validation_reference(result: DashboardResult) -> None:
 def _render_dashboard_result(result: DashboardResult) -> None:
     _render_risk_summary(result)
     with st.expander("상세 분석", expanded=False):
-        chart_tab, risk_tab, validation_tab, model_tab = st.tabs(["차트", "상세 지표", "과거 검증", "수학 모델"])
+        chart_tab, validation_tab, model_tab = st.tabs(["차트", "과거 검증", "수학 모델"])
         with chart_tab:
             inv_amt = st.number_input(
                 "투자 예정 금액 (0 입력 시 주가 차트로 표시)",
@@ -2616,9 +2512,6 @@ def _render_dashboard_result(result: DashboardResult) -> None:
                 mc2.metric("예상 최종 자산", _fp(expected_value, cur))
                 mc3.metric("최대 예상 손실 (CVaR 95%)", _fp(cvar_loss, cur), delta=f"-{cvar_pct:.1f}%")
             _render_charts(result, investment_amount=inv_amt)
-        with risk_tab:
-            _render_risk_tables(result)
-            _render_action_metrics(result)
         with validation_tab:
             _render_validation_reference(result)
         with model_tab:
