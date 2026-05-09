@@ -1542,6 +1542,7 @@ def _build_portfolio_fan(
             tickfont=dict(size=11, color="#8B93A1"),
             gridcolor="rgba(255,255,255,0.04)",
             zeroline=False,
+            fixedrange=True,
             showspikes=True,
             spikecolor="rgba(255,255,255,0.20)",
             spikethickness=1, spikedash="dot", spikesnap="cursor",
@@ -1552,6 +1553,7 @@ def _build_portfolio_fan(
             tickfont=dict(size=11, color="#8B93A1"),
             gridcolor="rgba(255,255,255,0.04)",
             zeroline=False,
+            fixedrange=True,
             showspikes=True,
             spikecolor="rgba(255,255,255,0.20)",
             spikethickness=1, spikedash="dot",
@@ -2136,7 +2138,16 @@ def _render_investment_section(result: DashboardResult) -> None:
 
     # ── 포트폴리오 팬 차트 ────────────────────────────────────────────────
     fan_fig = _build_portfolio_fan(result.path_matrix, s0, inv_amt, result.years, cur)
-    st.plotly_chart(fan_fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(
+        fan_fig,
+        use_container_width=True,
+        config={
+            "displayModeBar": False,
+            "scrollZoom": False,
+            "doubleClick": False,
+            "staticPlot": False,
+        },
+    )
 
     # ── 포트폴리오 메트릭 카드 ────────────────────────────────────────────
     st.markdown(
