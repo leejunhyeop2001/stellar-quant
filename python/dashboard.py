@@ -1916,6 +1916,7 @@ def _run_inline_backtest(ticker: str) -> dict:
                 "asof": r.asof,
                 "realized_percentile": r.realized_percentile,
                 "interval_90_hit": r.interval_90_hit,
+                "interval_50_hit": r.interval_50_hit,
                 "direction_hit": r.direction_hit,
                 "median_abs_error_pct": r.median_abs_error_pct,
                 "brier_up": r.brier_up,
@@ -1949,14 +1950,17 @@ def _render_backtest_inline(bt: dict, ticker: str) -> None:
     table_rows_html = ""
     for item in summary:
         model = str(item["model"])
-        cov = float(item["interval_90_coverage_pct"])
+        cov90 = float(item["interval_90_coverage_pct"])
+        cov50 = float(item["interval_50_coverage_pct"])
         dir_acc = float(item["direction_accuracy_pct"])
         med_err = float(item["mean_median_abs_error_pct"])
         brier = float(item["mean_brier_up"])
         mean_pctl = float(item["mean_realized_percentile"])
         n_splits = int(item["splits"])
 
-        cov_cls = "risk-blue" if abs(cov - 90.0) < 15.0 else "risk-red"
+        # 90%: 목표 90% ± 15% / 50%: 목표 50% ± 20% (100%면 구간 과대)
+        cov90_cls = "risk-blue" if abs(cov90 - 90.0) < 15.0 else "risk-red"
+        cov50_cls = "risk-blue" if abs(cov50 - 50.0) < 20.0 else "risk-red"
         pctl_cls = "risk-blue" if abs(mean_pctl - 50.0) < 12.0 else "risk-red"
         row_weight = "800" if model == "stellar" else "500"
 
@@ -1964,7 +1968,8 @@ def _render_backtest_inline(bt: dict, ticker: str) -> None:
             f"<tr>"
             f'<td style="font-weight:{row_weight}">{model}</td>'
             f"<td>{n_splits}</td>"
-            f'<td><span class="{cov_cls}" style="font-weight:700">{cov:.1f}%</span></td>'
+            f'<td><span class="{cov90_cls}" style="font-weight:700">{cov90:.1f}%</span></td>'
+            f'<td><span class="{cov50_cls}" style="font-weight:700">{cov50:.1f}%</span></td>'
             f"<td>{dir_acc:.1f}%</td>"
             f"<td>{med_err:.1f}%</td>"
             f"<td>{brier:.3f}</td>"
@@ -1976,6 +1981,7 @@ def _render_backtest_inline(bt: dict, ticker: str) -> None:
         f'<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
         f"<th>Model</th><th>Splits</th>"
         f"<th>90% Coverage <small style='opacity:0.6'>(목표 90%)</small></th>"
+        f"<th>50% Coverage <small style='opacity:0.6'>(목표 50%)</small></th>"
         f"<th>Direction %</th><th>Median Err %</th><th>Brier Up</th>"
         f"<th>Mean Realized Pctl <small style='opacity:0.6'>(목표 50%)</small></th>"
         f"</tr></thead><tbody>{table_rows_html}</tbody></table></div>",

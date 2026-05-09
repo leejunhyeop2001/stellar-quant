@@ -29,11 +29,14 @@ class BacktestRow:
     s0: float
     actual: float
     p05: float
+    p25: float
     p50: float
+    p75: float
     p95: float
     up_probability_pct: float
     realized_percentile: float
     interval_90_hit: bool
+    interval_50_hit: bool
     direction_hit: bool
     median_abs_error_pct: float
     brier_up: float
@@ -164,11 +167,14 @@ def _score_samples(
         s0=s0,
         actual=actual,
         p05=metrics["p05"],
+        p25=metrics["p25"],
         p50=metrics["p50"],
+        p75=metrics["p75"],
         p95=metrics["p95"],
         up_probability_pct=metrics["up_probability_pct"],
         realized_percentile=realized_percentile,
         interval_90_hit=bool(metrics["p05"] <= actual <= metrics["p95"]),
+        interval_50_hit=bool(metrics["p25"] <= actual <= metrics["p75"]),
         direction_hit=bool((metrics["up_probability_pct"] >= 50.0) == actual_up),
         median_abs_error_pct=abs(actual - metrics["p50"]) / s0 * 100.0,
         brier_up=float((predicted_up_prob - float(actual_up)) ** 2),
@@ -241,7 +247,8 @@ def _summarize(rows: list[BacktestRow]) -> list[dict[str, float | str | int]]:
         n = len(subset)
         if n == 0:
             continue
-        coverage = np.mean([r.interval_90_hit for r in subset]) * 100.0
+        coverage_90 = np.mean([r.interval_90_hit for r in subset]) * 100.0
+        coverage_50 = np.mean([r.interval_50_hit for r in subset]) * 100.0
         direction = np.mean([r.direction_hit for r in subset]) * 100.0
         median_err = np.mean([r.median_abs_error_pct for r in subset])
         brier = np.mean([r.brier_up for r in subset])
@@ -250,7 +257,8 @@ def _summarize(rows: list[BacktestRow]) -> list[dict[str, float | str | int]]:
             {
                 "model": model,
                 "splits": n,
-                "interval_90_coverage_pct": float(coverage),
+                "interval_90_coverage_pct": float(coverage_90),
+                "interval_50_coverage_pct": float(coverage_50),
                 "direction_accuracy_pct": float(direction),
                 "mean_median_abs_error_pct": float(median_err),
                 "mean_brier_up": float(brier),
@@ -283,13 +291,14 @@ def _write_outputs(
         "",
         "## Model Summary",
         "",
-        "| Model | Splits | 90% Coverage | Direction Accuracy | Median Abs Error | Brier Up | Mean Realized Percentile |",
-        "|:--|--:|--:|--:|--:|--:|--:|",
+        "| Model | Splits | 90% Coverage | 50% Coverage | Direction Accuracy | Median Abs Error | Brier Up | Mean Realized Percentile |",
+        "|:--|--:|--:|--:|--:|--:|--:|--:|",
     ]
     for item in summary:
         lines.append(
             f"| {item['model']} | {item['splits']} | "
             f"{item['interval_90_coverage_pct']:.1f}% | "
+            f"{item['interval_50_coverage_pct']:.1f}% | "
             f"{item['direction_accuracy_pct']:.1f}% | "
             f"{item['mean_median_abs_error_pct']:.1f}% | "
             f"{item['mean_brier_up']:.3f} | "
@@ -301,17 +310,19 @@ def _write_outputs(
             "",
             "## Split Detail",
             "",
-            "| Model | As-of | S0 | Actual | P05 | P50 | P95 | Up Prob. | Realized Pctl. | 90% Hit | Direction Hit |",
-            "|:--|:--|--:|--:|--:|--:|--:|--:|--:|:--:|:--:|",
+            "| Model | As-of | S0 | Actual | P05 | P25 | P50 | P75 | P95 | Up Prob. | Realized Pctl. | 90% Hit | 50% Hit | Direction Hit |",
+            "|:--|:--|--:|--:|--:|--:|--:|--:|--:|--:|--:|:--:|:--:|:--:|",
         ]
     )
     for r in rows:
         lines.append(
             f"| {r.model} | {r.asof} | {fmt_price(r.s0, currency)} | "
             f"{fmt_price(r.actual, currency)} | {fmt_price(r.p05, currency)} | "
-            f"{fmt_price(r.p50, currency)} | {fmt_price(r.p95, currency)} | "
+            f"{fmt_price(r.p25, currency)} | {fmt_price(r.p50, currency)} | "
+            f"{fmt_price(r.p75, currency)} | {fmt_price(r.p95, currency)} | "
             f"{r.up_probability_pct:.1f}% | {r.realized_percentile:.1f}% | "
-            f"{'Y' if r.interval_90_hit else 'N'} | {'Y' if r.direction_hit else 'N'} |"
+            f"{'Y' if r.interval_90_hit else 'N'} | {'Y' if r.interval_50_hit else 'N'} | "
+            f"{'Y' if r.direction_hit else 'N'} |"
         )
 
     md_path.write_text("\n".join(lines), encoding="utf-8")
