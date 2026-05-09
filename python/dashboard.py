@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 import time
 
 import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 
 from data_utils import (
@@ -1371,6 +1372,109 @@ def _fetch_exchange_rate() -> float:
     return 1350.0
 
 
+def _on_krw_change() -> None:
+    """KRW 입력 변경 시 USD를 실시간 환산."""
+    rate = _fetch_exchange_rate()
+    krw = float(st.session_state.get("sq_inv_krw", 0.0))
+    st.session_state["sq_inv_usd"] = round(krw / rate, 2)
+
+
+def _on_usd_change() -> None:
+    """USD 입력 변경 시 KRW를 실시간 환산."""
+    rate = _fetch_exchange_rate()
+    usd = float(st.session_state.get("sq_inv_usd", 0.0))
+    st.session_state["sq_inv_krw"] = round(usd * rate, 0)
+
+
+def _build_portfolio_fan(
+    path_matrix: np.ndarray,
+    s0: float,
+    inv_amt: float,
+    years: float,
+    currency: str,
+) -> go.Figure:
+    """투자금 기준 포트폴리오 팬 차트 (GBM 경로 행렬 → 자산가치 분포)."""
+    scale = inv_amt / s0
+    pm = path_matrix * scale
+    n_steps = pm.shape[1]
+    t = np.linspace(0.0, years * 12.0, n_steps)
+
+    q05 = np.quantile(pm, 0.05, axis=0)
+    q25 = np.quantile(pm, 0.25, axis=0)
+    q50 = np.quantile(pm, 0.50, axis=0)
+    q75 = np.quantile(pm, 0.75, axis=0)
+    q95 = np.quantile(pm, 0.95, axis=0)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=np.concatenate([t, t[::-1]]).tolist(),
+        y=np.concatenate([q95, q05[::-1]]).tolist(),
+        fill="toself",
+        fillcolor="rgba(0,100,255,0.10)",
+        line=dict(width=0),
+        name="90% 구간",
+        hoverinfo="skip",
+    ))
+    fig.add_trace(go.Scatter(
+        x=np.concatenate([t, t[::-1]]).tolist(),
+        y=np.concatenate([q75, q25[::-1]]).tolist(),
+        fill="toself",
+        fillcolor="rgba(0,100,255,0.25)",
+        line=dict(width=0),
+        name="50% 구간",
+        hoverinfo="skip",
+    ))
+    fig.add_trace(go.Scatter(
+        x=t.tolist(), y=q50.tolist(),
+        mode="lines",
+        line=dict(color="#0064FF", width=2.5),
+        name="중앙값 (50th)",
+    ))
+    fig.add_trace(go.Scatter(
+        x=[float(t[0]), float(t[-1])],
+        y=[inv_amt, inv_amt],
+        mode="lines",
+        line=dict(color="rgba(255,255,255,0.25)", width=1, dash="dash"),
+        name="투자 원금",
+    ))
+    cur_sym = "₩" if currency == "KRW" else "$"
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(16,16,18,0.6)",
+        font=dict(
+            family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
+            color="#F4F5F7",
+            size=12,
+        ),
+        xaxis=dict(
+            title="기간 (개월)",
+            gridcolor="rgba(255,255,255,0.05)",
+            zerolinecolor="rgba(255,255,255,0.08)",
+            tickfont=dict(size=11),
+        ),
+        yaxis=dict(
+            title=f"포트폴리오 가치 ({currency})",
+            gridcolor="rgba(255,255,255,0.05)",
+            tickprefix=cur_sym,
+            tickformat=",.0f",
+            zerolinecolor="rgba(255,255,255,0.08)",
+            tickfont=dict(size=11),
+        ),
+        legend=dict(
+            bgcolor="rgba(16,16,18,0.85)",
+            bordercolor="rgba(255,255,255,0.08)",
+            borderwidth=1,
+            font=dict(size=11),
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0,
+        ),
+        margin=dict(l=12, r=12, t=36, b=12),
+        height=320,
+    )
+    return fig
 
 
 # ---------------------------------------------------------------------------
@@ -1467,6 +1571,36 @@ def _render_top_controls(preset: str, jump_mode: str) -> SidebarConfig:
             f'선택 종목: <b style="color:{TEXT}">{ticker}</b></p>',
             unsafe_allow_html=True,
         )
+
+    # ── KRW / USD 투자금 입력 (시뮬 전 설정) ─────────────────────────────
+    rate = _fetch_exchange_rate()
+    if "sq_inv_krw" not in st.session_state:
+        st.session_state["sq_inv_krw"] = 1_000_000.0
+    if "sq_inv_usd" not in st.session_state:
+        st.session_state["sq_inv_usd"] = 1_000.0
+    tab_krw, tab_usd = st.tabs(["🇰🇷 KRW 원화", "🇺🇸 USD 달러"])
+    with tab_krw:
+        st.number_input(
+            "투자 예정 금액 (원)",
+            min_value=0.0,
+            step=100_000.0,
+            format="%.0f",
+            key="sq_inv_krw",
+            on_change=_on_krw_change,
+        )
+        krw_val = float(st.session_state["sq_inv_krw"])
+        st.caption(f"≈ ${krw_val / rate:,.0f} USD  ·  환율 {rate:,.0f} KRW/USD 기준")
+    with tab_usd:
+        st.number_input(
+            "투자 예정 금액 (USD)",
+            min_value=0.0,
+            step=100.0,
+            format="%.2f",
+            key="sq_inv_usd",
+            on_change=_on_usd_change,
+        )
+        usd_val = float(st.session_state["sq_inv_usd"])
+        st.caption(f"≈ ₩{usd_val * rate:,.0f} KRW  ·  환율 {rate:,.0f} KRW/USD 기준")
 
     run = st.button(
         "시뮬레이션 시작",
@@ -1826,7 +1960,7 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<div class="risk-label">Risk Report · {result.ticker}</div>'
         f'<div class="risk-title">{title}</div>'
         f'<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
-        f'<span class="risk-pill {tone}">상승 확률 <b class="{up_cls}">{up:.1f}%</b></span>'
+        f'<span class="risk-pill {tone}">상승 확률 &nbsp;:&nbsp; <b class="{up_cls}" style="font-size:1.15em;font-weight:800;letter-spacing:-0.01em">{up:.1f} %</b></span>'
         f'<span style="color:{MUTED};font-size:0.75rem;opacity:0.5">'
         f'{result.elapsed:.2f}s · {result.n_paths:,} paths</span>'
         f'</div>'
@@ -1853,40 +1987,15 @@ def _render_risk_summary(result: DashboardResult) -> None:
 
 
 def _render_investment_section(result: DashboardResult) -> None:
-    """KRW/USD 탭 스위처 + 포트폴리오 메트릭 + 공포 지수."""
+    """포트폴리오 팬 차트 + CSS 카드형 투자 지표 + 공포 지수."""
     s0 = result.params.s0
     cur = result.params.currency
     terminal = result.terminal
     metrics = result.metrics
-    rate = _fetch_exchange_rate()
 
-    # ── KRW / USD 통화 탭 스위처 ──────────────────────────────────────────
-    st.markdown(
-        '<div class="stitle" style="margin-top:24px">투자금 시뮬레이터'
-        '<span class="stitle-sub">투자 원금 기준 예측</span></div>',
-        unsafe_allow_html=True,
-    )
-    tab_krw, tab_usd = st.tabs(["🇰🇷 KRW 원화", "🇺🇸 USD 달러"])
-
-    with tab_krw:
-        krw_input = st.number_input(
-            "투자 예정 금액 (원)", min_value=0.0, value=1_000_000.0,
-            step=100_000.0, format="%.0f", key="sq_inv_krw",
-        )
-        st.caption(f"≈ ${krw_input / rate:,.0f} USD  ·  환율 {rate:,.0f} KRW/USD 기준")
-        inv_krw = krw_input
-        inv_usd = krw_input / rate
-
-    with tab_usd:
-        usd_input = st.number_input(
-            "투자 예정 금액 (USD)", min_value=0.0, value=1_000.0,
-            step=100.0, format="%.2f", key="sq_inv_usd",
-        )
-        st.caption(f"≈ ₩{usd_input * rate:,.0f} KRW  ·  환율 {rate:,.0f} KRW/USD 기준")
-        inv_krw = usd_input * rate
-        inv_usd = usd_input
-
-    # 시뮬레이션 네이티브 통화로 투자금 변환
+    # 투자금은 _render_top_controls에서 설정한 session_state 값을 읽음
+    inv_krw = float(st.session_state.get("sq_inv_krw", 1_000_000.0))
+    inv_usd = float(st.session_state.get("sq_inv_usd", 1_000.0))
     inv_amt = inv_krw if cur == "KRW" else inv_usd
     if inv_amt <= 0.0 or s0 <= 0.0:
         return
@@ -1895,32 +2004,47 @@ def _render_investment_section(result: DashboardResult) -> None:
     mean_price = float(np.mean(terminal))
     expected_value = shares * mean_price
     ret_pct = (mean_price - s0) / s0 * 100.0
+    ret_cls = "risk-blue" if ret_pct >= 0 else "risk-red"
+    ret_delta_cls = "d-pos" if ret_pct >= 0 else "d-neg"
+    ret_arrow = "↑" if ret_pct >= 0 else "↓"
     cvar_pct = metrics["cvar_95_pct"]
     cvar_loss = inv_amt * cvar_pct / 100.0
 
-    # ── 포트폴리오 메트릭 3개 ──────────────────────────────────────────────
-    c1, c2, c3 = st.columns(3)
-    c1.metric(
-        "예상 수익률 (1Y 평균 경로)",
-        f"{ret_pct:+.1f}%",
-        help="1년 뒤 평균 시뮬레이션 경로 기준 예상 수익률입니다.",
+    st.markdown(
+        '<div class="stitle" style="margin-top:28px">투자금 시뮬레이터'
+        '<span class="stitle-sub">투자 원금 기준 자산가치 예측</span></div>',
+        unsafe_allow_html=True,
     )
-    c2.metric(
-        "예상 최종 자산",
-        _fp(expected_value, cur),
-        delta=f"{ret_pct:+.1f}%",
-        help=f"투자금 {_fp(inv_amt, cur)} 기준 1년 뒤 평균 예상 자산가치입니다.",
-    )
-    c3.metric(
-        "시장 폭락 시 예상 손실",
-        _fp(cvar_loss, cur),
-        delta=f"-{cvar_pct:.1f}%",
-        help=f"최악 5% 상황의 평균 손실액입니다. 투자금 {_fp(inv_amt, cur)} 기준.",
+
+    # ── 포트폴리오 팬 차트 ────────────────────────────────────────────────
+    fan_fig = _build_portfolio_fan(result.path_matrix, s0, inv_amt, result.years, cur)
+    st.plotly_chart(fan_fig, use_container_width=True, config={"displayModeBar": False})
+
+    # ── 포트폴리오 메트릭 카드 ────────────────────────────────────────────
+    st.markdown(
+        f'<div class="risk-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:8px">'
+        f'<div class="risk-item">'
+        f'<div class="risk-item-label">예상 수익률 (1Y 평균)</div>'
+        f'<div class="risk-item-value {ret_cls}">{ret_pct:+.1f}%</div>'
+        f'<div class="mc-delta {ret_delta_cls}">{ret_arrow} 평균 경로 기준</div>'
+        f'</div>'
+        f'<div class="risk-item">'
+        f'<div class="risk-item-label">예상 최종 자산</div>'
+        f'<div class="risk-item-value {ret_cls}">{_fp(expected_value, cur)}</div>'
+        f'<div class="mc-delta {ret_delta_cls}">{ret_arrow} {ret_pct:+.1f}% · 투자금 {_fp(inv_amt, cur)} 기준</div>'
+        f'</div>'
+        f'<div class="risk-item">'
+        f'<div class="risk-item-label">시장 폭락 시 예상 손실</div>'
+        f'<div class="risk-item-value risk-red">{_fp(cvar_loss, cur)}</div>'
+        f'<div class="mc-delta d-neg">↓ {cvar_pct:.1f}% · 최악 5% 상황 평균 손실</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
     )
 
     # ── 공포 지수 ──────────────────────────────────────────────────────────
     st.markdown(
-        '<div class="stitle" style="margin-top:20px">리스크 공포 지수'
+        '<div class="stitle" style="margin-top:24px">리스크 공포 지수'
         '<span class="stitle-sub">피부로 느끼는 리스크</span></div>',
         unsafe_allow_html=True,
     )
@@ -1930,26 +2054,34 @@ def _render_investment_section(result: DashboardResult) -> None:
     q10_price = float(np.quantile(terminal, 0.10))
     q10_loss_pct = (q10_price - s0) / s0 * 100.0
 
-    f1, f2, f3, f4 = st.columns(4)
-    f1.metric(
-        "반토막(-50%) 확률",
-        f"{halved_prob:.1f}%",
-        help=f"1년 뒤 주가가 현재의 절반({_fp(s0 * 0.5, cur)}) 이하로 떨어질 확률입니다.",
-    )
-    f2.metric(
-        "원금 손실 확률",
-        f"{loss_prob:.1f}%",
-        help=f"1년 뒤 주가가 현재가({_fp(s0, cur)}) 미만일 확률입니다.",
-    )
-    f3.metric(
-        "2배 달성 확률",
-        f"{double_prob:.1f}%",
-        help=f"1년 뒤 주가가 현재의 2배({_fp(s0 * 2.0, cur)}) 이상일 확률입니다.",
-    )
-    f4.metric(
-        "하위 10% 최악 시나리오",
-        f"{q10_loss_pct:+.1f}%",
-        help=f"하위 10% 경로에서 예상 주가는 {_fp(q10_price, cur)}입니다.",
+    halved_cls = "risk-red" if halved_prob > 5.0 else "risk-blue"
+    loss_cls = "risk-red" if loss_prob > 40.0 else "risk-blue"
+    q10_cls = "risk-red" if q10_loss_pct < -15.0 else "risk-blue"
+
+    st.markdown(
+        f'<div class="risk-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:8px">'
+        f'<div class="risk-item">'
+        f'<div class="risk-item-label">반토막(-50%) 확률</div>'
+        f'<div class="risk-item-value {halved_cls}">{halved_prob:.1f}%</div>'
+        f'<div class="mc-delta d-neg">1년 뒤 {_fp(s0 * 0.5, cur)} 이하</div>'
+        f'</div>'
+        f'<div class="risk-item">'
+        f'<div class="risk-item-label">원금 손실 확률</div>'
+        f'<div class="risk-item-value {loss_cls}">{loss_prob:.1f}%</div>'
+        f'<div class="mc-delta d-neg">현재가 {_fp(s0, cur)} 미만</div>'
+        f'</div>'
+        f'<div class="risk-item">'
+        f'<div class="risk-item-label">2배 달성 확률</div>'
+        f'<div class="risk-item-value risk-blue">{double_prob:.1f}%</div>'
+        f'<div class="mc-delta d-pos">목표가 {_fp(s0 * 2.0, cur)}</div>'
+        f'</div>'
+        f'<div class="risk-item">'
+        f'<div class="risk-item-label">하위 10% 시나리오</div>'
+        f'<div class="risk-item-value {q10_cls}">{q10_loss_pct:+.1f}%</div>'
+        f'<div class="mc-delta d-neg">↓ 주가 {_fp(q10_price, cur)} 예상</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
     )
     st.caption(
         f"현재 주가 {_fp(s0, cur)} 기준. 투자금 {_fp(inv_amt, cur)}으로 반토막 시 "
