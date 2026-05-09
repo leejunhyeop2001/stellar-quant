@@ -1485,6 +1485,7 @@ def _build_portfolio_fan(
         plot_bgcolor="#101012",
         height=420,
         autosize=False,
+        dragmode=False,
         margin=dict(l=12, r=100, t=16, b=16),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
