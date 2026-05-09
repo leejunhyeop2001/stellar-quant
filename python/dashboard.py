@@ -1486,7 +1486,7 @@ def _build_portfolio_fan(
         height=560,
         autosize=False,
         dragmode=False,
-        margin=dict(l=48, r=160, t=56, b=56),
+        margin=dict(l=48, r=220, t=56, b=100),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
