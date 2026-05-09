@@ -1,7 +1,7 @@
 """Stellar-Quant — Interactive Streamlit Dashboard (Cosmic Edition)."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import time
 
 import numpy as np
@@ -62,9 +62,9 @@ RED = "#FF4B4B"
 GREEN = ACCENT
 
 # ---------------------------------------------------------------------------
-# 고정 시뮬레이션 파라미터 (대시보드 내부 최적화 — UI에서 변경 불가)
+# 기본 시뮬레이션 파라미터 (모델 오차가 MC 오차보다 커서 기본 경로 수는 보수적으로 둔다)
 # ---------------------------------------------------------------------------
-FIXED_N_PATHS = 10_000_000
+FIXED_N_PATHS = 3_000_000
 FIXED_HORIZON_YEARS = 1.0
 FIXED_FAN_PATHS = 8_000
 FIXED_N_STEPS = 252
@@ -72,6 +72,14 @@ FIXED_N_THREADS = 0  # 0 = 사용 가능 코어 자동
 FIXED_JUMP_LAMBDA = 1.5
 FIXED_JUMP_MU = -0.15
 FIXED_JUMP_SIGMA = 0.10
+JUMP_MODE_CONSERVATIVE = "conservative"
+JUMP_MODE_HISTORICAL = "historical"
+JUMP_MODE_OFF = "off"
+JUMP_MODE_LABELS = {
+    JUMP_MODE_CONSERVATIVE: "보수적 스트레스",
+    JUMP_MODE_HISTORICAL: "역사적 추정",
+    JUMP_MODE_OFF: "순수 GBM",
+}
 # yfinance 실패 시 Manual Fallback (GBM 입력)
 FIXED_MANUAL_S0 = 250.0
 FIXED_MANUAL_MU = 0.10
@@ -111,6 +119,7 @@ class SidebarConfig:
     fan_paths: int
     n_steps: int
     n_threads: int
+    jump_mode: str
     jump_lambda: float
     jump_mu: float
     jump_sigma: float
@@ -123,6 +132,7 @@ class MarketData:
 
     params: GbmParams
     jump: JumpParams
+    mu_uncertainty: float
     source: str
 
 
@@ -149,13 +159,15 @@ class DashboardResult:
     years: float
     n_steps: int
     n_threads: int
+    jump_mode: str
     jump_lambda: float
     jump_mu: float
     jump_sigma: float
+    mu_uncertainty: float
     fan_fig: go.Figure | None
 
 
-def _fixed_engine_config(ticker: str, run: bool) -> SidebarConfig:
+def _fixed_engine_config(ticker: str, run: bool, jump_mode: str) -> SidebarConfig:
     return SidebarConfig(
         ticker=ticker.strip().upper(),
         n_paths=FIXED_N_PATHS,
@@ -166,6 +178,7 @@ def _fixed_engine_config(ticker: str, run: bool) -> SidebarConfig:
         fan_paths=FIXED_FAN_PATHS,
         n_steps=FIXED_N_STEPS,
         n_threads=FIXED_N_THREADS,
+        jump_mode=jump_mode,
         jump_lambda=FIXED_JUMP_LAMBDA,
         jump_mu=FIXED_JUMP_MU,
         jump_sigma=FIXED_JUMP_SIGMA,
@@ -1670,10 +1683,10 @@ def _render_math_section(
         ),
         (
             "Kelly Criterion",
-            "근사 권장 비중 (연율 μ, σ)",
+            "모형상 참고 비중 (연율 μ, σ)",
             r"f^\star=\max\!\left(0,\min\!\left(1,\dfrac{\mu-r_f}{\sigma^2}\right)\right),\ r_f=3\%",
             f'시뮬에 쓰는 연율 <b>μ, σ</b>로 근사합니다. <b>f∈[0,1]</b>로 캡하여 100% 초과 베팅을 막습니다. '
-            f'실제 포지션은 비용·유동성·제약을 반영해 축소하세요.',
+            f'입력 오차에 매우 민감하므로 실제 포지션은 비용·유동성·제약을 반영해 크게 축소해야 합니다.',
         ),
         (
             "Sortino Ratio",
@@ -1757,7 +1770,7 @@ def _mc(label, value, delta="", lg=False, large=False, vc: str | None = None):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def _render_sidebar() -> str:
+def _render_sidebar() -> tuple[str, str]:
     """사이드바: 브랜드 + 종목 preset selectbox. 반환값은 심볼 또는 TICKER_CUSTOM."""
 
     with st.sidebar:
@@ -1786,6 +1799,18 @@ def _render_sidebar() -> str:
             f"시뮬 고정값: {FIXED_N_PATHS:,} paths · {FIXED_HORIZON_YEARS:g}y · "
             f"fan {FIXED_FAN_PATHS:,} · steps {FIXED_N_STEPS}"
         )
+        st.markdown(
+            '<div class="sb-section-hd">모형</div>',
+            unsafe_allow_html=True,
+        )
+        jump_mode = st.selectbox(
+            "점프 모드",
+            options=[JUMP_MODE_CONSERVATIVE, JUMP_MODE_HISTORICAL, JUMP_MODE_OFF],
+            format_func=lambda s: JUMP_MODE_LABELS[s],
+            index=0,
+            key="sq_jump_mode",
+            help="보수적 스트레스는 하방 점프를 고정 적용하고, 역사적 추정은 최근 데이터에서 탐지한 점프만 사용합니다.",
+        )
 
         st.markdown(
             '<div class="sb-foot">'
@@ -1801,10 +1826,10 @@ def _render_sidebar() -> str:
                 f"μ̂_J={ej.mu_jump:.4f}, σ̂_J={ej.sigma_jump:.4f}"
             )
 
-    return str(preset)
+    return str(preset), str(jump_mode)
 
 
-def _render_top_controls(preset: str) -> SidebarConfig:
+def _render_top_controls(preset: str, jump_mode: str) -> SidebarConfig:
     """본문: 히어로 + (직접 입력 시) 티커 입력 + 시뮬레이션 버튼."""
 
     st.markdown(
@@ -1814,7 +1839,7 @@ def _render_top_controls(preset: str) -> SidebarConfig:
         '<p class="top-sub">'
         '왼쪽 사이드바에서 종목을 고른 뒤 시뮬레이션을 시작하세요. '
         '최근 1년 yfinance 데이터로 현재가와 변동성을 반영합니다. '
-        '상세 차트와 수학 모델은 결과 아래에서 펼칠 수 있습니다.'
+        '상승확률은 보조 지표로 보고, 가격 구간과 꼬리손실을 함께 확인하세요.'
         '</p>'
         '</div>',
         unsafe_allow_html=True,
@@ -1843,7 +1868,7 @@ def _render_top_controls(preset: str) -> SidebarConfig:
         type="primary",
         key="sq_run_simulation",
     )
-    return _fixed_engine_config(ticker, bool(run))
+    return _fixed_engine_config(ticker, bool(run), jump_mode)
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -1851,10 +1876,197 @@ def _load_market_data(ticker: str, period: str = "1y") -> MarketData:
     """Fetch 1y yfinance prices and convert them into GBM and jump parameters."""
 
     close = fetch_prices(ticker, period=period)
+    params = estimate_gbm_params(close, ticker=ticker)
+    n_ret = max(1, len(close) - 1)
+    sample_years = max(0.25, n_ret / 252.0)
+    mu_uncertainty = float(np.clip(params.sigma / np.sqrt(sample_years), 0.05, 0.30))
     return MarketData(
-        params=estimate_gbm_params(close, ticker=ticker),
+        params=params,
         jump=estimate_jump_params(close),
+        mu_uncertainty=mu_uncertainty,
         source="yfinance",
+    )
+
+
+@st.cache_data(show_spinner=False, ttl=1800)
+def _run_inline_backtest(ticker: str) -> dict:
+    """Rolling 1-year calibration backtest for the validation tab (cached 30 min).
+
+    Uses 7 years of data with 6-month strides and 10 K Monte Carlo paths — fast
+    enough for interactive use while producing enough splits (≈ 10) for a
+    meaningful calibration check.
+    """
+    try:
+        from backtest import run_backtest as _bt_run, _summarize as _bt_summarize
+
+        close = fetch_prices(ticker, period="7y")
+        market_close = None
+        try:
+            market_close = fetch_prices("SPY", period="7y")
+        except Exception:
+            pass
+
+        rows, currency = _bt_run(
+            close,
+            ticker=ticker,
+            market_close=market_close,
+            train_days=504,
+            horizon_days=252,
+            stride_days=126,
+            n_paths=10_000,
+            seed=42,
+        )
+        summary = _bt_summarize(rows)
+        rows_data = [
+            {
+                "model": r.model,
+                "asof": r.asof,
+                "realized_percentile": r.realized_percentile,
+                "interval_90_hit": r.interval_90_hit,
+                "direction_hit": r.direction_hit,
+                "median_abs_error_pct": r.median_abs_error_pct,
+                "brier_up": r.brier_up,
+            }
+            for r in rows
+        ]
+        return {"rows": rows_data, "summary": summary, "currency": currency, "error": None}
+    except Exception as exc:
+        return {"rows": [], "summary": [], "currency": "USD", "error": str(exc)}
+
+
+def _render_backtest_inline(bt: dict, ticker: str) -> None:
+    """Render backtest summary comparison table and calibration scatter chart."""
+    if bt.get("error"):
+        st.warning(f"백테스트 실패: {bt['error']}")
+        return
+
+    summary: list[dict] = bt.get("summary", [])
+    rows: list[dict] = bt.get("rows", [])
+    if not summary:
+        st.info("데이터 기간이 짧아 분할이 생성되지 않았습니다. CLI로 더 긴 기간을 지정하세요.")
+        return
+
+    # ── Summary comparison table ──────────────────────────────────────────
+    st.markdown(
+        '<div class="stitle">모형 비교 요약<span class="stitle-sub">'
+        f'rolling 1Y backtest · {ticker}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+    table_rows_html = ""
+    for item in summary:
+        model = str(item["model"])
+        cov = float(item["interval_90_coverage_pct"])
+        dir_acc = float(item["direction_accuracy_pct"])
+        med_err = float(item["mean_median_abs_error_pct"])
+        brier = float(item["mean_brier_up"])
+        mean_pctl = float(item["mean_realized_percentile"])
+        n_splits = int(item["splits"])
+
+        cov_cls = "risk-blue" if abs(cov - 90.0) < 15.0 else "risk-red"
+        pctl_cls = "risk-blue" if abs(mean_pctl - 50.0) < 12.0 else "risk-red"
+        row_weight = "800" if model == "stellar" else "500"
+
+        table_rows_html += (
+            f"<tr>"
+            f'<td style="font-weight:{row_weight}">{model}</td>'
+            f"<td>{n_splits}</td>"
+            f'<td><span class="{cov_cls}" style="font-weight:700">{cov:.1f}%</span></td>'
+            f"<td>{dir_acc:.1f}%</td>"
+            f"<td>{med_err:.1f}%</td>"
+            f"<td>{brier:.3f}</td>"
+            f'<td><span class="{pctl_cls}" style="font-weight:700">{mean_pctl:.1f}%</span></td>'
+            f"</tr>"
+        )
+
+    st.markdown(
+        f'<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
+        f"<th>Model</th><th>Splits</th>"
+        f"<th>90% Coverage <small style='opacity:0.6'>(목표 90%)</small></th>"
+        f"<th>Direction %</th><th>Median Err %</th><th>Brier Up</th>"
+        f"<th>Mean Realized Pctl <small style='opacity:0.6'>(목표 50%)</small></th>"
+        f"</tr></thead><tbody>{table_rows_html}</tbody></table></div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Calibration scatter (stellar model only) ──────────────────────────
+    stellar_rows = [r for r in rows if r["model"] == "stellar"]
+    if len(stellar_rows) < 2:
+        return
+
+    asofs = [r["asof"] for r in stellar_rows]
+    pctls = [float(r["realized_percentile"]) for r in stellar_rows]
+    hits = [bool(r["interval_90_hit"]) for r in stellar_rows]
+    marker_colors = [ACCENT if h else RED for h in hits]
+    mean_pctl_stellar = float(np.mean(pctls))
+
+    if mean_pctl_stellar > 55:
+        bias_label = f"모형 비관 편향 · 평균 {mean_pctl_stellar:.1f}%"
+    elif mean_pctl_stellar < 45:
+        bias_label = f"모형 낙관 편향 · 평균 {mean_pctl_stellar:.1f}%"
+    else:
+        bias_label = f"편향 없음 · 평균 {mean_pctl_stellar:.1f}% (이상적 50%)"
+
+    fig_bt = go.Figure()
+    fig_bt.add_trace(
+        go.Scatter(
+            x=list(range(len(asofs))),
+            y=pctls,
+            mode="markers+lines",
+            marker=dict(
+                color=marker_colors,
+                size=11,
+                line=dict(width=1.5, color="rgba(0,0,0,0.35)"),
+            ),
+            line=dict(color=SUBTLE, width=1.5, dash="dot"),
+            text=[
+                f"as-of {a}<br>실현 퍼센타일: {p:.1f}%<br>{'구간 적중 ✓' if h else '구간 빗나감 ✗'}"
+                for a, p, h in zip(asofs, pctls, hits)
+            ],
+            hoverinfo="text",
+            name="실현 퍼센타일",
+        )
+    )
+    # Ideal band: uniform ~ [5, 95] expected range
+    fig_bt.add_hrect(y0=5, y1=95, fillcolor="rgba(0,100,255,0.04)", line_width=0)
+    fig_bt.add_hline(
+        y=50.0,
+        line_color="rgba(255,255,255,0.22)",
+        line_dash="dash",
+        line_width=1.2,
+        annotation_text="이상적 50%",
+        annotation_position="top right",
+        annotation_font=dict(color=MUTED, size=10),
+    )
+
+    tick_labels = [a[:7] if len(a) >= 7 else a for a in asofs]
+    fig_bt.update_layout(
+        **_LAY,
+        title=dict(
+            text=(
+                f"<b>Stellar 실현 퍼센타일 추이</b>"
+                f"<span style='color:#8B93A1;font-weight:500'> · {bias_label}</span>"
+            ),
+            font=dict(size=14, color="#F4F5F7", family="Pretendard Variable, Pretendard, sans-serif"),
+            x=0.04,
+            y=0.96,
+            xanchor="left",
+        ),
+        xaxis=dict(
+            **_AX,
+            title="백테스트 시점 (as-of date)",
+            tickvals=list(range(len(asofs))),
+            ticktext=tick_labels,
+        ),
+        yaxis=dict(**_AX, title="실현 퍼센타일 (%)", range=[-3, 103]),
+        height=320,
+        margin=dict(l=56, r=32, t=56, b=72),
+        showlegend=False,
+    )
+    st.plotly_chart(fig_bt, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+    st.caption(
+        "파란 점 = 90% 구간 적중 · 빨간 점 = 구간 빗나감 · "
+        "점이 50% 주변에 고르게 분포할수록 잘 보정된 모형입니다."
     )
 
 
@@ -1871,7 +2083,28 @@ def _manual_market_data(config: SidebarConfig) -> MarketData:
             currency=detect_currency(config.ticker),
         ),
         jump=JumpParams(lambda_annual=0.0, mu_jump=0.0, sigma_jump=0.0),
+        mu_uncertainty=0.20,
         source="manual",
+    )
+
+
+def _resolve_jump_config(config: SidebarConfig, jump: JumpParams) -> SidebarConfig:
+    """Apply the selected jump mode after market data is available."""
+
+    if config.jump_mode == JUMP_MODE_OFF:
+        return replace(config, jump_lambda=0.0, jump_mu=0.0, jump_sigma=0.0)
+    if config.jump_mode == JUMP_MODE_HISTORICAL:
+        return replace(
+            config,
+            jump_lambda=max(0.0, jump.lambda_annual),
+            jump_mu=jump.mu_jump,
+            jump_sigma=max(0.0, jump.sigma_jump),
+        )
+    return replace(
+        config,
+        jump_lambda=FIXED_JUMP_LAMBDA,
+        jump_mu=FIXED_JUMP_MU,
+        jump_sigma=FIXED_JUMP_SIGMA,
     )
 
 
@@ -1918,6 +2151,28 @@ def _run_cpp_engine(config: SidebarConfig, params: GbmParams) -> EngineOutput:
     )
 
 
+def _apply_mu_uncertainty(
+    terminal: np.ndarray,
+    path_matrix: np.ndarray,
+    years: float,
+    mu_uncertainty: float,
+    seed: int = 20260509,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Widen simulated prices by sampling annual drift estimation error per path."""
+
+    if mu_uncertainty <= 0.0 or years <= 0.0:
+        return terminal, path_matrix
+    rng = np.random.default_rng(seed)
+
+    terminal_noise = rng.normal(0.0, mu_uncertainty, size=terminal.shape[0])
+    terminal_adj = terminal * np.exp(terminal_noise * years)
+
+    path_noise = rng.normal(0.0, mu_uncertainty, size=path_matrix.shape[0])
+    times = np.linspace(0.0, years, path_matrix.shape[1])
+    path_adj = path_matrix * np.exp(path_noise[:, None] * times[None, :])
+    return terminal_adj.astype(np.float64, copy=False), path_adj.astype(np.float64, copy=False)
+
+
 def _build_dashboard_result(
     config: SidebarConfig,
     market_data: MarketData,
@@ -1926,8 +2181,14 @@ def _build_dashboard_result(
     """Compute risk metrics and Plotly figures from engine output."""
 
     params = market_data.params
-    metrics = compute_risk_metrics(
+    terminal, path_matrix = _apply_mu_uncertainty(
         engine_output.terminal,
+        engine_output.path_matrix,
+        config.years,
+        market_data.mu_uncertainty,
+    )
+    metrics = compute_risk_metrics(
+        terminal,
         params.s0,
         sigma_annual=params.sigma,
         horizon_years=config.years,
@@ -1935,18 +2196,20 @@ def _build_dashboard_result(
     return DashboardResult(
         ticker=config.ticker,
         params=params,
-        terminal=engine_output.terminal,
-        path_matrix=engine_output.path_matrix,
+        terminal=terminal,
+        path_matrix=path_matrix,
         metrics=metrics,
         elapsed=engine_output.elapsed,
         n_paths=config.n_paths,
         years=config.years,
         n_steps=config.n_steps,
         n_threads=config.n_threads,
+        jump_mode=config.jump_mode,
         jump_lambda=config.jump_lambda,
         jump_mu=config.jump_mu,
         jump_sigma=config.jump_sigma,
-        fan_fig=build_fan(engine_output.path_matrix, params.s0, config.years, params.currency, config.ticker),
+        mu_uncertainty=market_data.mu_uncertainty,
+        fan_fig=build_fan(path_matrix, params.s0, config.years, params.currency, config.ticker),
     )
 
 
@@ -1965,9 +2228,11 @@ def _store_dashboard_result(result: DashboardResult, jump: JumpParams) -> None:
             years=result.years,
             n_steps=result.n_steps,
             n_threads=result.n_threads,
+            jump_mode=result.jump_mode,
             jump_lambda=result.jump_lambda,
             jump_mu=result.jump_mu,
             jump_sigma=result.jump_sigma,
+            mu_uncertainty=result.mu_uncertainty,
             fan_fig=result.fan_fig,
             est_jump=jump,
         )
@@ -1989,9 +2254,11 @@ def _result_from_session_state() -> DashboardResult:
         years=ss["years"],
         n_steps=int(ss.get("n_steps", 252)),
         n_threads=int(ss.get("n_threads", 0)),
+        jump_mode=str(ss.get("jump_mode", JUMP_MODE_CONSERVATIVE)),
         jump_lambda=float(ss.get("jump_lambda", 0.0)),
         jump_mu=float(ss.get("jump_mu", 0.0)),
         jump_sigma=float(ss.get("jump_sigma", 0.0)),
+        mu_uncertainty=float(ss.get("mu_uncertainty", 0.0)),
         fan_fig=ss.get("fan_fig"),
     )
 
@@ -2031,6 +2298,8 @@ def _run_simulation_flow(config: SidebarConfig) -> bool:
         st.warning("종목코드가 비어 있어 수동 fallback 값으로 진행합니다.")
         market_data = _manual_market_data(config)
 
+    config = _resolve_jump_config(config, market_data.jump)
+
     loading.markdown(
         '<div class="sq-loading">C++ 엔진 시뮬레이션 가동 중...'
         f'<span>{config.n_paths:,}개 경로를 멀티스레드로 계산합니다.</span></div>',
@@ -2050,12 +2319,14 @@ def _run_simulation_flow(config: SidebarConfig) -> bool:
     if market_data.source == "yfinance":
         st.caption(
             f"자동 반영: S0={market_data.params.s0:,.2f}, "
-            f"σ={market_data.params.sigma:.4f} · 최근 1년 일간 수익률 기반"
+            f"σ={market_data.params.sigma:.4f} · 최근 1년 일간 수익률 기반 · "
+            f"점프 모드 {JUMP_MODE_LABELS.get(config.jump_mode, config.jump_mode)}"
         )
     else:
         st.caption(
             f"Fallback 적용: S0={market_data.params.s0:,.2f}, "
-            f"σ={market_data.params.sigma:.4f} · 사이드바 수동 입력값 기반"
+            f"σ={market_data.params.sigma:.4f} · 수동 입력값 기반 · "
+            f"점프 모드 {JUMP_MODE_LABELS.get(config.jump_mode, config.jump_mode)}"
         )
 
     st.toast("시뮬레이션 완료!", icon="✅")
@@ -2126,7 +2397,8 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<b>σ가 클수록 확산의 볼록성(convexity) 때문에 기대 로그수익이 깎입니다.</b><br>'
         f'<strong>드리프트 수축</strong> 표본 연율 μ̂와 시장 prior <strong>{MU_MARKET_PRIOR:.0%}</strong>을 '
         f'<strong>{int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}:{100 - int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}</strong> '
-        f'혼합한 뒤 μ≤{GBM_MU_ANNUAL_CAP:.0%}, σ≥{GBM_SIGMA_ANNUAL_FLOOR:.0%} 클램프.<br>'
+        f'혼합한 뒤 μ≤{GBM_MU_ANNUAL_CAP:.0%}, σ≥{GBM_SIGMA_ANNUAL_FLOOR:.0%} 클램프. '
+        f'연율 μ 추정 오차는 ±{result.mu_uncertainty:.0%} 표준편차로 경로별 반영.<br>'
         f'<strong>종료가 로그수익 초과첨도</strong> {xk:+.3f} (확산만이면 ≈0) · '
         f'<strong>Fat-tail 체감 지수</strong> {ft:.3f} · 꼬리 가중 <strong>×{tadj:.3f}</strong> '
         f"(Score = {rsb:.3f} × {tadj:.3f} → <strong>{rs:.3f}</strong>)"
@@ -2148,7 +2420,10 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<div class="risk-item"><div class="risk-item-label">예상 중앙가</div>'
         f'<div class="risk-item-value {median_cls}">{fp(metrics["p50"])}</div>'
         f'<div class="mc-delta {"d-pos" if median_pct >= 0 else "d-neg"}">{"↑" if median_pct >= 0 else "↓"} {median_pct:+.2f}%</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">상승 확률</div>'
+        f'<div class="risk-item"><div class="risk-item-label">90% 예측구간</div>'
+        f'<div class="risk-item-value risk-blue" style="font-size:1.25rem">{fp(metrics["p05"])} ~ {fp(metrics["p95"])}</div>'
+        f'<div class="mc-delta" style="opacity:0.72">단일 목표가보다 우선 해석</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">상승 확률 (보조)</div>'
         f'<div class="risk-item-value {up_cls}">{up:.1f}%</div></div>'
         f'<div class="risk-item"><div class="risk-item-label">Risk Score (정규화)</div>'
         f'<div class="risk-item-value {rs_cls}">{rs:.3f}</div>'
@@ -2182,11 +2457,11 @@ def _render_action_metrics(result: DashboardResult) -> None:
     up = float(m["up_probability_pct"])
 
     st.markdown(
-        '<div class="stitle">액션 지표<span class="stitle-sub">Kelly · Sortino · Sharpe 대비</span></div>',
+        '<div class="stitle">모형 참고 지표<span class="stitle-sub">Kelly · Sortino · Sharpe 대비</span></div>',
         unsafe_allow_html=True,
     )
     if kelly < 0.20:
-        st.caption("변동성이 너무 커서 소액 투자를 권장합니다.")
+        st.caption("Kelly 값은 입력 μ, σ 오차에 민감합니다. 실제 비중으로 바로 쓰지 말고 보수적으로 축소해 해석하세요.")
 
     so_vc = ACCENT
     if sortino > sharpe:
@@ -2200,9 +2475,9 @@ def _render_action_metrics(result: DashboardResult) -> None:
         k_vc = ACCENT if kelly >= 0.2 else MUTED
         st.markdown(
             _mc(
-                f"권장 투자 비중 (Kelly) · r={RISK_FREE_RATE_ANNUAL:.0%}",
+                f"Kelly 참고 비중 · r={RISK_FREE_RATE_ANNUAL:.0%}",
                 f"{kelly * 100:.1f}%",
-                f'<div class="mc-delta" style="opacity:0.65">f = (μ−r)/σ², 상한 100%</div>',
+                f'<div class="mc-delta" style="opacity:0.65">f = (μ−r)/σ², 실제 운용 전 축소 필요</div>',
                 lg=True,
                 vc=k_vc,
             ),
@@ -2355,6 +2630,8 @@ def _render_risk_tables(result: DashboardResult) -> None:
             f'<tr><td>σ Volatility</td><td>{params.sigma:.6f}</td></tr>'
             f'<tr><td>Jump λ / μ_J / σ_J</td>'
             f'<td>{result.jump_lambda:.4f} / {result.jump_mu:.4f} / {result.jump_sigma:.4f}</td></tr>'
+            f'<tr><td>Jump mode</td><td>{JUMP_MODE_LABELS.get(result.jump_mode, result.jump_mode)}</td></tr>'
+            f'<tr><td>μ uncertainty</td><td>±{result.mu_uncertainty:.1%} annual std</td></tr>'
             f'<tr><td>90% Confidence</td>'
             f'<td>{fp(metrics["p05"])} — {fp(metrics["p95"])}</td></tr>'
             f'<tr><td>Paths</td><td>{result.n_paths:,}</td></tr>'
@@ -2366,17 +2643,74 @@ def _render_risk_tables(result: DashboardResult) -> None:
         )
 
 
+def _render_validation_reference(result: DashboardResult) -> None:
+    """Show model confidence notes, inline backtest button, and CLI entry point."""
+
+    st.markdown(
+        '<div class="stitle">과거 검증<span class="stitle-sub">Calibration backtest</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="disc toss-card">'
+        '이 숫자들은 단일 목표가가 아니라 모형 가정 하의 분포입니다. '
+        '1천만 번 시뮬레이션해도 입력 μ·σ·점프 가정이 틀리면 결과는 정밀한 착각입니다. '
+        '<b>90% Coverage가 90% 근처</b>이고 <b>Mean Realized Pctl이 50% 근처</b>일수록 잘 보정된 모형입니다. '
+        '아래 버튼으로 현재 종목의 7년 롤링 백테스트를 대시보드 안에서 바로 확인하세요.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Inline backtest runner ────────────────────────────────────────────
+    bt_session_key = f"sq_bt_{result.ticker}"
+
+    if st.button(
+        f"과거 검증 실행 · {result.ticker}  (7년 롤링 · 10K paths · ≈20초)",
+        key="sq_run_bt",
+        type="primary",
+    ):
+        with st.spinner("롤링 백테스트 계산 중... 잠시 기다려 주세요."):
+            st.session_state[bt_session_key] = _run_inline_backtest(result.ticker)
+
+    bt_stored = st.session_state.get(bt_session_key)
+    if bt_stored is not None:
+        _render_backtest_inline(bt_stored, result.ticker)
+
+    # ── CLI reference ─────────────────────────────────────────────────────
+    st.markdown(
+        '<div class="stitle" style="margin-top:28px">CLI 전체 실행'
+        '<span class="stitle-sub">50K paths · 10년 데이터</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.code(
+        f"python python\\backtest.py --ticker {result.ticker} --period 10y --paths 50000",
+        language="powershell",
+    )
+    st.markdown(
+        '<div class="rtbl-wrap toss-card"><table class="rtbl"><thead><tr>'
+        '<th>확인 항목</th><th>해석</th></tr></thead><tbody>'
+        '<tr><td>90% Coverage</td><td>실제 1년 뒤 가격이 p05~p95 구간에 들어온 비율. 90% 근처가 이상적입니다.</td></tr>'
+        '<tr><td>Direction Accuracy</td><td>상승확률 50% 기준 방향 예측 적중률. 단독 투자 판단으로 쓰지 않습니다.</td></tr>'
+        '<tr><td>Median Abs Error</td><td>중앙 예측가와 실제 가격의 평균 절대 오차율. 낮을수록 좋습니다.</td></tr>'
+        '<tr><td>Brier Up</td><td>상승확률의 확률 예측 오차. 낮을수록 보정이 좋습니다.</td></tr>'
+        '<tr><td>Mean Realized Pctl</td><td>실제 가격이 예측 분포의 몇 퍼센타일에 해당했는지 평균. 50%가 이상적입니다.</td></tr>'
+        '</tbody></table></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_dashboard_result(result: DashboardResult) -> None:
     _render_risk_summary(result)
     _render_action_metrics(result)
     with st.expander("💡 상세 지표와 수학 모델 보기", expanded=False):
-        chart_tab, risk_tab, model_tab = st.tabs(["차트", "리스크 지표", "수학 모델"])
+        chart_tab, risk_tab, validation_tab, model_tab = st.tabs(["차트", "리스크 지표", "과거 검증", "수학 모델"])
         with chart_tab:
             _render_charts(result)
         with risk_tab:
             _render_key_metrics(result)
             _render_outlook(result)
             _render_risk_tables(result)
+        with validation_tab:
+            _render_validation_reference(result)
         with model_tab:
             st.markdown(
                 '<div class="stitle">수학 모델<span class="stitle-sub">Model reference</span></div>',
@@ -2401,8 +2735,8 @@ def _render_dashboard_result(result: DashboardResult) -> None:
 
 def main():
     st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
-    preset = _render_sidebar()
-    config = _render_top_controls(preset)
+    preset, jump_mode = _render_sidebar()
+    config = _render_top_controls(preset, jump_mode)
 
     if not config.run and "metrics" not in st.session_state:
         _render_landing()
