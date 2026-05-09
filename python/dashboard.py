@@ -12,8 +12,6 @@ from data_utils import (
     GbmParams,
     JumpParams,
     YahooFinanceFetchError,
-    GBM_MU_ANNUAL_CAP,
-    GBM_SIGMA_ANNUAL_FLOOR,
     MU_MARKET_PRIOR,
     MU_SHRINKAGE_SAMPLE_WEIGHT,
     RISK_FREE_RATE_ANNUAL,
@@ -1362,11 +1360,6 @@ def _fp(v: float, cur: str) -> str:
 def _dpct(v: float, s0: float) -> float:
     return (v - s0) / s0 * 100.0 if s0 else 0.0
 
-def _dhtml(pct: float) -> str:
-    c = "d-pos" if pct >= 0 else "d-neg"
-    a = "↑" if pct >= 0 else "↓"
-    return f'<span class="mc-delta {c}">{a} {pct:+.2f}%</span>'
-
 
 def _mticks(yrs):
     tot = int(round(yrs * 12))
@@ -2367,43 +2360,18 @@ def _render_risk_summary(result: DashboardResult) -> None:
     metrics, params = result.metrics, result.params
     fp = lambda v: _fp(v, params.currency)
     up = metrics["up_probability_pct"]
+
     if up > 90.0:
         st.warning(
-            "최근 추세가 과도하게 반영되었습니다. 상승 확률이 90%를 넘습니다 — "
-            "추정 드리프트·단기 추세에 기대 과열이 섞였을 수 있으니 보수적으로 해석하세요."
+            "상승 확률 90% 초과 — 최근 급등 추세가 과도하게 반영됐을 수 있습니다. 보수적으로 해석하세요."
         )
-    title, tone, desc = _risk_summary(metrics)
+
+    title, tone, _ = _risk_summary(metrics)
     median_pct = _dpct(metrics["p50"], params.s0)
-    up_cls = "risk-blue" if up >= 50 else "risk-red"
     median_cls = "risk-blue" if median_pct >= 0 else "risk-red"
-
-    sig_ann_pct = params.sigma * 100.0
-    sig_sqrt_t = float(metrics.get("sigma_sqrt_horizon", 0.0))
-    xk = float(metrics.get("log_return_excess_kurtosis", 0.0))
-    ft = float(metrics.get("fat_tail_feel_index", 0.0))
-    tadj = float(metrics.get("tail_adjustment_factor", 1.0))
-    rs = float(metrics.get("risk_score", 0.0))
-    rsb = float(metrics.get("risk_score_base", 0.0))
-    rs_cls = "risk-red" if rs >= 2.5 else "risk-blue"
-
-    drag_ann = float(params.mu - 0.5 * params.sigma * params.sigma)
-
-    risk_meta = (
-        f'<div class="risk-meta">'
-        f'<strong>연율화 총 변동성(추정 σ)</strong> {sig_ann_pct:.2f}% · '
-        f'<strong>예측기간 스케일 σ√T</strong> {sig_sqrt_t:.4f}<br>'
-        f'<strong>Volatility Drag</strong> Itô 보정 로그드리프트 <strong>μ−½σ²</strong> = {drag_ann:.4f} (연율). '
-        f'C++ 엔진은 각 스텝에 <code>(μ−½σ²)Δt</code>를 사용하므로, '
-        f'<b>σ가 클수록 확산의 볼록성(convexity) 때문에 기대 로그수익이 깎입니다.</b><br>'
-        f'<strong>드리프트 수축</strong> 표본 연율 μ̂와 시장 prior <strong>{MU_MARKET_PRIOR:.0%}</strong>을 '
-        f'<strong>{int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}:{100 - int(MU_SHRINKAGE_SAMPLE_WEIGHT * 100)}</strong> '
-        f'혼합한 뒤 μ≤{GBM_MU_ANNUAL_CAP:.0%}, σ≥{GBM_SIGMA_ANNUAL_FLOOR:.0%} 클램프. '
-        f'연율 μ 추정 오차는 ±{result.mu_uncertainty:.0%} 표준편차로 경로별 반영.<br>'
-        f'<strong>종료가 로그수익 초과첨도</strong> {xk:+.3f} (확산만이면 ≈0) · '
-        f'<strong>Fat-tail 체감 지수</strong> {ft:.3f} · 꼬리 가중 <strong>×{tadj:.3f}</strong> '
-        f"(Score = {rsb:.3f} × {tadj:.3f} → <strong>{rs:.3f}</strong>)"
-        f"</div>"
-    )
+    median_delta_cls = "d-pos" if median_pct >= 0 else "d-neg"
+    median_arrow = "↑" if median_pct >= 0 else "↓"
+    up_cls = "risk-blue" if up >= 50 else "risk-red"
 
     st.markdown(
         f'<section class="risk-hero">'
@@ -2411,23 +2379,21 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<div>'
         f'<div class="risk-label">Risk Report · {result.ticker}</div>'
         f'<div class="risk-title">{title}</div>'
-        f'<p class="top-sub" style="margin-top:12px;">{desc}</p>'
-        f'{risk_meta}'
+        f'<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+        f'<span class="risk-pill {tone}">상승 확률 <b class="{up_cls}">{up:.1f}%</b></span>'
+        f'<span style="color:{MUTED};font-size:0.75rem;opacity:0.5">'
+        f'{result.elapsed:.2f}s · {result.n_paths:,} paths</span>'
         f'</div>'
-        f'<span class="risk-pill {tone}">{result.elapsed:.2f}s · {result.n_paths:,} paths · Score {rs:.2f}</span>'
         f'</div>'
-        f'<div class="risk-grid">'
-        f'<div class="risk-item"><div class="risk-item-label">예상 중앙가</div>'
-        f'<div class="risk-item-value {median_cls}">{fp(metrics["p50"])}</div>'
-        f'<div class="mc-delta {"d-pos" if median_pct >= 0 else "d-neg"}">{"↑" if median_pct >= 0 else "↓"} {median_pct:+.2f}%</div></div>'
+        f'</div>'
+        f'<div class="risk-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">'
         f'<div class="risk-item"><div class="risk-item-label">90% 예측구간</div>'
-        f'<div class="risk-item-value risk-blue" style="font-size:1.25rem">{fp(metrics["p05"])} ~ {fp(metrics["p95"])}</div>'
-        f'<div class="mc-delta" style="opacity:0.72">단일 목표가보다 우선 해석</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">상승 확률 (보조)</div>'
-        f'<div class="risk-item-value {up_cls}">{up:.1f}%</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">Risk Score (정규화)</div>'
-        f'<div class="risk-item-value {rs_cls}">{rs:.3f}</div>'
-        f'<div class="mc-delta d-neg" style="opacity:0.85">base {rsb:.3f} × tail {tadj:.3f}</div></div>'
+        f'<div class="risk-item-value risk-blue" style="font-size:1.15rem">'
+        f'{fp(metrics["p05"])} ~ {fp(metrics["p95"])}</div>'
+        f'<div class="mc-delta" style="opacity:0.65">단일 목표가보다 우선 해석</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">예상 중앙가 (50th)</div>'
+        f'<div class="risk-item-value {median_cls}">{fp(metrics["p50"])}</div>'
+        f'<div class="mc-delta {median_delta_cls}">{median_arrow} {median_pct:+.2f}%</div></div>'
         f'<div class="risk-item"><div class="risk-item-label">VaR 95% 손실</div>'
         f'<div class="risk-item-value risk-red">{fp(metrics["var_95_abs"])}</div>'
         f'<div class="mc-delta d-neg">↓ {metrics["var_95_pct"]:.1f}%</div></div>'
@@ -2441,112 +2407,42 @@ def _render_risk_summary(result: DashboardResult) -> None:
 
 
 def _render_action_metrics(result: DashboardResult) -> None:
-    """Kelly·Sortino·샤프(비교)를 Toss 스타일 메트릭 카드로 표시."""
-    p, m = result.params, result.metrics
+    """Kelly·Sortino 참고 지표 카드 (상세 탭 전용)."""
+    p = result.params
     kelly = compute_kelly_leverage_fraction(p.mu, p.sigma, RISK_FREE_RATE_ANNUAL)
     sortino, _ = compute_sortino_from_terminal(result.terminal, p.s0, RISK_FREE_RATE_ANNUAL)
     term = np.asarray(result.terminal, dtype=np.float64)
     rlg = np.log(np.maximum(term, np.finfo(np.float64).tiny) / p.s0)
     rf_lg = float(np.log(1.0 + RISK_FREE_RATE_ANNUAL))
     excess = float(np.mean(rlg) - rf_lg) if rlg.size else 0.0
-    if rlg.size > 1:
-        sharpe_denom = float(np.std(rlg, ddof=1))
-        sharpe = excess / max(sharpe_denom, 1e-12)
-    else:
-        sharpe = 0.0
-    up = float(m["up_probability_pct"])
+    sharpe = excess / max(float(np.std(rlg, ddof=1)) if rlg.size > 1 else 1e-12, 1e-12)
 
     st.markdown(
-        '<div class="stitle">모형 참고 지표<span class="stitle-sub">Kelly · Sortino · Sharpe 대비</span></div>',
+        '<div class="stitle">모형 참고 지표<span class="stitle-sub">실제 운용 전 축소 필요</span></div>',
         unsafe_allow_html=True,
     )
-    if kelly < 0.20:
-        st.caption("Kelly 값은 입력 μ, σ 오차에 민감합니다. 실제 비중으로 바로 쓰지 말고 보수적으로 축소해 해석하세요.")
-
-    so_vc = ACCENT
-    if sortino > sharpe:
-        so_vc = GREEN
-    elif sortino < 0.0:
-        so_vc = RED
-    sk_vc = GREEN if sharpe >= 0.0 else RED
-
-    c1, c2, c3, c4 = st.columns(4, gap="large")
+    c1, c2 = st.columns(2, gap="large")
     with c1:
         k_vc = ACCENT if kelly >= 0.2 else MUTED
         st.markdown(
             _mc(
                 f"Kelly 참고 비중 · r={RISK_FREE_RATE_ANNUAL:.0%}",
                 f"{kelly * 100:.1f}%",
-                f'<div class="mc-delta" style="opacity:0.65">f = (μ−r)/σ², 실제 운용 전 축소 필요</div>',
+                f'<div class="mc-delta" style="opacity:0.65">f = (μ−r)/σ² · 입력 오차에 매우 민감</div>',
                 lg=True,
                 vc=k_vc,
             ),
             unsafe_allow_html=True,
         )
     with c2:
+        so_vc = GREEN if sortino > 0 else RED
         st.markdown(
             _mc(
-                "소르티노 (하방 σ)",
+                "Sortino (하방 σ 기준)",
                 f"{sortino:.3f}",
-                f'<div class="mc-delta" style="opacity:0.85">전체 σ 샤프 {sharpe:.3f} — 하방만 분모</div>',
+                f'<div class="mc-delta" style="opacity:0.75">Sharpe {sharpe:.3f} — 하방 경로만 분모</div>',
                 lg=True,
                 vc=so_vc,
-            ),
-            unsafe_allow_html=True,
-        )
-    with c3:
-        st.markdown(
-            _mc(
-                "샤프 (전체 σ, 참고)",
-                f"{sharpe:.3f}",
-                f'<div class="mc-delta" style="opacity:0.65">Sortino와 동일 분자·전체 변동성</div>',
-                lg=True,
-                vc=sk_vc,
-            ),
-            unsafe_allow_html=True,
-        )
-    with c4:
-        up_vc = GREEN if up >= 50.0 else RED
-        st.markdown(
-            _mc(
-                "상승 확률 P(종료가 &gt; S₀)",
-                f"{up:.1f}%",
-                '<div class="mc-delta" style="opacity:0.65">시뮬 경로 비율 (참고)</div>',
-                lg=True,
-                vc=up_vc,
-            ),
-            unsafe_allow_html=True,
-        )
-
-
-def _render_key_metrics(result: DashboardResult) -> None:
-    metrics, s0, cur = result.metrics, result.params.s0, result.params.currency
-    fp = lambda v: _fp(v, cur)
-    st.markdown(
-        '<div class="stitle">핵심 지표<span class="stitle-sub">Key metrics</span></div>',
-        unsafe_allow_html=True,
-    )
-    k1, k2, k3 = st.columns(3, gap="large")
-    with k1:
-        st.markdown(
-            _mc("최종 예상가 Median (Sₜ 중앙)", fp(metrics["p50"]), _dhtml(_dpct(metrics["p50"], s0)), lg=True),
-            unsafe_allow_html=True,
-        )
-    with k2:
-        st.markdown(
-            _mc(
-                "VaR (95%) 최대 손실",
-                fp(metrics["var_95_abs"]),
-                f'<div class="mc-delta d-neg">▼ {metrics["var_95_pct"]:.1f}%</div>',
-            ),
-            unsafe_allow_html=True,
-        )
-    with k3:
-        st.markdown(
-            _mc(
-                "CVaR (95%) ES 꼬리 손실",
-                fp(metrics["cvar_95_abs"]),
-                f'<div class="mc-delta d-neg">▼ {metrics["cvar_95_pct"]:.1f}%</div>',
             ),
             unsafe_allow_html=True,
         )
@@ -2568,27 +2464,6 @@ def _render_charts(result: DashboardResult) -> None:
 
     cfg = {"displayModeBar": False, "responsive": True}
     st.plotly_chart(fan_fig, use_container_width=True, config=cfg)
-
-
-def _render_outlook(result: DashboardResult) -> None:
-    metrics, terminal, s0, cur = result.metrics, result.terminal, result.params.s0, result.params.currency
-    fp = lambda v: _fp(v, cur)
-    st.markdown(
-        '<div class="stitle">투자 전망<span class="stitle-sub">Outlook</span></div>',
-        unsafe_allow_html=True,
-    )
-    up = metrics["up_probability_pct"]
-    cols_a = st.columns(3, gap="large")
-    with cols_a[0]:
-        st.markdown(_mc("현재가 Current Price", fp(s0)), unsafe_allow_html=True)
-    with cols_a[1]:
-        mean_price = float(terminal.mean())
-        st.markdown(_mc("평균 예측가 Mean", fp(mean_price), _dhtml(_dpct(mean_price, s0))), unsafe_allow_html=True)
-    with cols_a[2]:
-        st.markdown(
-            _mc("상승 확률 Profit Prob.", f"{up:.1f}%", large=True, vc=GREEN if up >= 50 else RED),
-            unsafe_allow_html=True,
-        )
 
 
 def _render_risk_tables(result: DashboardResult) -> None:
@@ -2700,15 +2575,13 @@ def _render_validation_reference(result: DashboardResult) -> None:
 
 def _render_dashboard_result(result: DashboardResult) -> None:
     _render_risk_summary(result)
-    _render_action_metrics(result)
-    with st.expander("💡 상세 지표와 수학 모델 보기", expanded=False):
-        chart_tab, risk_tab, validation_tab, model_tab = st.tabs(["차트", "리스크 지표", "과거 검증", "수학 모델"])
+    with st.expander("상세 분석", expanded=False):
+        chart_tab, risk_tab, validation_tab, model_tab = st.tabs(["차트", "상세 지표", "과거 검증", "수학 모델"])
         with chart_tab:
             _render_charts(result)
         with risk_tab:
-            _render_key_metrics(result)
-            _render_outlook(result)
             _render_risk_tables(result)
+            _render_action_metrics(result)
         with validation_tab:
             _render_validation_reference(result)
         with model_tab:
