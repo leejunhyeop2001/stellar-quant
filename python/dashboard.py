@@ -1515,9 +1515,9 @@ def _build_portfolio_fan(
         # 카드 배경색과 동일 → 경계선 없이 카드와 한 몸
         paper_bgcolor="#101012",
         plot_bgcolor="#101012",
-        height=440,
-        autosize=True,
-        margin=dict(l=20, r=120, t=30, b=20),
+        height=280,
+        autosize=False,
+        margin=dict(l=12, r=110, t=12, b=12),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
