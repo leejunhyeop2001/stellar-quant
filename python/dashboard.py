@@ -1483,7 +1483,7 @@ def _build_portfolio_fan(
     fig.update_layout(
         paper_bgcolor="#101012",
         plot_bgcolor="#101012",
-        height=540,
+        height=640,
         autosize=False,
         dragmode=False,
         margin=dict(l=16, r=140, t=28, b=28),
@@ -2134,6 +2134,7 @@ def _render_investment_section(result: DashboardResult) -> None:
 
     # ── 포트폴리오 팬 차트 ────────────────────────────────────────────────
     fan_fig = _build_portfolio_fan(result.path_matrix, s0, inv_amt, result.years, cur)
+    st.markdown('<div style="margin:-8px -16px;">', unsafe_allow_html=True)
     st.plotly_chart(
         fan_fig,
         use_container_width=True,
@@ -2144,6 +2145,7 @@ def _render_investment_section(result: DashboardResult) -> None:
             "staticPlot": False,
         },
     )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # ── 포트폴리오 메트릭 카드 ────────────────────────────────────────────
     st.markdown(
