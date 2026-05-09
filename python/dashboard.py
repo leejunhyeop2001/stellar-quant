@@ -1393,7 +1393,7 @@ def _build_portfolio_fan(
     years: float,
     currency: str,
 ) -> go.Figure:
-    """투자금 기준 포트폴리오 팬 차트 — 주식 사이트 스타일."""
+    """투자금 기준 포트폴리오 팬 차트 — 수익/손실 색 구분 + 친절한 hover."""
     cur_sym = "₩" if currency == "KRW" else "$"
     scale = inv_amt / s0
     pm = path_matrix * scale
@@ -1413,9 +1413,21 @@ def _build_portfolio_fan(
     q75 = np.quantile(pm_ds, 0.75, axis=0)
     q95 = np.quantile(pm_ds, 0.95, axis=0)
 
+    # Y 범위
+    y_lo = min(float(q05.min()), inv_amt) * 0.90
+    y_hi = max(float(q95.max()), inv_amt) * 1.08
+
+    # 각 분위수의 원금 대비 수익률 — hover customdata
+    ret50 = (q50 - inv_amt) / inv_amt * 100.0
+    ret95 = (q95 - inv_amt) / inv_amt * 100.0
+    ret05 = (q05 - inv_amt) / inv_amt * 100.0
+    cd50 = np.column_stack([ret50, t])
+    cd95 = np.column_stack([ret95, t])
+    cd05 = np.column_stack([ret05, t])
+
     fig = go.Figure()
 
-    # 개별 경로 20개 — 시뮬레이션 질감 표현
+    # 개별 경로 20개 — 시뮬레이션 질감
     samp = np.random.default_rng(42).choice(pm_ds.shape[0], size=min(20, pm_ds.shape[0]), replace=False)
     for i in samp:
         fig.add_trace(go.Scatter(
@@ -1425,80 +1437,113 @@ def _build_portfolio_fan(
             showlegend=False, hoverinfo="skip",
         ))
 
-    # 90% 채움
+    # 이례적 변동 범위 (90%)
     fig.add_trace(go.Scatter(
         x=np.concatenate([t, t[::-1]]).tolist(),
         y=np.concatenate([q95, q05[::-1]]).tolist(),
         fill="toself", fillcolor="rgba(0,100,255,0.07)",
-        line=dict(width=0), name="90% 구간", hoverinfo="skip",
+        line=dict(width=0), name="이례적 변동 범위", hoverinfo="skip",
     ))
-    # 50% 채움
+    # 현실적 기대 범위 (50%)
     fig.add_trace(go.Scatter(
         x=np.concatenate([t, t[::-1]]).tolist(),
         y=np.concatenate([q75, q25[::-1]]).tolist(),
         fill="toself", fillcolor="rgba(0,100,255,0.20)",
-        line=dict(width=0), name="50% 구간", hoverinfo="skip",
+        line=dict(width=0), name="현실적 기대 범위", hoverinfo="skip",
     ))
-    # P95 테두리
+    # 최상의 시나리오 (P95)
     fig.add_trace(go.Scatter(
         x=t.tolist(), y=q95.tolist(), mode="lines",
         line=dict(color="rgba(0,100,255,0.45)", width=1),
-        name="상위 95%",
-        hovertemplate=f"상위 95%: {cur_sym}%{{y:,.0f}}<extra></extra>",
+        name="최상의 시나리오",
+        customdata=cd95,
+        hovertemplate=(
+            "<b>최상의 시나리오</b><br>"
+            f"%{{customdata[1]:.0f}}개월 뒤: {cur_sym}%{{y:,.0f}}<br>"
+            "원금 대비 <b>%{customdata[0]:+.1f}%</b>"
+            "<extra></extra>"
+        ),
     ))
-    # P05 테두리
+    # 최악의 시나리오 (P05)
     fig.add_trace(go.Scatter(
         x=t.tolist(), y=q05.tolist(), mode="lines",
         line=dict(color="rgba(255,75,75,0.45)", width=1),
-        name="하위 5%",
-        hovertemplate=f"하위 5%: {cur_sym}%{{y:,.0f}}<extra></extra>",
+        name="최악의 시나리오",
+        customdata=cd05,
+        hovertemplate=(
+            "<b>최악의 시나리오</b><br>"
+            f"%{{customdata[1]:.0f}}개월 뒤: {cur_sym}%{{y:,.0f}}<br>"
+            "원금 대비 <b>%{customdata[0]:+.1f}%</b>"
+            "<extra></extra>"
+        ),
     ))
-    # 중앙값
+    # 가장 확률 높은 미래 (P50 중앙값)
     fig.add_trace(go.Scatter(
         x=t.tolist(), y=q50.tolist(), mode="lines",
         line=dict(color="#0064FF", width=2.5),
-        name="중앙값",
-        hovertemplate=f"중앙값: {cur_sym}%{{y:,.0f}}<extra></extra>",
+        name="가장 확률 높은 미래",
+        customdata=cd50,
+        hovertemplate=(
+            "<b>가장 확률 높은 미래</b><br>"
+            f"%{{customdata[1]:.0f}}개월 뒤 예상 자산: {cur_sym}%{{y:,.0f}}<br>"
+            "원금 대비 <b>%{customdata[0]:+.1f}%</b>"
+            "<extra></extra>"
+        ),
     ))
-    # 투자 원금 기준선
+    # 투자 원금 기준선 — 굵은 흰색 점선
     fig.add_trace(go.Scatter(
         x=[float(t[0]), float(t[-1])], y=[inv_amt, inv_amt],
         mode="lines",
-        line=dict(color="rgba(255,255,255,0.30)", width=1.5, dash="dash"),
+        line=dict(color="rgba(255,255,255,0.60)", width=2, dash="dot"),
         name="투자 원금",
-        hovertemplate=f"투자 원금: {cur_sym}%{{y:,.0f}}<extra></extra>",
+        hovertemplate=f"투자 원금: {cur_sym}{inv_amt:,.0f}<extra></extra>",
     ))
 
-    # Y 범위 — 극단값 클립 후 여백 추가
-    y_lo = min(float(q05.min()), inv_amt) * 0.90
-    y_hi = max(float(q95.max()), inv_amt) * 1.08
+    # 말풍선 annotation — 1년 뒤 중앙값
+    final_median = float(q50[-1])
+    final_ret = float(ret50[-1])
+    ret_sign = "+" if final_ret >= 0 else ""
+    ann_color = "#0064FF" if final_ret >= 0 else "#FF4B4B"
 
-    # X 눈금: 2개월 간격, 끝은 항상 포함
+    # X 눈금: 2개월 간격
     total_months = int(round(years * 12))
     x_ticks = list(range(0, total_months + 1, 2))
     if x_ticks[-1] != total_months:
         x_ticks.append(total_months)
-    x_labels = [f"{m}M" for m in x_ticks]
-
-    final_median = float(q50[-1])
 
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=400,
-        margin=dict(l=8, r=72, t=44, b=8),
+        height=420,
+        margin=dict(l=8, r=120, t=16, b=72),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
         ),
+        # 수익/손실 배경 색 구분
+        shapes=[
+            dict(
+                type="rect", xref="paper", yref="y",
+                x0=0, x1=1, y0=y_lo, y1=inv_amt,
+                fillcolor="rgba(255,75,75,0.06)",
+                line_width=0, layer="below",
+            ),
+            dict(
+                type="rect", xref="paper", yref="y",
+                x0=0, x1=1, y0=inv_amt, y1=y_hi,
+                fillcolor="rgba(0,100,255,0.06)",
+                line_width=0, layer="below",
+            ),
+        ],
         xaxis=dict(
             range=[0, total_months],
-            tickvals=x_ticks, ticktext=x_labels,
+            tickvals=x_ticks,
+            ticktext=[f"{m}M" for m in x_ticks],
             tickfont=dict(size=11, color="#8B93A1"),
             gridcolor="rgba(255,255,255,0.04)",
             zeroline=False,
             showspikes=True,
-            spikecolor="rgba(255,255,255,0.18)",
+            spikecolor="rgba(255,255,255,0.20)",
             spikethickness=1, spikedash="dot", spikesnap="cursor",
         ),
         yaxis=dict(
@@ -1508,30 +1553,43 @@ def _build_portfolio_fan(
             gridcolor="rgba(255,255,255,0.04)",
             zeroline=False,
             showspikes=True,
-            spikecolor="rgba(255,255,255,0.18)",
+            spikecolor="rgba(255,255,255,0.20)",
             spikethickness=1, spikedash="dot",
         ),
+        # 범례 하단 배치, 폰트 13px
         legend=dict(
-            bgcolor="rgba(0,0,0,0)", borderwidth=0,
-            font=dict(size=10.5, color="#8B93A1"),
+            bgcolor="rgba(16,16,18,0.75)",
+            bordercolor="rgba(255,255,255,0.07)",
+            borderwidth=1,
+            font=dict(size=13, color="#C8D0DC"),
             orientation="h",
-            yanchor="bottom", y=1.01,
-            xanchor="left", x=0,
+            yanchor="top", y=-0.12,
+            xanchor="center", x=0.5,
             itemsizing="constant",
+            tracegroupgap=0,
         ),
         hovermode="x unified",
         hoverlabel=dict(
             bgcolor="#101012",
-            bordercolor="rgba(0,100,255,0.35)",
+            bordercolor="rgba(0,100,255,0.40)",
             font=dict(size=12, family="Pretendard Variable, sans-serif"),
+            namelength=-1,
         ),
+        # 말풍선 annotation
         annotations=[dict(
             x=float(t[-1]), y=final_median,
             xanchor="left", yanchor="middle",
-            text=f" {cur_sym}{final_median:,.0f}",
-            font=dict(color="#0064FF", size=12,
+            text=f"<b>{cur_sym}{final_median:,.0f}</b><br>{ret_sign}{final_ret:.1f}%",
+            font=dict(color="white", size=12,
                       family="Pretendard Variable, sans-serif"),
-            showarrow=False,
+            bgcolor=ann_color,
+            bordercolor="rgba(255,255,255,0.20)",
+            borderwidth=1,
+            borderpad=8,
+            showarrow=True,
+            arrowhead=2, arrowsize=1, arrowwidth=1.5,
+            arrowcolor=ann_color,
+            ax=36, ay=0,
         )],
     )
     return fig
