@@ -89,7 +89,8 @@ dashboard.py   main.py
 | 데이터·추정 | `python/data_utils.py` | `yfinance` 다운로드, 로그수익 기반 $\mu$·$\sigma$ 연율화 추정, 통화·포맷 |
 | 모듈 로딩 | `python/loader.py` | `build/Release` 등 후보 경로에서 `gbm_simulator` import |
 | CLI 파이프라인 | `python/main.py` | 인자 파싱, 리스크 지표, Matplotlib, `summary.md` 등 |
-| 웹 UI | `python/dashboard.py` | Streamlit, Plotly, 사이드바 종목 selectbox, `Scattergl` 팬 차트, 고정 시뮬 파라미터(예: 터미널 1천만 경로), 수식·리스크 카드 |
+| 웹 UI | `python/dashboard.py` | Streamlit, Plotly, 사이드바 종목 selectbox, 점프 모드 선택, `Scattergl` 팬 차트, 수식·리스크 카드 |
+| 백테스트 | `python/backtest.py` | rolling 1년 예측 구간 보정 검증, 시장 prior·beta prior·flat median 기준 모델 비교 |
 | 성능 비교 | `python/benchmark.py` | C++ vs NumPy vs 순수 Python 루프 등 |
 
 ### 4.3 성능·안전 설계 요지
@@ -111,11 +112,12 @@ dashboard.py   main.py
 
 ### 5.2 Python 계층
 
-- **파라미터**: 역사적 수익률에서 $\mu$, $\sigma$ 추정(구체식은 `data_utils.py` 구현에 따름)  
+- **파라미터**: 역사적 수익률에서 $\mu$, $\sigma$ 추정(구체식은 `data_utils.py` 구현에 따름), 대시보드는 연율 $\mu$ 추정 불확실성을 경로별로 추가 반영
 - **리스크**: `numpy.quantile`, `numpy.mean`으로 분위수·상승 확률·VaR 계산  
 - **시각화**:  
   - CLI: 히스토그램 + Fan Chart + 해석 패널  
   - 대시보드: Plotly **팬 차트**(분위수 밴드, Median/Mean 선, WebGL `Scattergl`); 터미널 분포 히스토그램은 CLI PNG에서 확인
+- **검증**: `python/backtest.py`로 과거 여러 as-of 시점에서 1년 뒤 실제 가격이 p05~p95 구간에 들어오는지, 상승확률 보정이 맞는지 측정
 
 ### 5.3 국제 시장 지원
 
@@ -145,6 +147,7 @@ cmake --build build --config Release
 
 - **웹 대시보드**: `streamlit run python\dashboard.py` → 브라우저 `http://localhost:8501`  
 - **CLI**: `python python\main.py --ticker AAPL` (옵션: `--paths`, `--years`, `--no-plot` 등)  
+- **백테스트**: `python python\backtest.py --ticker AAPL --period 10y --paths 50000`
 - **벤치마크**: `python python\benchmark.py`  
 
 ---
@@ -154,6 +157,7 @@ cmake --build build --config Release
 - **히스토그램**: 종료 시점 $S_T$ 의 경험 분포  
 - **Fan Chart**: 시간에 따른 분위수 밴드(불확실성 시각화)  
 - **지표 카드·테이블**: 중앙값, 평균, 상승 확률, VaR, 시나리오(낙관/기준/비관 등)  
+- **백테스트 리포트**: 90% 예측구간 coverage, 방향 적중률, 중앙값 절대오차, Brier score
 
 ---
 

@@ -40,6 +40,8 @@ Thumbs.db
 
 # ── Local run outputs (matplotlib / benchmark / main.py) ──
 /python/benchmark_bar_chart.png
+/python/backtest_results.json
+/python/backtest_results.md
 /python/simulation_plot.png
 /python/benchmark_results.json
 /python/benchmark_summary.md
