@@ -1393,13 +1393,13 @@ def _build_portfolio_fan(
     years: float,
     currency: str,
 ) -> go.Figure:
-    """투자금 기준 포트폴리오 팬 차트 — 수익/손실 색 구분 + 친절한 hover."""
+    """투자금 기준 포트폴리오 팬 차트 — 주식 사이트 스타일."""
     cur_sym = "₩" if currency == "KRW" else "$"
     scale = inv_amt / s0
     pm = path_matrix * scale
     n_steps = pm.shape[1]
 
-    # 253 → ~80 pts 다운샘플: SVG 렌더링 매끄러움 확보
+    # ~80 pts 다운샘플
     step = max(1, n_steps // 80)
     idx = list(range(0, n_steps, step))
     if idx[-1] != n_steps - 1:
@@ -1413,90 +1413,59 @@ def _build_portfolio_fan(
     q75 = np.quantile(pm_ds, 0.75, axis=0)
     q95 = np.quantile(pm_ds, 0.95, axis=0)
 
-    # Y 범위
     y_lo = min(float(q05.min()), inv_amt) * 0.90
     y_hi = max(float(q95.max()), inv_amt) * 1.08
 
-    # 각 분위수의 원금 대비 수익률 — hover customdata
     ret50 = (q50 - inv_amt) / inv_amt * 100.0
-    ret95 = (q95 - inv_amt) / inv_amt * 100.0
-    ret05 = (q05 - inv_amt) / inv_amt * 100.0
     cd50 = np.column_stack([ret50, t])
-    cd95 = np.column_stack([ret95, t])
-    cd05 = np.column_stack([ret05, t])
 
     fig = go.Figure()
 
-    # 개별 경로 20개 — 시뮬레이션 질감
-    samp = np.random.default_rng(42).choice(pm_ds.shape[0], size=min(20, pm_ds.shape[0]), replace=False)
-    for i in samp:
-        fig.add_trace(go.Scatter(
-            x=t.tolist(), y=pm_ds[i].tolist(),
-            mode="lines",
-            line=dict(color="rgba(0,100,255,0.05)", width=0.8),
-            showlegend=False, hoverinfo="skip",
-        ))
-
-    # 이례적 변동 범위 (90%)
+    # 90% 채움 — hover 없음, legend만
     fig.add_trace(go.Scatter(
         x=np.concatenate([t, t[::-1]]).tolist(),
         y=np.concatenate([q95, q05[::-1]]).tolist(),
         fill="toself", fillcolor="rgba(0,100,255,0.07)",
         line=dict(width=0), name="이례적 변동 범위", hoverinfo="skip",
     ))
-    # 현실적 기대 범위 (50%)
+    # 50% 채움
     fig.add_trace(go.Scatter(
         x=np.concatenate([t, t[::-1]]).tolist(),
         y=np.concatenate([q75, q25[::-1]]).tolist(),
-        fill="toself", fillcolor="rgba(0,100,255,0.20)",
+        fill="toself", fillcolor="rgba(0,100,255,0.22)",
         line=dict(width=0), name="현실적 기대 범위", hoverinfo="skip",
     ))
-    # 최상의 시나리오 (P95)
+    # P95 테두리 — hover 없음
     fig.add_trace(go.Scatter(
         x=t.tolist(), y=q95.tolist(), mode="lines",
-        line=dict(color="rgba(0,100,255,0.45)", width=1),
-        name="최상의 시나리오",
-        customdata=cd95,
-        hovertemplate=(
-            "<b>최상의 시나리오</b><br>"
-            f"%{{customdata[1]:.0f}}개월 뒤: {cur_sym}%{{y:,.0f}}<br>"
-            "원금 대비 <b>%{customdata[0]:+.1f}%</b>"
-            "<extra></extra>"
-        ),
+        line=dict(color="rgba(0,100,255,0.35)", width=1),
+        showlegend=False, hoverinfo="skip",
     ))
-    # 최악의 시나리오 (P05)
+    # P05 테두리 — hover 없음
     fig.add_trace(go.Scatter(
         x=t.tolist(), y=q05.tolist(), mode="lines",
-        line=dict(color="rgba(255,75,75,0.45)", width=1),
-        name="최악의 시나리오",
-        customdata=cd05,
-        hovertemplate=(
-            "<b>최악의 시나리오</b><br>"
-            f"%{{customdata[1]:.0f}}개월 뒤: {cur_sym}%{{y:,.0f}}<br>"
-            "원금 대비 <b>%{customdata[0]:+.1f}%</b>"
-            "<extra></extra>"
-        ),
+        line=dict(color="rgba(255,75,75,0.35)", width=1),
+        showlegend=False, hoverinfo="skip",
     ))
-    # 가장 확률 높은 미래 (P50 중앙값)
-    fig.add_trace(go.Scatter(
-        x=t.tolist(), y=q50.tolist(), mode="lines",
-        line=dict(color="#0064FF", width=2.5),
-        name="가장 확률 높은 미래",
-        customdata=cd50,
-        hovertemplate=(
-            "<b>가장 확률 높은 미래</b><br>"
-            f"%{{customdata[1]:.0f}}개월 뒤 예상 자산: {cur_sym}%{{y:,.0f}}<br>"
-            "원금 대비 <b>%{customdata[0]:+.1f}%</b>"
-            "<extra></extra>"
-        ),
-    ))
-    # 투자 원금 기준선 — 굵은 흰색 점선
+    # 투자 원금 기준선
     fig.add_trace(go.Scatter(
         x=[float(t[0]), float(t[-1])], y=[inv_amt, inv_amt],
         mode="lines",
-        line=dict(color="rgba(255,255,255,0.60)", width=2, dash="dot"),
-        name="투자 원금",
-        hovertemplate=f"투자 원금: {cur_sym}{inv_amt:,.0f}<extra></extra>",
+        line=dict(color="rgba(255,255,255,0.45)", width=1.5, dash="dot"),
+        name="투자 원금", hoverinfo="skip",
+    ))
+    # 중앙값 — 유일한 hover 대상
+    fig.add_trace(go.Scatter(
+        x=t.tolist(), y=q50.tolist(), mode="lines",
+        line=dict(color="#0064FF", width=3),
+        name="가장 확률 높은 미래",
+        customdata=cd50,
+        hovertemplate=(
+            f"<b>%{{customdata[1]:.0f}}개월 뒤</b>  "
+            f"예상 자산 <b>{cur_sym}%{{y:,.0f}}</b>"
+            f"  (%{{customdata[0]:+.1f}}%)"
+            "<extra></extra>"
+        ),
     ))
 
     # 말풍선 annotation — 1년 뒤 중앙값
@@ -1512,88 +1481,79 @@ def _build_portfolio_fan(
         x_ticks.append(total_months)
 
     fig.update_layout(
-        # 카드 배경색과 동일 → 경계선 없이 카드와 한 몸
         paper_bgcolor="#101012",
         plot_bgcolor="#101012",
-        height=280,
+        height=420,
         autosize=False,
-        margin=dict(l=12, r=110, t=12, b=12),
+        margin=dict(l=12, r=100, t=16, b=16),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
         ),
-        # 수익/손실 배경 색 구분
         shapes=[
-            dict(
-                type="rect", xref="paper", yref="y",
-                x0=0, x1=1, y0=y_lo, y1=inv_amt,
-                fillcolor="rgba(255,75,75,0.06)",
-                line_width=0, layer="below",
-            ),
-            dict(
-                type="rect", xref="paper", yref="y",
-                x0=0, x1=1, y0=inv_amt, y1=y_hi,
-                fillcolor="rgba(0,100,255,0.06)",
-                line_width=0, layer="below",
-            ),
+            dict(type="rect", xref="paper", yref="y",
+                 x0=0, x1=1, y0=y_lo, y1=inv_amt,
+                 fillcolor="rgba(255,75,75,0.05)", line_width=0, layer="below"),
+            dict(type="rect", xref="paper", yref="y",
+                 x0=0, x1=1, y0=inv_amt, y1=y_hi,
+                 fillcolor="rgba(0,100,255,0.05)", line_width=0, layer="below"),
         ],
         xaxis=dict(
             range=[0, total_months],
             tickvals=x_ticks,
             ticktext=[f"{m}M" for m in x_ticks],
             tickfont=dict(size=11, color="#5C6573"),
-            gridcolor="rgba(255,255,255,0.035)",
+            gridcolor="rgba(255,255,255,0.04)",
             zeroline=False,
             fixedrange=True,
             showspikes=True,
-            spikecolor="rgba(255,255,255,0.18)",
-            spikethickness=1, spikedash="dot", spikesnap="cursor",
+            spikemode="across",
+            spikecolor="rgba(255,255,255,0.25)",
+            spikethickness=1,
+            spikedash="solid",
+            spikesnap="cursor",
         ),
         yaxis=dict(
             range=[y_lo, y_hi],
             tickprefix=cur_sym, tickformat="~s",
             tickfont=dict(size=11, color="#5C6573"),
-            gridcolor="rgba(255,255,255,0.035)",
+            gridcolor="rgba(255,255,255,0.04)",
             zeroline=False,
             fixedrange=True,
-            showspikes=True,
-            spikecolor="rgba(255,255,255,0.18)",
-            spikethickness=1, spikedash="dot",
+            showspikes=False,
         ),
-        # 범례 — 차트 내부 좌상단 오버레이
         legend=dict(
-            bgcolor="rgba(10,10,12,0.78)",
+            bgcolor="rgba(10,10,12,0.80)",
             bordercolor="rgba(255,255,255,0.07)",
             borderwidth=1,
             font=dict(size=11, color="#8B93A1"),
             orientation="v",
             xanchor="left", x=0.01,
-            yanchor="top", y=0.98,
+            yanchor="top", y=0.97,
             itemsizing="constant",
-            tracegroupgap=2,
+            tracegroupgap=1,
         ),
         hovermode="x unified",
         hoverlabel=dict(
             bgcolor="#0D0D0F",
-            bordercolor="rgba(0,100,255,0.40)",
-            font=dict(size=12, family="Pretendard Variable, sans-serif"),
+            bordercolor="#0064FF",
+            font=dict(size=13, family="Pretendard Variable, sans-serif"),
             namelength=-1,
         ),
-        # 말풍선 annotation
         annotations=[dict(
             x=float(t[-1]), y=final_median,
             xanchor="left", yanchor="middle",
             text=f"<b>{cur_sym}{final_median:,.0f}</b><br>{ret_sign}{final_ret:.1f}%",
-            font=dict(color="white", size=12,
+            font=dict(color="white", size=13,
                       family="Pretendard Variable, sans-serif"),
             bgcolor=ann_color,
-            bordercolor="rgba(255,255,255,0.18)",
+            bordercolor="rgba(255,255,255,0.15)",
             borderwidth=1,
-            borderpad=8,
+            borderpad=9,
             showarrow=True,
             arrowhead=2, arrowsize=1, arrowwidth=1.5,
             arrowcolor=ann_color,
-            ax=36, ay=0,
+            ax=34, ay=0,
         )],
     )
     return fig
@@ -1700,7 +1660,7 @@ def _render_top_controls(preset: str, jump_mode: str) -> SidebarConfig:
         st.session_state["sq_inv_krw"] = 1_000_000.0
     if "sq_inv_usd" not in st.session_state:
         st.session_state["sq_inv_usd"] = 1_000.0
-    tab_krw, tab_usd = st.tabs(["🇰🇷 KRW 원화", "🇺🇸 USD 달러"])
+    tab_krw, tab_usd = st.tabs(["KRW", "USD"])
     with tab_krw:
         st.number_input(
             "투자 예정 금액 (원)",
