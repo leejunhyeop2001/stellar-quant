@@ -10,8 +10,6 @@
 | 개발 환경 | C++23, Python 3.x, CMake, pybind11 |
 | 주요 라이브러리 | NumPy, Pandas, yfinance, Matplotlib, Streamlit, Plotly |
 
-*(제출 시 기관 요구에 맞게 **작성자·학번·과목명·제출일** 등을 위 표 또는 표지에 추가하세요.)*
-
 ---
 
 ## 1. 요약 (Abstract)
@@ -117,7 +115,7 @@ dashboard.py   main.py
 - **리스크**: `numpy.quantile`, `numpy.mean`으로 분위수·상승 확률·VaR 계산  
 - **시각화**:  
   - CLI: 히스토그램 + Fan Chart + 해석 패널  
-  - 대시보드: Plotly **팬 차트**(분위수 밴드, Median/Mean 선, WebGL `Scattergl`); 터미널 분포 히스토그램은 웹 탭에 미연결(코드 `build_hist` 존재)  
+  - 대시보드: Plotly **팬 차트**(분위수 밴드, Median/Mean 선, WebGL `Scattergl`); 터미널 분포 히스토그램은 CLI PNG에서 확인
 
 ### 5.3 국제 시장 지원
 

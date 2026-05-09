@@ -65,12 +65,25 @@ struct TerminalWorker {
     void operator()(std::size_t lo, std::size_t hi, std::size_t tid) const {
         std::mt19937_64 rng(seed + static_cast<std::uint64_t>(tid) * 7919ULL);
         std::normal_distribution<double> normal(0.0, 1.0);
-        std::poisson_distribution<int> poisson(lambda_t > 0.0 ? lambda_t : 0.0);
+
+        if (lambda_t <= 0.0) {
+            for (std::size_t i = lo; i < hi;) {
+                const double w = vol_sqrt_t * normal(rng);
+                out[i] = s0 * std::exp(drift + w);
+                ++i;
+                if (i < hi) {
+                    out[i] = s0 * std::exp(drift - w);
+                    ++i;
+                }
+            }
+            return;
+        }
+
+        std::poisson_distribution<int> poisson(lambda_t);
 
         for (std::size_t i = lo; i < hi;) {
             const double z = normal(rng);
-            double jlog = 0.0;
-            if (lambda_t > 0.0) jlog = jump_log_increment(rng, poisson, normal, lambda_t, jump_mu, jump_sigma);
+            const double jlog = jump_log_increment(rng, poisson, normal, lambda_t, jump_mu, jump_sigma);
 
             const double base = drift + jlog;
             const double w = vol_sqrt_t * z;
@@ -102,7 +115,31 @@ struct PathMatrixWorker {
     void operator()(std::size_t lo, std::size_t hi, std::size_t tid) const {
         std::mt19937_64 rng(seed + static_cast<std::uint64_t>(tid) * 7919ULL);
         std::normal_distribution<double> normal(0.0, 1.0);
-        std::poisson_distribution<int> poisson(lambda_dt > 0.0 ? lambda_dt : 0.0);
+
+        if (lambda_dt <= 0.0) {
+            for (std::size_t i = lo; i < hi;) {
+                double sp = s0;
+                double sm = s0;
+                const std::size_t row = i * stride;
+                const bool has_pair = (i + 1 < hi);
+                const std::size_t pair_row = (i + 1) * stride;
+
+                out[row] = sp;
+                if (has_pair) out[pair_row] = sm;
+
+                for (std::size_t k = 1; k < stride; ++k) {
+                    const double w = vol_sqrt_dt * normal(rng);
+                    sp *= std::exp(drift_dt + w);
+                    sm *= std::exp(drift_dt - w);
+                    out[row + k] = sp;
+                    if (has_pair) out[pair_row + k] = sm;
+                }
+                i += has_pair ? 2 : 1;
+            }
+            return;
+        }
+
+        std::poisson_distribution<int> poisson(lambda_dt);
 
         for (std::size_t i = lo; i < hi;) {
             double sp = s0;
@@ -116,8 +153,7 @@ struct PathMatrixWorker {
 
             for (std::size_t k = 1; k < stride; ++k) {
                 const double z = normal(rng);
-                double jlog = 0.0;
-                if (lambda_dt > 0.0) jlog = jump_log_increment(rng, poisson, normal, lambda_dt, jump_mu, jump_sigma);
+                const double jlog = jump_log_increment(rng, poisson, normal, lambda_dt, jump_mu, jump_sigma);
 
                 const double base = drift_dt + jlog;
                 const double w = vol_sqrt_dt * z;

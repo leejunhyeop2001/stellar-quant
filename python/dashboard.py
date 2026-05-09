@@ -152,7 +152,6 @@ class DashboardResult:
     jump_lambda: float
     jump_mu: float
     jump_sigma: float
-    hist_fig: go.Figure | None
     fan_fig: go.Figure | None
 
 
@@ -1355,20 +1354,6 @@ def _dhtml(pct: float) -> str:
     a = "↑" if pct >= 0 else "↓"
     return f'<span class="mc-delta {c}">{a} {pct:+.2f}%</span>'
 
-def _outlook(up: float) -> tuple[str, str]:
-    if up >= 70: return "Bullish (강세)", GREEN
-    if up >= 50: return "Moderately Bullish (약간 강세)", GREEN
-    if up >= 30: return "Moderately Bearish (약간 약세)", RED
-    return "Bearish (약세)", RED
-
-
-def lognormal_pdf(x, mu, sig):
-    if sig <= 0: return np.zeros_like(x)
-    s = np.where(x > 0, x, 1.0)
-    z = (np.log(s) - mu) / sig
-    p = np.exp(-0.5 * z * z) / (s * sig * np.sqrt(2.0 * np.pi))
-    return np.where(x > 0, p, 0.0)
-
 
 def _mticks(yrs):
     tot = int(round(yrs * 12))
@@ -1429,72 +1414,6 @@ _LAY = dict(
 )
 
 CH = 460
-
-
-# ---------------------------------------------------------------------------
-# Histogram
-# ---------------------------------------------------------------------------
-def build_hist(terminal, s0, m, cur, ticker):
-    sym = currency_symbol(cur)
-    hf = ",.0f" if cur == "KRW" else ",.2f"
-    p01, p99 = m["p01"], m["p99"]
-    cl = terminal[(terminal >= p01) & (terminal <= p99)]
-
-    fig = go.Figure()
-    fig.add_trace(go.Histogram(
-        x=cl, nbinsx=120, histnorm="probability density",
-        marker=dict(color="rgba(139,147,161,0.32)", line_width=0),
-        opacity=0.82, name="분포 (Distribution)",
-        hovertemplate=f"{sym}%{{x:{hf}}}<br>밀도: %{{y:.5f}}<extra></extra>",
-    ))
-    lp = np.log(terminal[terminal > 0])
-    mu, sig = float(lp.mean()), float(lp.std(ddof=1))
-    xp = np.linspace(p01, p99, 300)
-    yp = lognormal_pdf(xp, mu, sig)
-    pm = float(yp.max()) if len(yp) else 1.0
-
-    fig.add_trace(go.Scatter(x=xp, y=yp, mode="lines",
-        line=dict(color="#8B93A1", width=2.8, shape="spline", smoothing=1.2),
-        name="PDF (확률밀도)", hoverinfo="skip"))
-
-    for v, c, d, w, n in [
-        (s0, "rgba(230,236,252,0.55)", "dash", 1.6, "현재가 (Current)"),
-        (m["p05"], RED, "solid", 2.2, "VaR 5% (최대손실)"),
-        (m["p50"], MUTED, "solid", 2.0, "Median (중앙값)"),
-        (m["p95"], ACCENT, "dash", 1.4, "95th (상한선)"),
-    ]:
-        fig.add_trace(go.Scatter(x=[v,v], y=[0, pm*1.02], mode="lines",
-            line=dict(color=c, width=w, dash=d),
-            name=f"{n} {_fp(v,cur)}", hoverinfo="skip"))
-
-    fig.add_annotation(x=m["p05"], y=pm*0.88,
-        text=f"<b>VaR 5%</b><br>{_fp(m['p05'],cur)}",
-        showarrow=True, arrowhead=2, arrowwidth=1.5, arrowcolor=RED,
-        ax=50, ay=-30, font=dict(color=RED, size=11, family="Pretendard Variable, sans-serif"),
-        bgcolor="rgba(14,18,28,0.92)", bordercolor="rgba(255,75,75,0.45)", borderwidth=1, borderpad=5)
-
-    fig.update_layout(**_LAY,
-        title=dict(
-            text=f"<b>Terminal Price Distribution</b> <span style='color:#8B93A1;font-weight:500'>· 최종가 분포 — {ticker}</span>",
-            font=dict(size=15, color="#F4F5F7", family="Pretendard Variable, Pretendard, sans-serif"),
-            x=0.04,
-            y=0.97,
-            xanchor="left",
-        ),
-        margin=dict(l=56, r=24, t=76, b=90),
-        legend=dict(
-            orientation="h",
-            bgcolor="rgba(22,23,28,0.82)",
-            bordercolor="rgba(255,255,255,0.04)",
-            borderwidth=0,
-            font=dict(size=10, color="#8B93A1", family="Pretendard Variable, Pretendard, sans-serif"),
-            x=0.5, y=-0.18, xanchor="center", yanchor="top",
-        ),
-        xaxis=dict(**_AX, title=f"최종가 Final Price ({cur})",
-                   range=[p01*0.95, p99*1.05], tickformat=hf, tickprefix=sym),
-        yaxis=dict(**_AX, title="확률밀도 Density"),
-        bargap=0.01, height=CH)
-    return fig
 
 
 # ---------------------------------------------------------------------------
@@ -2027,7 +1946,6 @@ def _build_dashboard_result(
         jump_lambda=config.jump_lambda,
         jump_mu=config.jump_mu,
         jump_sigma=config.jump_sigma,
-        hist_fig=None,
         fan_fig=build_fan(engine_output.path_matrix, params.s0, config.years, params.currency, config.ticker),
     )
 
@@ -2050,7 +1968,6 @@ def _store_dashboard_result(result: DashboardResult, jump: JumpParams) -> None:
             jump_lambda=result.jump_lambda,
             jump_mu=result.jump_mu,
             jump_sigma=result.jump_sigma,
-            hist_fig=result.hist_fig,
             fan_fig=result.fan_fig,
             est_jump=jump,
         )
@@ -2075,7 +1992,6 @@ def _result_from_session_state() -> DashboardResult:
         jump_lambda=float(ss.get("jump_lambda", 0.0)),
         jump_mu=float(ss.get("jump_mu", 0.0)),
         jump_sigma=float(ss.get("jump_sigma", 0.0)),
-        hist_fig=ss.get("hist_fig"),
         fan_fig=ss.get("fan_fig"),
     )
 
@@ -2101,7 +2017,6 @@ def _run_simulation_flow(config: SidebarConfig) -> bool:
         '<span>최근 1년 가격 데이터와 fallback 설정을 확인하고 있습니다.</span></div>',
         unsafe_allow_html=True,
     )
-    time.sleep(0.5)
 
     if tick:
         try:
@@ -2121,7 +2036,6 @@ def _run_simulation_flow(config: SidebarConfig) -> bool:
         f'<span>{config.n_paths:,}개 경로를 멀티스레드로 계산합니다.</span></div>',
         unsafe_allow_html=True,
     )
-    time.sleep(0.5)
     engine_output = _run_cpp_engine(config, market_data.params)
 
     loading.markdown(
@@ -2129,7 +2043,6 @@ def _run_simulation_flow(config: SidebarConfig) -> bool:
         '<span>리스크 지표와 상세 분석 화면을 정리하고 있습니다.</span></div>',
         unsafe_allow_html=True,
     )
-    time.sleep(0.5)
     result = _build_dashboard_result(config, market_data, engine_output)
     _store_dashboard_result(result, market_data.jump)
     loading.empty()

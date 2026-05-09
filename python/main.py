@@ -201,7 +201,6 @@ def _build_guide_text(ticker, s0, years, metrics, terminal, currency):
     up = metrics["up_probability_pct"]
     var_abs, var_pct = metrics["var_95_abs"], metrics["var_95_pct"]
     mean_st = float(terminal.mean())
-    period = f"{years:.0f}Y" if years == int(years) else f"{years}Y"
 
     if up >= 70:
         tag = "Bullish (강세)"
