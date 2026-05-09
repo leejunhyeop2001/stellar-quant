@@ -1483,10 +1483,11 @@ def _build_portfolio_fan(
     fig.update_layout(
         paper_bgcolor="#101012",
         plot_bgcolor="#101012",
-        height=420,
+        height=450,
         autosize=False,
+        automargin=True,
         dragmode=False,
-        margin=dict(l=12, r=130, t=16, b=16),
+        margin=dict(l=10, r=100, t=20, b=20),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
@@ -1494,10 +1495,10 @@ def _build_portfolio_fan(
         shapes=[
             dict(type="rect", xref="paper", yref="y",
                  x0=0, x1=1, y0=y_lo, y1=inv_amt,
-                 fillcolor="rgba(255,75,75,0.05)", line_width=0, layer="below"),
+                 fillcolor="rgba(255,75,75,0.12)", line_width=0, layer="below"),
             dict(type="rect", xref="paper", yref="y",
                  x0=0, x1=1, y0=inv_amt, y1=y_hi,
-                 fillcolor="rgba(0,100,255,0.05)", line_width=0, layer="below"),
+                 fillcolor="rgba(0,100,255,0.12)", line_width=0, layer="below"),
         ],
         xaxis=dict(
             range=[0, total_months],
