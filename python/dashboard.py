@@ -1425,18 +1425,17 @@ CH = 460
 # ---------------------------------------------------------------------------
 # Fan chart
 # ---------------------------------------------------------------------------
-def build_fan(pm, s0, yrs, cur, ticker):
+def build_fan(pm, s0, yrs, cur, ticker, investment_amount: float = 0.0):
     """Fan chart: translucent quantile bands (SVG fill) + mean/median lines (Scattergl)."""
+    portfolio_mode = investment_amount > 0.0 and s0 > 0.0
+    scale = investment_amount / s0 if portfolio_mode else 1.0
     sym = currency_symbol(cur)
     hf = ",.0f" if cur == "KRW" else ",.2f"
     _, npt = pm.shape
     tf = np.linspace(0.0, yrs, npt)
-    q_mean = np.mean(pm, axis=0)
-    q025, q05, q125, q25, q50, q75, q875, q95, q975 = np.quantile(
-        pm,
-        [0.025, 0.05, 0.125, 0.25, 0.5, 0.75, 0.875, 0.95, 0.975],
-        axis=0,
-    )
+    q_mean = np.mean(pm, axis=0) * scale
+    _qraw = np.quantile(pm, [0.025, 0.05, 0.125, 0.25, 0.5, 0.75, 0.875, 0.95, 0.975], axis=0)
+    q025, q05, q125, q25, q50, q75, q875, q95, q975 = (_r * scale for _r in _qraw)
 
     di, _ = _ds(tf, 160)
     t = tf[di]
@@ -1451,9 +1450,9 @@ def build_fan(pm, s0, yrs, cur, ticker):
     tr = t[::-1]
     # fill=toself 는 WebGL(Scattergl) 미지원 → 밴드만 go.Scatter, α 0.05~0.1
     bands = [
-        ("95% 신뢰구간", d025, d975, "rgba(0,100,255,0.06)"),
-        ("75% 신뢰구간", d125, d875, "rgba(0,100,255,0.08)"),
-        ("50% 신뢰구간", d25, d75, "rgba(0,100,255,0.10)"),
+        ("최악·최선 시나리오" if portfolio_mode else "95% 신뢰구간", d025, d975, "rgba(0,100,255,0.06)"),
+        ("높은 확률 구간" if portfolio_mode else "75% 신뢰구간", d125, d875, "rgba(0,100,255,0.08)"),
+        ("중간 확률 구간" if portfolio_mode else "50% 신뢰구간", d25, d75, "rgba(0,100,255,0.10)"),
     ]
     for name, lo, hi, color in bands:
         fig.add_trace(go.Scatter(
@@ -1473,12 +1472,12 @@ def build_fan(pm, s0, yrs, cur, ticker):
         mode="lines",
         customdata=median_custom,
         line=dict(color=ACCENT, width=2.6, shape="linear"),
-        name="Median (중앙값)",
+        name="가장 확률 높은 미래" if portfolio_mode else "Median (중앙값)",
         hovertemplate=(
             f"<b>%{{x:.2f}}Y 예측</b><br>"
-            f"Median: {sym}%{{y:{hf}}}<br>"
-            f"90% 범위: {sym}%{{customdata[0]:{hf}}} ~ {sym}%{{customdata[1]:{hf}}}<br>"
-            f"50% 범위: {sym}%{{customdata[2]:{hf}}} ~ {sym}%{{customdata[3]:{hf}}}"
+            f"{'중앙 자산' if portfolio_mode else 'Median'}: {sym}%{{y:{hf}}}<br>"
+            f"{'90% 시나리오' if portfolio_mode else '90% 범위'}: {sym}%{{customdata[0]:{hf}}} ~ {sym}%{{customdata[1]:{hf}}}<br>"
+            f"{'50% 시나리오' if portfolio_mode else '50% 범위'}: {sym}%{{customdata[2]:{hf}}} ~ {sym}%{{customdata[3]:{hf}}}"
             "<extra></extra>"
         ),
     ))
@@ -1488,21 +1487,27 @@ def build_fan(pm, s0, yrs, cur, ticker):
         y=d_mean,
         mode="lines",
         line=dict(color=mean_line_color, width=5.0, shape="linear"),
-        name="기대 평균 경로 (Mean)",
+        name="평균적인 수익 경로" if portfolio_mode else "기대 평균 경로 (Mean)",
         hovertemplate=(
             f"<b>%{{x:.2f}}Y 예측</b><br>"
-            f"Mean: {sym}%{{y:{hf}}}<extra></extra>"
+            f"{'평균 자산' if portfolio_mode else 'Mean'}: {sym}%{{y:{hf}}}<extra></extra>"
         ),
     ))
 
-    fig.add_hline(y=s0, line_color="rgba(220,228,248,0.42)", line_dash="dash", line_width=1.35)
-    fig.add_annotation(x=0.01, y=s0, xref="paper",
-        text=f" 현재가 {_fp(s0,cur)} ", showarrow=False, yanchor="bottom",
+    s0_disp = investment_amount if portfolio_mode else s0
+    hline_text = f" 투자 원금 {_fp(s0_disp, cur)} " if portfolio_mode else f" 현재가 {_fp(s0, cur)} "
+    fig.add_hline(y=s0_disp, line_color="rgba(220,228,248,0.42)", line_dash="dash", line_width=1.35)
+    fig.add_annotation(x=0.01, y=s0_disp, xref="paper",
+        text=hline_text, showarrow=False, yanchor="bottom",
         font=dict(color="#fff", size=10), bgcolor="rgba(6,8,15,0.7)", borderpad=3)
 
     tp, tl = _mticks(yrs)
-    yl = min(float(q025.min()), s0) * 0.88
+    yl = min(float(q025.min()), s0_disp) * 0.88
     yh = float(q975.max()) * 1.12
+
+    # 수익/손실 구간 배경색 — 기준선 위는 파란색(수익), 아래는 빨간색(손실)
+    fig.add_hrect(y0=s0_disp, y1=yh * 1.5, fillcolor="rgba(0,100,255,0.05)", layer="below", line_width=0)
+    fig.add_hrect(y0=yl * 0.7, y1=s0_disp, fillcolor="rgba(255,75,75,0.05)", layer="below", line_width=0)
 
     label_points = []
     if yrs >= 0.5:
@@ -1518,7 +1523,7 @@ def build_fan(pm, s0, yrs, cur, ticker):
         fig.add_annotation(
             x=float(tf[idx]),
             y=yval,
-            text=f"<b>{label}</b> · Mean {fmt_price(yval, cur)}",
+            text=f"<b>{label}</b> · {'평균' if portfolio_mode else 'Mean'} {fmt_price(yval, cur)}",
             showarrow=True,
             arrowhead=2,
             arrowwidth=1.2,
@@ -1536,9 +1541,9 @@ def build_fan(pm, s0, yrs, cur, ticker):
     target_label = "1Y" if yrs >= 1.0 else f"{int(round(yrs * 12))}M"
     target_idx = int(np.argmin(np.abs(tf - target_t)))
     side_cards = [
-        ("최선 95th", float(q95[target_idx]), ACCENT),
-        ("기대 50th", float(q50[target_idx]), TEXT),
-        ("최악 5th", float(q05[target_idx]), RED),
+        ("최선 시나리오" if portfolio_mode else "최선 95th", float(q95[target_idx]), ACCENT),
+        ("예상 자산" if portfolio_mode else "기대 50th", float(q50[target_idx]), TEXT),
+        ("최악 시나리오" if portfolio_mode else "최악 5th", float(q05[target_idx]), RED),
     ]
     for ypaper, (label, value, color) in zip([0.78, 0.62, 0.46], side_cards):
         fig.add_annotation(
@@ -1562,7 +1567,7 @@ def build_fan(pm, s0, yrs, cur, ticker):
 
     fig.update_layout(**_LAY,
         title=dict(
-            text=f"<b>기간별 주가 예측 팬 차트</b> <span style='color:#8B93A1;font-weight:500'>· {ticker}</span>",
+            text=f"<b>{'개인 투자 자산 예측' if portfolio_mode else '기간별 주가 예측'} 팬 차트</b> <span style='color:#8B93A1;font-weight:500'>· {ticker}</span>",
             font=dict(size=15, color="#F4F5F7", family="Pretendard Variable, Pretendard, sans-serif"),
             x=0.04,
             y=0.97,
@@ -1582,7 +1587,7 @@ def build_fan(pm, s0, yrs, cur, ticker):
             traceorder="normal",
         ),
         xaxis=dict(**_AX, title="예측 기간 Period", tickvals=tp, ticktext=tl),
-        yaxis=dict(**_AX, title=f"주가 Price ({cur})", range=[yl, yh],
+        yaxis=dict(**_AX, title="예상 자산 가치" if portfolio_mode else f"주가 Price ({cur})", range=[yl, yh],
                    tickformat=hf, tickprefix=sym),
         height=CH)
 
@@ -2454,21 +2459,26 @@ def _render_action_metrics(result: DashboardResult) -> None:
         )
 
 
-def _render_charts(result: DashboardResult) -> None:
-    fan_fig = result.fan_fig
-    if fan_fig is None:
-        _skel = st.empty()
-        _skel.markdown(
-            f'<div style="display:grid;grid-template-columns:1fr;gap:18px;">'
-            f'<div class="sq-skeleton sq-chart-skeleton"></div>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        fan_fig = build_fan(result.path_matrix, result.params.s0, result.years, result.params.currency, result.ticker)
-        st.session_state["fan_fig"] = fan_fig
-        _skel.empty()
-
+def _render_charts(result: DashboardResult, investment_amount: float = 0.0) -> None:
     cfg = {"displayModeBar": False, "responsive": True}
+    if investment_amount > 0.0:
+        fan_fig = build_fan(
+            result.path_matrix, result.params.s0, result.years,
+            result.params.currency, result.ticker, investment_amount,
+        )
+    else:
+        fan_fig = result.fan_fig
+        if fan_fig is None:
+            _skel = st.empty()
+            _skel.markdown(
+                f'<div style="display:grid;grid-template-columns:1fr;gap:18px;">'
+                f'<div class="sq-skeleton sq-chart-skeleton"></div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            fan_fig = build_fan(result.path_matrix, result.params.s0, result.years, result.params.currency, result.ticker)
+            st.session_state["fan_fig"] = fan_fig
+            _skel.empty()
     st.plotly_chart(fan_fig, use_container_width=True, config=cfg)
 
 
@@ -2584,7 +2594,28 @@ def _render_dashboard_result(result: DashboardResult) -> None:
     with st.expander("상세 분석", expanded=False):
         chart_tab, risk_tab, validation_tab, model_tab = st.tabs(["차트", "상세 지표", "과거 검증", "수학 모델"])
         with chart_tab:
-            _render_charts(result)
+            inv_amt = st.number_input(
+                "투자 예정 금액 (0 입력 시 주가 차트로 표시)",
+                min_value=0.0,
+                value=1000.0,
+                step=100.0,
+                format="%.2f",
+                key="sq_investment_usd",
+            )
+            if inv_amt > 0.0:
+                s0 = result.params.s0
+                cur = result.params.currency
+                mean_price = float(np.mean(result.terminal))
+                shares = inv_amt / s0 if s0 > 0.0 else 0.0
+                expected_value = shares * mean_price
+                ret_pct = (mean_price - s0) / s0 * 100.0 if s0 > 0.0 else 0.0
+                cvar_pct = result.metrics["cvar_95_pct"]
+                cvar_loss = inv_amt * cvar_pct / 100.0
+                mc1, mc2, mc3 = st.columns(3)
+                mc1.metric("예상 수익률 (1Y 평균 기준)", f"{ret_pct:+.1f}%")
+                mc2.metric("예상 최종 자산", _fp(expected_value, cur))
+                mc3.metric("최대 예상 손실 (CVaR 95%)", _fp(cvar_loss, cur), delta=f"-{cvar_pct:.1f}%")
+            _render_charts(result, investment_amount=inv_amt)
         with risk_tab:
             _render_risk_tables(result)
             _render_action_metrics(result)
@@ -2595,13 +2626,18 @@ def _render_dashboard_result(result: DashboardResult) -> None:
                 '<div class="stitle">수학 모델<span class="stitle-sub">Model reference</span></div>',
                 unsafe_allow_html=True,
             )
-            _render_math_section(
-                result.params,
-                result.params.currency,
-                result.jump_lambda,
-                result.jump_mu,
-                result.jump_sigma,
+            st.info(
+                "이 모델은 과거의 변동성뿐만 아니라 갑작스러운 시장 충격(Jump Diffusion)과 "
+                "시장 평균 회귀(Shrinkage)를 모두 고려합니다."
             )
+            with st.expander("상세 이론 (Itô's Lemma · GBM 해석해 · 수식 전체)", expanded=False):
+                _render_math_section(
+                    result.params,
+                    result.params.currency,
+                    result.jump_lambda,
+                    result.jump_mu,
+                    result.jump_sigma,
+                )
             st.markdown(
                 '<div class="disc toss-card">'
                 '※ 최근 1년 Yahoo Finance 데이터 기반 GBM 몬테카를로 시뮬레이션 결과입니다. '
