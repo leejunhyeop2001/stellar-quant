@@ -1486,7 +1486,7 @@ def _build_portfolio_fan(
         height=420,
         autosize=False,
         dragmode=False,
-        margin=dict(l=12, r=100, t=16, b=16),
+        margin=dict(l=12, r=130, t=16, b=16),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
@@ -1541,21 +1541,54 @@ def _build_portfolio_fan(
             font=dict(size=13, family="Pretendard Variable, sans-serif"),
             namelength=-1,
         ),
-        annotations=[dict(
-            x=float(t[-1]), y=final_median,
-            xanchor="left", yanchor="middle",
-            text=f"<b>{cur_sym}{final_median:,.0f}</b><br>{ret_sign}{final_ret:.1f}%",
-            font=dict(color="white", size=13,
-                      family="Pretendard Variable, sans-serif"),
-            bgcolor=ann_color,
-            bordercolor="rgba(255,255,255,0.15)",
-            borderwidth=1,
-            borderpad=9,
-            showarrow=True,
-            arrowhead=2, arrowsize=1, arrowwidth=1.5,
-            arrowcolor=ann_color,
-            ax=34, ay=0,
-        )],
+        annotations=[
+            # ── 왼쪽 시작점: 현재 원금 ─────────────────────────────────
+            dict(
+                x=float(t[0]), y=inv_amt,
+                xanchor="left", yanchor="bottom",
+                text=f"<b>{cur_sym}{inv_amt:,.0f}</b>",
+                font=dict(color="rgba(255,255,255,0.55)", size=11,
+                          family="Pretendard Variable, sans-serif"),
+                showarrow=False,
+                yshift=8,
+            ),
+            # ── 오른쪽 끝: 최상 시나리오 (P95) ────────────────────────
+            dict(
+                x=float(t[-1]), y=float(q95[-1]),
+                xanchor="left", yanchor="middle",
+                text=f"{cur_sym}{float(q95[-1]):,.0f}",
+                font=dict(color="rgba(80,160,255,0.80)", size=10,
+                          family="Pretendard Variable, sans-serif"),
+                showarrow=False,
+                xshift=8,
+            ),
+            # ── 오른쪽 끝: 최악 시나리오 (P05) ────────────────────────
+            dict(
+                x=float(t[-1]), y=float(q05[-1]),
+                xanchor="left", yanchor="middle",
+                text=f"{cur_sym}{float(q05[-1]):,.0f}",
+                font=dict(color="rgba(255,100,100,0.80)", size=10,
+                          family="Pretendard Variable, sans-serif"),
+                showarrow=False,
+                xshift=8,
+            ),
+            # ── 오른쪽 끝: 중앙값 말풍선 ──────────────────────────────
+            dict(
+                x=float(t[-1]), y=final_median,
+                xanchor="left", yanchor="middle",
+                text=f"<b>{cur_sym}{final_median:,.0f}</b><br>{ret_sign}{final_ret:.1f}%",
+                font=dict(color="white", size=13,
+                          family="Pretendard Variable, sans-serif"),
+                bgcolor=ann_color,
+                bordercolor="rgba(255,255,255,0.15)",
+                borderwidth=1,
+                borderpad=9,
+                showarrow=True,
+                arrowhead=2, arrowsize=1, arrowwidth=1.5,
+                arrowcolor=ann_color,
+                ax=34, ay=0,
+            ),
+        ],
     )
     return fig
 
