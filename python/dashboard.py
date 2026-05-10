@@ -657,9 +657,9 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
 }}
 
 .top-shell {{
-  margin: 8px 0 42px 0;
-  padding: 34px 36px;
-  border-radius: 28px;
+  margin: 4px 0 24px 0;
+  padding: 28px 30px;
+  border-radius: 22px;
   background: #101012 !important;
   box-shadow: var(--shadow-card);
   overflow: hidden !important;
@@ -688,9 +688,9 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   max-width: 760px;
 }}
 .risk-hero {{
-  margin: 0 0 48px 0;
-  padding: 34px 36px;
-  border-radius: 30px;
+  margin: 0 0 24px 0;
+  padding: 28px 30px;
+  border-radius: 22px;
   background: #101012 !important;
   box-shadow: var(--shadow-card);
   overflow: hidden !important;
@@ -699,23 +699,24 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 20px;
-  margin-bottom: 28px;
+  gap: 16px;
+  margin-bottom: 20px;
 }}
 .risk-label {{
   color: {MUTED};
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  opacity: 0.65;
 }}
 .risk-title {{
   color: {TEXT};
-  font-size: clamp(1.85rem, 3vw, 2.7rem);
+  font-size: clamp(1.5rem, 2.5vw, 2.2rem);
   font-weight: 850;
-  letter-spacing: -0.055em;
-  line-height: 1.08;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
 }}
 .risk-pill {{
   display: inline-flex;
@@ -731,7 +732,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
 .risk-grid {{
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 18px;
+  gap: 10px;
 }}
 .risk-meta {{
   color: {MUTED};
@@ -748,19 +749,22 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   font-weight: 650;
 }}
 .risk-item {{
-  padding: 22px 20px;
-  border-radius: 22px;
-  background: #16161A !important;
+  padding: 16px 14px;
+  border-radius: 14px;
+  background: #111113 !important;
 }}
 .risk-item-label {{
   color: {MUTED};
-  font-size: 0.72rem;
-  font-weight: 650;
-  margin-bottom: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  margin-bottom: 7px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  opacity: 0.65;
 }}
 .risk-item-value {{
   color: {TEXT};
-  font-size: 1.42rem;
+  font-size: 1.25rem;
   font-weight: 850;
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
@@ -849,11 +853,11 @@ button[kind="primary"]:hover {{
 .mc-delta {{
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
+  gap: 4px;
+  font-size: 0.68rem;
   font-weight: 600;
-  margin-top: 10px;
-  padding: 6px 11px;
+  margin-top: 7px;
+  padding: 4px 9px;
   border-radius: 999px;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -864,12 +868,12 @@ button[kind="primary"]:hover {{
 .d-neg {{ color: {RED};   background: rgba(255,75,75,0.14); opacity: 1; }}
 
 .stitle {{
-  font-size: 1.08rem;
+  font-size: 1rem;
   font-weight: 700;
   color: {TEXT};
   letter-spacing: -0.02em;
-  margin: 16px 0 24px 2px !important;
-  padding: 0.4rem 0 0 0;
+  margin: 12px 0 14px 2px !important;
+  padding: 0;
   border: none !important;
 }}
 .stitle-sub {{
@@ -1090,23 +1094,12 @@ header[data-testid="stHeader"] button {{
 }}
 
 [data-testid="stPlotlyChart"] {{
-  background: #101012 !important;
-  background-clip: padding-box !important;
-  border: none !important;
-  border-radius: 22px !important;
-  padding: 20px 20px 14px 20px !important;
   overflow: hidden !important;
-  box-shadow: var(--shadow-card) !important;
-  margin-bottom: 0 !important;
-}}
-
-[data-testid="stPlotlyChart"] > div,
-[data-testid="stPlotlyChart"] .js-plotly-plot,
-[data-testid="stPlotlyChart"] .plotly,
-[data-testid="stPlotlyChart"] .user-select-none {{
-  overflow: hidden !important;
-  border-radius: 18px !important;
-  box-sizing: border-box !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
 }}
 [data-testid="stPlotlyChart"] .main-svg {{
   background: transparent !important;
@@ -1274,10 +1267,8 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
 
 .block-container .mc,
 .block-container .rtbl-wrap,
-.block-container [data-testid="stPlotlyChart"],
-.block-container .math-panel,
-.block-container .sq-math-start ~ [data-testid="stHorizontalBlock"] {{
-  margin-bottom: 44px !important;
+.block-container .math-panel {{
+  margin-bottom: 16px !important;
 }}
 
 .block-container [data-testid="element-container"],
@@ -1469,12 +1460,12 @@ def _build_portfolio_fan(
         x_ticks.append(total_months)
 
     fig.update_layout(
-        paper_bgcolor="#101012",
-        plot_bgcolor="#101012",
-        height=560,
+        paper_bgcolor="#000000",
+        plot_bgcolor="#000000",
+        height=440,
         autosize=True,
         dragmode=False,
-        margin=dict(l=48, r=160, t=48, b=60),
+        margin=dict(l=52, r=140, t=36, b=48),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
@@ -1492,7 +1483,7 @@ def _build_portfolio_fan(
             tickvals=x_ticks,
             ticktext=[f"{m}M" for m in x_ticks],
             tickfont=dict(size=11, color="#5C6573"),
-            gridcolor="rgba(255,255,255,0.04)",
+            gridcolor="rgba(255,255,255,0.06)",
             zeroline=False,
             fixedrange=True,
             showspikes=False,
@@ -1503,7 +1494,7 @@ def _build_portfolio_fan(
             range=[y_lo, y_hi],
             tickprefix=cur_sym, tickformat="~s",
             tickfont=dict(size=11, color="#5C6573"),
-            gridcolor="rgba(255,255,255,0.04)",
+            gridcolor="rgba(255,255,255,0.06)",
             zeroline=False,
             fixedrange=True,
             showspikes=False,
