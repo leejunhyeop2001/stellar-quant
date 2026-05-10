@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import base64
+import io
 import time
 
 import matplotlib
@@ -168,6 +170,24 @@ class DashboardResult:
     jump_mu: float
     jump_sigma: float
     mu_uncertainty: float
+
+
+@dataclass(frozen=True, slots=True)
+class PortfolioFanSeries:
+    """Downsampled portfolio-value quantiles for the fan chart."""
+
+    months: np.ndarray
+    q05: np.ndarray
+    q25: np.ndarray
+    q50: np.ndarray
+    q75: np.ndarray
+    q95: np.ndarray
+    y_min: float
+    y_max: float
+
+
+PORTFOLIO_FAN_TARGET_POINTS = 90
+PORTFOLIO_FAN_FIGSIZE = (13.0, 5.0)
 
 
 def _fixed_engine_config(ticker: str, run: bool, jump_mode: str) -> SidebarConfig:
@@ -849,20 +869,6 @@ header[data-testid="stHeader"] button {{
   gap: 1.25rem !important;
 }}
 
-/* 팬 차트 이미지 — 컨테이너 패딩 바깥으로 full-bleed */
-[data-testid="stImage"] {{
-  margin-left: -1.5rem !important;
-  margin-right: -1.5rem !important;
-  width: calc(100% + 3rem) !important;
-  max-width: none !important;
-  overflow: hidden !important;
-}}
-[data-testid="stImage"] img {{
-  width: 100% !important;
-  max-width: none !important;
-  display: block !important;
-}}
-
 /* 슬라이더 — 얇은 트랙 #2C2C2E, 큰 핸들 */
 [data-baseweb="slider"] [role="slider"] {{
   background: #FFFFFF !important;
@@ -990,6 +996,75 @@ def _on_usd_change() -> None:
     st.session_state["sq_inv_krw"] = round(usd * rate, 0)
 
 
+def _currency_symbol(currency: str) -> str:
+    return "₩" if currency == "KRW" else "$"
+
+
+def _format_compact_money(v: float, symbol: str) -> str:
+    av = abs(v)
+    if av >= 1_000_000_000:
+        return f"{symbol}{v / 1e9:.1f}B"
+    if av >= 1_000_000:
+        return f"{symbol}{v / 1e6:.1f}M"
+    if av >= 1_000:
+        return f"{symbol}{v / 1e3:.0f}K"
+    return f"{symbol}{v:.0f}"
+
+
+def _portfolio_fan_y_limits(q05: np.ndarray, q95: np.ndarray, principal: float) -> tuple[float, float]:
+    """Use data-range padding instead of fixed multipliers so the visual ratio stays stable."""
+
+    data_min = min(float(np.nanmin(q05)), principal)
+    data_max = max(float(np.nanmax(q95)), principal)
+    span = max(data_max - data_min, principal * 0.20, 1.0)
+    pad = span * 0.12
+    y_min = max(0.0, data_min - pad)
+    y_max = data_max + pad
+    if y_max <= y_min:
+        y_max = y_min + max(principal * 0.25, 1.0)
+    return y_min, y_max
+
+
+def _portfolio_fan_series(
+    path_matrix: np.ndarray,
+    s0: float,
+    inv_amt: float,
+    years: float,
+    target_points: int = PORTFOLIO_FAN_TARGET_POINTS,
+) -> PortfolioFanSeries:
+    """Convert simulated prices into portfolio-value quantile bands."""
+
+    paths = np.asarray(path_matrix, dtype=np.float64)
+    if paths.ndim != 2 or paths.shape[0] == 0 or paths.shape[1] == 0:
+        raise ValueError("path_matrix must be a non-empty 2D array")
+    if s0 <= 0.0 or inv_amt <= 0.0:
+        raise ValueError("s0 and inv_amt must be positive")
+
+    point_count = paths.shape[1]
+    sample_count = min(max(2, target_points), point_count)
+    idx = np.unique(np.linspace(0, point_count - 1, sample_count).round().astype(int))
+
+    portfolio_paths = paths[:, idx] * (inv_amt / s0)
+    months = np.linspace(0.0, years * 12.0, point_count)[idx]
+    q05, q25, q50, q75, q95 = np.quantile(
+        portfolio_paths,
+        [0.05, 0.25, 0.50, 0.75, 0.95],
+        axis=0,
+    )
+    y_min, y_max = _portfolio_fan_y_limits(q05, q95, inv_amt)
+
+    return PortfolioFanSeries(
+        months=months,
+        q05=q05,
+        q25=q25,
+        q50=q50,
+        q75=q75,
+        q95=q95,
+        y_min=y_min,
+        y_max=y_max,
+    )
+
+
 def _build_portfolio_fan(
     path_matrix: np.ndarray,
     s0: float,
@@ -1001,26 +1076,9 @@ def _build_portfolio_fan(
     matplotlib.rcParams["font.family"] = "Malgun Gothic"
     matplotlib.rcParams["axes.unicode_minus"] = False
 
-    cur_sym = "₩" if currency == "KRW" else "$"
-    scale = inv_amt / s0
-    pm = path_matrix * scale
-    n_steps = pm.shape[1]
-
-    step = max(1, n_steps // 80)
-    idx = list(range(0, n_steps, step))
-    if idx[-1] != n_steps - 1:
-        idx.append(n_steps - 1)
-    pm_ds = pm[:, idx]
-    t = np.linspace(0.0, years * 12.0, len(idx))
-
-    q05 = np.quantile(pm_ds, 0.05, axis=0)
-    q25 = np.quantile(pm_ds, 0.25, axis=0)
-    q50 = np.quantile(pm_ds, 0.50, axis=0)
-    q75 = np.quantile(pm_ds, 0.75, axis=0)
-    q95 = np.quantile(pm_ds, 0.95, axis=0)
-
-    y_lo = min(float(q05.min()), inv_amt) * 0.88
-    y_hi = max(float(q95.max()), inv_amt) * 1.10
+    cur_sym = _currency_symbol(currency)
+    fan = _portfolio_fan_series(path_matrix, s0, inv_amt, years)
+    t = fan.months
 
     BG   = "#000000"
     BLUE = "#0064FF"
@@ -1028,34 +1086,34 @@ def _build_portfolio_fan(
     MUTED  = "#8B93A1"
     SUBTLE = "#5C6573"
 
-    fig = Figure(figsize=(13, 4.6), facecolor=BG, dpi=150)
-    ax = fig.add_axes([0.07, 0.13, 0.76, 0.80])
+    fig = Figure(figsize=PORTFOLIO_FAN_FIGSIZE, facecolor=BG, dpi=150)
+    ax = fig.add_axes([0.07, 0.14, 0.78, 0.78])
     ax.set_facecolor(BG)
 
     # 손실/이익 구간 배경
-    ax.fill_between(t, y_lo, inv_amt, color=RED,  alpha=0.07, zorder=0)
-    ax.fill_between(t, inv_amt, y_hi,  color=BLUE, alpha=0.05, zorder=0)
+    ax.fill_between(t, fan.y_min, inv_amt, color=RED,  alpha=0.07, zorder=0)
+    ax.fill_between(t, inv_amt, fan.y_max,  color=BLUE, alpha=0.05, zorder=0)
 
     # 90% 범위
-    ax.fill_between(t, q05, q95, color=BLUE, alpha=0.09, zorder=1)
+    ax.fill_between(t, fan.q05, fan.q95, color=BLUE, alpha=0.09, zorder=1)
     # 50% 범위
-    ax.fill_between(t, q25, q75, color=BLUE, alpha=0.24, zorder=2)
+    ax.fill_between(t, fan.q25, fan.q75, color=BLUE, alpha=0.24, zorder=2)
 
     # P95 / P05 경계선
-    ax.plot(t, q95, color=BLUE, alpha=0.38, linewidth=0.9, zorder=3)
-    ax.plot(t, q05, color=RED,  alpha=0.38, linewidth=0.9, zorder=3)
+    ax.plot(t, fan.q95, color=BLUE, alpha=0.38, linewidth=0.9, zorder=3)
+    ax.plot(t, fan.q05, color=RED,  alpha=0.38, linewidth=0.9, zorder=3)
 
     # 원금 기준선
     ax.axhline(y=inv_amt, color="white", alpha=0.40, linewidth=1.2,
                linestyle=(0, (4, 3)), zorder=4)
 
     # 중앙값 (median)
-    ax.plot(t, q50, color=BLUE, linewidth=2.6, zorder=5)
+    ax.plot(t, fan.q50, color=BLUE, linewidth=2.6, zorder=5)
 
     # 축 범위
-    total_months = int(round(years * 12))
-    ax.set_xlim(0, total_months)
-    ax.set_ylim(y_lo, y_hi)
+    total_months = max(1, int(round(years * 12)))
+    ax.set_xlim(0, float(t[-1]) if len(t) else total_months)
+    ax.set_ylim(fan.y_min, fan.y_max)
 
     # X축 눈금 (2개월 간격)
     xticks = list(range(0, total_months + 1, 2))
@@ -1064,14 +1122,7 @@ def _build_portfolio_fan(
 
     # Y축 눈금 — K/M/B 단위
     def _fmt_y(v: float, _: int) -> str:
-        av = abs(v)
-        if av >= 1_000_000_000:
-            return f"{cur_sym}{v/1e9:.1f}B"
-        if av >= 1_000_000:
-            return f"{cur_sym}{v/1e6:.1f}M"
-        if av >= 1_000:
-            return f"{cur_sym}{v/1e3:.0f}K"
-        return f"{cur_sym}{v:.0f}"
+        return _format_compact_money(v, cur_sym)
 
     ax.yaxis.set_major_formatter(FuncFormatter(_fmt_y))
     ax.tick_params(axis="y", colors=SUBTLE, labelsize=8.5, length=0, pad=4)
@@ -1086,26 +1137,26 @@ def _build_portfolio_fan(
         sp.set_visible(False)
 
     # ── 오른쪽 끝 레이블 (axes 바깥) ──────────────────────────────────
-    ret_final = (float(q50[-1]) - inv_amt) / inv_amt * 100.0
+    ret_final = (float(fan.q50[-1]) - inv_amt) / inv_amt * 100.0
     ret_sign  = "+" if ret_final >= 0 else ""
     med_color = BLUE if ret_final >= 0 else RED
     ckw = dict(annotation_clip=False, clip_on=False)
 
     ax.annotate(
-        f"{cur_sym}{float(q95[-1]):,.0f}",
-        xy=(float(t[-1]), float(q95[-1])), xytext=(10, 0),
+        f"{cur_sym}{float(fan.q95[-1]):,.0f}",
+        xy=(float(t[-1]), float(fan.q95[-1])), xytext=(10, 0),
         textcoords="offset points", ha="left", va="center",
         fontsize=8.5, color="#4D94FF", alpha=0.85, **ckw,
     )
     ax.annotate(
-        f"{cur_sym}{float(q50[-1]):,.0f}  ({ret_sign}{ret_final:.1f}%)",
-        xy=(float(t[-1]), float(q50[-1])), xytext=(10, 0),
+        f"{cur_sym}{float(fan.q50[-1]):,.0f}  ({ret_sign}{ret_final:.1f}%)",
+        xy=(float(t[-1]), float(fan.q50[-1])), xytext=(10, 0),
         textcoords="offset points", ha="left", va="center",
         fontsize=10, color=med_color, fontweight="bold", **ckw,
     )
     ax.annotate(
-        f"{cur_sym}{float(q05[-1]):,.0f}",
-        xy=(float(t[-1]), float(q05[-1])), xytext=(10, 0),
+        f"{cur_sym}{float(fan.q05[-1]):,.0f}",
+        xy=(float(t[-1]), float(fan.q05[-1])), xytext=(10, 0),
         textcoords="offset points", ha="left", va="center",
         fontsize=8.5, color=RED, alpha=0.82, **ckw,
     )
@@ -1241,26 +1292,40 @@ def _render_top_controls(preset: str, jump_mode: str) -> SidebarConfig:
         st.session_state["sq_inv_usd"] = 1_000.0
     tab_krw, tab_usd = st.tabs(["KRW", "USD"])
     with tab_krw:
+        krw_val = float(st.session_state["sq_inv_krw"])
+        st.markdown(
+            f'<div style="font-size:1.75rem;font-weight:800;letter-spacing:-0.04em;'
+            f'color:#F4F5F7;margin:6px 0 2px;font-variant-numeric:tabular-nums;">'
+            f'₩{int(krw_val):,}</div>',
+            unsafe_allow_html=True,
+        )
         st.number_input(
             "투자 예정 금액 (원)",
             min_value=0.0,
             step=100_000.0,
-            format=",.0f",
+            format="%.0f",
             key="sq_inv_krw",
             on_change=_on_krw_change,
+            label_visibility="collapsed",
         )
-        krw_val = float(st.session_state["sq_inv_krw"])
         st.caption(f"≈ ${krw_val / rate:,.0f} USD  ·  환율 {rate:,.0f} KRW/USD 기준")
     with tab_usd:
+        usd_val = float(st.session_state["sq_inv_usd"])
+        st.markdown(
+            f'<div style="font-size:1.75rem;font-weight:800;letter-spacing:-0.04em;'
+            f'color:#F4F5F7;margin:6px 0 2px;font-variant-numeric:tabular-nums;">'
+            f'${usd_val:,.2f}</div>',
+            unsafe_allow_html=True,
+        )
         st.number_input(
             "투자 예정 금액 (USD)",
             min_value=0.0,
             step=100.0,
-            format=",.2f",
+            format="%.2f",
             key="sq_inv_usd",
             on_change=_on_usd_change,
+            label_visibility="collapsed",
         )
-        usd_val = float(st.session_state["sq_inv_usd"])
         st.caption(f"≈ ₩{usd_val * rate:,.0f} KRW  ·  환율 {rate:,.0f} KRW/USD 기준")
 
     run = st.button(
@@ -1677,9 +1742,18 @@ def _render_investment_section(result: DashboardResult) -> None:
         unsafe_allow_html=True,
     )
 
-    # ── 포트폴리오 팬 차트 (matplotlib — 완전 정적) ──────────────────────
+    # ── 포트폴리오 팬 차트 (base64 PNG — 완전 정적, 컨테이너 외부 full-bleed) ──
     fan_fig = _build_portfolio_fan(result.path_matrix, s0, inv_amt, result.years, cur)
-    st.pyplot(fan_fig, use_container_width=True, clear_figure=True)
+    _buf = io.BytesIO()
+    fan_fig.savefig(_buf, format="png", dpi=150, facecolor="#000000")
+    _buf.seek(0)
+    _b64 = base64.b64encode(_buf.read()).decode()
+    plt.close(fan_fig)
+    st.markdown(
+        f'<img src="data:image/png;base64,{_b64}"'
+        f' style="width:100%;max-width:100%;height:auto;display:block;border-radius:0;" />',
+        unsafe_allow_html=True,
+    )
 
     # ── 포트폴리오 메트릭 카드 ────────────────────────────────────────────
     st.markdown(
