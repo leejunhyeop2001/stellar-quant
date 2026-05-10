@@ -2,18 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-import base64
-import io
 import time
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.ticker import FuncFormatter
-from matplotlib.patches import Patch
-from matplotlib.lines import Line2D
 import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 
 from data_utils import (
@@ -1071,119 +1063,132 @@ def _build_portfolio_fan(
     inv_amt: float,
     years: float,
     currency: str,
-) -> Figure:
-    """투자금 기준 포트폴리오 팬 차트 — matplotlib 정적 렌더링."""
-    matplotlib.rcParams["font.family"] = "Malgun Gothic"
-    matplotlib.rcParams["axes.unicode_minus"] = False
-
+) -> go.Figure:
+    """투자금 기준 포트폴리오 팬 차트 — Plotly (zoom/pan 잠금, hover만 허용)."""
     cur_sym = _currency_symbol(currency)
     fan = _portfolio_fan_series(path_matrix, s0, inv_amt, years)
-    t = fan.months
-
-    BG   = "#000000"
-    BLUE = "#0064FF"
-    RED  = "#FF4B4B"
-    MUTED  = "#8B93A1"
-    SUBTLE = "#5C6573"
-
-    fig = Figure(figsize=PORTFOLIO_FAN_FIGSIZE, facecolor=BG, dpi=150)
-    ax = fig.add_axes([0.07, 0.14, 0.78, 0.78])
-    ax.set_facecolor(BG)
-
-    # 손실/이익 구간 배경
-    ax.fill_between(t, fan.y_min, inv_amt, color=RED,  alpha=0.07, zorder=0)
-    ax.fill_between(t, inv_amt, fan.y_max,  color=BLUE, alpha=0.05, zorder=0)
-
-    # 90% 범위
-    ax.fill_between(t, fan.q05, fan.q95, color=BLUE, alpha=0.09, zorder=1)
-    # 50% 범위
-    ax.fill_between(t, fan.q25, fan.q75, color=BLUE, alpha=0.24, zorder=2)
-
-    # P95 / P05 경계선
-    ax.plot(t, fan.q95, color=BLUE, alpha=0.38, linewidth=0.9, zorder=3)
-    ax.plot(t, fan.q05, color=RED,  alpha=0.38, linewidth=0.9, zorder=3)
-
-    # 원금 기준선
-    ax.axhline(y=inv_amt, color="white", alpha=0.40, linewidth=1.2,
-               linestyle=(0, (4, 3)), zorder=4)
-
-    # 중앙값 (median)
-    ax.plot(t, fan.q50, color=BLUE, linewidth=2.6, zorder=5)
-
-    # 축 범위
+    t = fan.months.tolist()
     total_months = max(1, int(round(years * 12)))
-    ax.set_xlim(0, float(t[-1]) if len(t) else total_months)
-    ax.set_ylim(fan.y_min, fan.y_max)
 
-    # X축 눈금 (2개월 간격)
-    xticks = list(range(0, total_months + 1, 2))
-    ax.set_xticks(xticks)
-    ax.set_xticklabels([f"{m}M" for m in xticks], color=SUBTLE, fontsize=8.5)
+    dec = 0 if currency == "KRW" else 2
+    hov = lambda label: f"{label}: {cur_sym}%{{y:,.{dec}f}}<extra></extra>"
 
-    # Y축 눈금 — K/M/B 단위
-    def _fmt_y(v: float, _: int) -> str:
-        return _format_compact_money(v, cur_sym)
+    fig = go.Figure()
 
-    ax.yaxis.set_major_formatter(FuncFormatter(_fmt_y))
-    ax.tick_params(axis="y", colors=SUBTLE, labelsize=8.5, length=0, pad=4)
-    ax.tick_params(axis="x", colors=SUBTLE, labelsize=8.5, length=0, pad=4)
+    # 손실 배경
+    fig.add_trace(go.Scatter(
+        x=t + t[::-1], y=[fan.y_min] * len(t) + [inv_amt] * len(t),
+        fill="toself", fillcolor="rgba(255,75,75,0.07)",
+        line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip", showlegend=False,
+    ))
+    # 이익 배경
+    fig.add_trace(go.Scatter(
+        x=t + t[::-1], y=[inv_amt] * len(t) + [fan.y_max] * len(t),
+        fill="toself", fillcolor="rgba(0,100,255,0.05)",
+        line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip", showlegend=False,
+    ))
+    # 90% 밴드
+    fig.add_trace(go.Scatter(
+        x=t + t[::-1], y=fan.q95.tolist() + fan.q05.tolist()[::-1],
+        fill="toself", fillcolor="rgba(0,100,255,0.09)",
+        line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip",
+        name="이례적 변동 (90%)",
+    ))
+    # 50% 밴드
+    fig.add_trace(go.Scatter(
+        x=t + t[::-1], y=fan.q75.tolist() + fan.q25.tolist()[::-1],
+        fill="toself", fillcolor="rgba(0,100,255,0.24)",
+        line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip",
+        name="현실적 기대 (50%)",
+    ))
+    # P95 선
+    fig.add_trace(go.Scatter(
+        x=t, y=fan.q95.tolist(),
+        line=dict(color="rgba(0,100,255,0.50)", width=1.0),
+        name="P95", hovertemplate=hov("P95"),
+    ))
+    # P05 선
+    fig.add_trace(go.Scatter(
+        x=t, y=fan.q05.tolist(),
+        line=dict(color="rgba(255,75,75,0.50)", width=1.0),
+        name="P05", hovertemplate=hov("P05"),
+    ))
+    # 원금선
+    fig.add_trace(go.Scatter(
+        x=[0.0, float(t[-1])], y=[inv_amt, inv_amt],
+        line=dict(color="rgba(255,255,255,0.40)", width=1.2, dash="dot"),
+        name="투자 원금", hovertemplate=hov("원금"),
+    ))
+    # 중앙값
+    fig.add_trace(go.Scatter(
+        x=t, y=fan.q50.tolist(),
+        line=dict(color="#0064FF", width=2.6),
+        name="중앙값", hovertemplate=hov("중앙값"),
+    ))
 
-    # 그리드
-    ax.grid(axis="y", color="white", alpha=0.055, linewidth=0.5, zorder=0)
-    ax.grid(axis="x", color="white", alpha=0.04,  linewidth=0.5, zorder=0)
-    ax.set_axisbelow(True)
-
-    for sp in ax.spines.values():
-        sp.set_visible(False)
-
-    # ── 오른쪽 끝 레이블 (axes 바깥) ──────────────────────────────────
     ret_final = (float(fan.q50[-1]) - inv_amt) / inv_amt * 100.0
-    ret_sign  = "+" if ret_final >= 0 else ""
-    med_color = BLUE if ret_final >= 0 else RED
-    ckw = dict(annotation_clip=False, clip_on=False)
+    ret_sign = "+" if ret_final >= 0 else ""
+    med_color = "#0064FF" if ret_final >= 0 else "#FF4B4B"
 
-    ax.annotate(
-        f"{cur_sym}{float(fan.q95[-1]):,.0f}",
-        xy=(float(t[-1]), float(fan.q95[-1])), xytext=(10, 0),
-        textcoords="offset points", ha="left", va="center",
-        fontsize=8.5, color="#4D94FF", alpha=0.85, **ckw,
-    )
-    ax.annotate(
-        f"{cur_sym}{float(fan.q50[-1]):,.0f}  ({ret_sign}{ret_final:.1f}%)",
-        xy=(float(t[-1]), float(fan.q50[-1])), xytext=(10, 0),
-        textcoords="offset points", ha="left", va="center",
-        fontsize=10, color=med_color, fontweight="bold", **ckw,
-    )
-    ax.annotate(
-        f"{cur_sym}{float(fan.q05[-1]):,.0f}",
-        xy=(float(t[-1]), float(fan.q05[-1])), xytext=(10, 0),
-        textcoords="offset points", ha="left", va="center",
-        fontsize=8.5, color=RED, alpha=0.82, **ckw,
-    )
-
-    # 왼쪽 원금 레이블
-    ax.annotate(
-        f"{cur_sym}{inv_amt:,.0f}",
-        xy=(float(t[0]), inv_amt), xytext=(4, 7),
-        textcoords="offset points", ha="left", va="bottom",
-        fontsize=8.5, color=(1.0, 1.0, 1.0, 0.52), **ckw,
-    )
-
-    # 범례
-    legend_handles = [
-        Patch(facecolor=BLUE, alpha=0.24, edgecolor="none", label="현실적 기대 범위 (50%)"),
-        Patch(facecolor=BLUE, alpha=0.09, edgecolor="none", label="이례적 변동 범위 (90%)"),
-        Line2D([0], [0], color=BLUE, linewidth=2.5, label="중앙값 경로"),
-        Line2D([0], [0], color="white", alpha=0.40, linewidth=1.2,
-               linestyle=(0, (4, 3)), label="투자 원금"),
+    annotations = [
+        dict(x=1.02, y=float(fan.q95[-1]), xref="paper", yref="y",
+             text=f"<b>{_format_compact_money(float(fan.q95[-1]), cur_sym)}</b>",
+             showarrow=False, xanchor="left",
+             font=dict(color="rgba(77,148,255,0.85)", size=11)),
+        dict(x=1.02, y=float(fan.q50[-1]), xref="paper", yref="y",
+             text=f"<b>{_format_compact_money(float(fan.q50[-1]), cur_sym)}  ({ret_sign}{ret_final:.1f}%)</b>",
+             showarrow=False, xanchor="left",
+             font=dict(color=med_color, size=13)),
+        dict(x=1.02, y=float(fan.q05[-1]), xref="paper", yref="y",
+             text=f"<b>{_format_compact_money(float(fan.q05[-1]), cur_sym)}</b>",
+             showarrow=False, xanchor="left",
+             font=dict(color="rgba(255,75,75,0.82)", size=11)),
+        dict(x=0.0, y=inv_amt, xref="paper", yref="y",
+             text=f"{_format_compact_money(inv_amt, cur_sym)}",
+             showarrow=False, xanchor="left", yanchor="bottom", yshift=6,
+             font=dict(color="rgba(255,255,255,0.52)", size=11)),
     ]
-    leg = ax.legend(
-        handles=legend_handles, loc="upper left",
-        facecolor=(10/255, 10/255, 12/255),
-        edgecolor=(1.0, 1.0, 1.0, 0.07),
-        labelcolor=MUTED,
-        fontsize=8.5, framealpha=0.88,
-        borderpad=0.75, handlelength=1.6, handletextpad=0.6,
+
+    x_ticks = list(range(0, total_months + 1, 2))
+    fig.update_layout(
+        plot_bgcolor="#000000",
+        paper_bgcolor="#000000",
+        dragmode=False,
+        hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor="rgba(16,16,18,0.92)",
+            bordercolor="rgba(255,255,255,0.10)",
+            font=dict(color=TEXT, family="Pretendard Variable, Malgun Gothic, sans-serif", size=12),
+        ),
+        margin=dict(l=70, r=180, t=20, b=40),
+        height=350,
+        font=dict(family="Pretendard Variable, Malgun Gothic, sans-serif", color=MUTED, size=11),
+        xaxis=dict(
+            fixedrange=True,
+            range=[0, float(t[-1]) if t else total_months],
+            tickvals=x_ticks,
+            ticktext=[f"{m}M" for m in x_ticks],
+            tickfont=dict(color=SUBTLE, size=10),
+            gridcolor="rgba(255,255,255,0.04)",
+            showgrid=True, zeroline=False, showline=False,
+        ),
+        yaxis=dict(
+            fixedrange=True,
+            range=[fan.y_min, fan.y_max],
+            tickformat=".2s",
+            tickprefix=cur_sym,
+            tickfont=dict(color=SUBTLE, size=10),
+            gridcolor="rgba(255,255,255,0.055)",
+            showgrid=True, zeroline=False, showline=False,
+        ),
+        legend=dict(
+            bgcolor="rgba(10,10,12,0.88)",
+            bordercolor="rgba(255,255,255,0.07)",
+            borderwidth=1,
+            font=dict(color=MUTED, size=10),
+            x=0.01, y=0.99, xanchor="left", yanchor="top",
+        ),
+        annotations=annotations,
     )
 
     return fig
@@ -1742,17 +1747,12 @@ def _render_investment_section(result: DashboardResult) -> None:
         unsafe_allow_html=True,
     )
 
-    # ── 포트폴리오 팬 차트 (base64 PNG — 완전 정적, 컨테이너 외부 full-bleed) ──
+    # ── 포트폴리오 팬 차트 (Plotly — zoom/pan 잠금, hover 허용) ────────
     fan_fig = _build_portfolio_fan(result.path_matrix, s0, inv_amt, result.years, cur)
-    _buf = io.BytesIO()
-    fan_fig.savefig(_buf, format="png", dpi=150, facecolor="#000000")
-    _buf.seek(0)
-    _b64 = base64.b64encode(_buf.read()).decode()
-    plt.close(fan_fig)
-    st.markdown(
-        f'<img src="data:image/png;base64,{_b64}"'
-        f' style="width:100%;max-width:100%;height:auto;display:block;border-radius:0;" />',
-        unsafe_allow_html=True,
+    st.plotly_chart(
+        fan_fig,
+        use_container_width=True,
+        config={"displayModeBar": False, "scrollZoom": False, "doubleClick": False},
     )
 
     # ── 포트폴리오 메트릭 카드 ────────────────────────────────────────────
