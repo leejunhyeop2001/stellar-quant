@@ -1106,9 +1106,7 @@ header[data-testid="stHeader"] button {{
   box-shadow: var(--shadow-card) !important;
   margin-bottom: 0 !important;
 }}
-[data-testid="stPlotlyChart"]:hover {{
-  box-shadow: var(--shadow-card-hover) !important;
-}}
+
 [data-testid="stPlotlyChart"] > div,
 [data-testid="stPlotlyChart"] .js-plotly-plot,
 [data-testid="stPlotlyChart"] .plotly,
