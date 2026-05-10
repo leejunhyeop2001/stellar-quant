@@ -467,7 +467,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="seconda
   margin-bottom: 34px !important;
   overflow: hidden !important;
   isolation: isolate !important;
-  transition: box-shadow 0.22s ease, background 0.22s ease, transform 0.22s ease !important;
+  transition: box-shadow 0.22s ease, background 0.22s ease !important;
 }}
 section[data-testid="stSidebar"] [data-testid="stExpander"] {{
   background: #101012 !important;
@@ -627,15 +627,11 @@ section[data-testid="stSidebar"] button[kind="primary"] {{
   margin-bottom: 14px !important;
   overflow: hidden !important;
   box-shadow: 0 6px 24px rgba(0,100,255,0.3) !important;
-  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease !important;
 }}
 section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   background: #0052CC !important;
-  transform: scale(1.01);
   box-shadow: 0 8px 28px rgba(0,100,255,0.4) !important;
-}}
-section[data-testid="stSidebar"] button[kind="primary"]:active {{
-  transform: scale(0.99);
 }}
 
 .sb-foot {{
@@ -816,18 +812,17 @@ button[kind="primary"]:hover {{
   background-clip: padding-box !important;
   border: none !important;
   border-radius: 22px !important;
-  padding: 26px 28px;
-  min-height: 122px;
+  padding: 24px 26px;
+  min-height: 116px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   box-shadow: var(--shadow-card);
   overflow: hidden !important;
-  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease !important;
+  transition: background 0.18s ease, box-shadow 0.18s ease !important;
 }}
 .mc:hover {{
   background: {CARD_HI} !important;
-  transform: scale(1.01);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 .mc-lbl {{
@@ -894,10 +889,9 @@ button[kind="primary"]:hover {{
   overflow: hidden !important;
   box-shadow: var(--shadow-card);
   padding: 22px 24px 20px 24px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease !important;
+  transition: box-shadow 0.18s ease, background 0.18s ease !important;
 }}
 .rtbl-wrap:hover {{
-  transform: scale(1.005);
   box-shadow: var(--shadow-card-hover) !important;
   background-color: #16161A !important;
 }}
@@ -966,11 +960,10 @@ button[kind="primary"]:hover {{
   gap: 14px;
   box-shadow: var(--shadow-card);
   overflow: hidden !important;
-  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease !important;
+  transition: background 0.18s ease, box-shadow 0.18s ease !important;
 }}
 .math-panel:hover {{
   background: {CARD_HI} !important;
-  transform: scale(1.01);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 .math-panel h3 .math-h-sub {{
@@ -1085,15 +1078,15 @@ header[data-testid="stHeader"] button {{
   pointer-events: auto !important;
 }}
 .block-container {{
-  padding: 1.25rem 1.75rem 2.25rem 1.75rem !important;
+  padding: 1rem 1.5rem 2rem 1.5rem !important;
   max-width: 1400px !important;
 }}
 
 .block-container [data-testid="stVerticalBlock"] {{
-  gap: 2.25rem !important;
+  gap: 1.5rem !important;
 }}
 .block-container [data-testid="stHorizontalBlock"] {{
-  gap: 1.75rem !important;
+  gap: 1.25rem !important;
 }}
 
 [data-testid="stPlotlyChart"] {{
@@ -1150,12 +1143,11 @@ header[data-testid="stHeader"] button {{
   padding: 26px 22px !important;
   box-shadow: var(--shadow-card) !important;
   overflow: hidden !important;
-  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease !important;
+  transition: background 0.18s ease, box-shadow 0.18s ease !important;
 }}
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
   [data-testid="stColumn"] > [data-testid="stVerticalBlock"]:hover {{
   background: {CARD_HI} !important;
-  transform: scale(1.01);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 .sq-math-start ~ [data-testid="stHorizontalBlock"]
@@ -1482,7 +1474,7 @@ def _build_portfolio_fan(
         height=560,
         autosize=True,
         dragmode=False,
-        margin=dict(l=48, r=220, t=56, b=100),
+        margin=dict(l=48, r=160, t=48, b=60),
         font=dict(
             family="Pretendard Variable, Pretendard, -apple-system, sans-serif",
             color="#F4F5F7", size=12,
