@@ -1092,38 +1092,38 @@ def _build_portfolio_fan(
         x=t + t[::-1], y=fan.q95.tolist() + fan.q05.tolist()[::-1],
         fill="toself", fillcolor="rgba(0,100,255,0.09)",
         line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip",
-        name="이례적 변동 (90%)",
+        name="전체 예측 범위 (90%)",
     ))
     # 50% 밴드
     fig.add_trace(go.Scatter(
         x=t + t[::-1], y=fan.q75.tolist() + fan.q25.tolist()[::-1],
         fill="toself", fillcolor="rgba(0,100,255,0.24)",
         line=dict(color="rgba(0,0,0,0)"), hoverinfo="skip",
-        name="현실적 기대 (50%)",
+        name="현실적 기대 범위 (50%)",
     ))
-    # P95 선
+    # 상위 5% 경계선
     fig.add_trace(go.Scatter(
         x=t, y=fan.q95.tolist(),
         line=dict(color="rgba(0,100,255,0.50)", width=1.0),
-        name="P95", hovertemplate=hov("P95"),
+        name="낙관 시나리오 (상위 5%)", hovertemplate=hov("낙관 시나리오"),
     ))
-    # P05 선
+    # 하위 5% 경계선
     fig.add_trace(go.Scatter(
         x=t, y=fan.q05.tolist(),
         line=dict(color="rgba(255,75,75,0.50)", width=1.0),
-        name="P05", hovertemplate=hov("P05"),
+        name="비관 시나리오 (하위 5%)", hovertemplate=hov("비관 시나리오"),
     ))
     # 원금선
     fig.add_trace(go.Scatter(
         x=[0.0, float(t[-1])], y=[inv_amt, inv_amt],
         line=dict(color="rgba(255,255,255,0.40)", width=1.2, dash="dot"),
-        name="투자 원금", hovertemplate=hov("원금"),
+        name="투자 원금", hovertemplate=hov("투자 원금"),
     ))
     # 중앙값
     fig.add_trace(go.Scatter(
         x=t, y=fan.q50.tolist(),
         line=dict(color="#0064FF", width=2.6),
-        name="중앙값", hovertemplate=hov("중앙값"),
+        name="가장 가능성 높은 경로", hovertemplate=hov("기대 자산가치"),
     ))
 
     ret_final = (float(fan.q50[-1]) - inv_amt) / inv_amt * 100.0
@@ -1698,19 +1698,19 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'</div>'
         f'</div>'
         f'<div class="risk-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">'
-        f'<div class="risk-item"><div class="risk-item-label">90% 예측구간</div>'
+        f'<div class="risk-item"><div class="risk-item-label">가격이 들어올 범위 (90%)</div>'
         f'<div class="risk-item-value risk-blue" style="font-size:1.15rem">'
         f'{fp(metrics["p05"])} ~ {fp(metrics["p95"])}</div>'
-        f'<div class="mc-delta" style="opacity:0.65">단일 목표가보다 우선 해석</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">예상 중앙가 (50th)</div>'
+        f'<div class="mc-delta" style="opacity:0.65">100번 시뮬 중 90번은 이 범위 안에서 마감</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">가장 가능성 높은 가격</div>'
         f'<div class="risk-item-value {median_cls}">{fp(metrics["p50"])}</div>'
-        f'<div class="mc-delta {median_delta_cls}">{median_arrow} {median_pct:+.2f}%</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">95% 확률 하한선</div>'
+        f'<div class="mc-delta {median_delta_cls}">{median_arrow} {median_pct:+.2f}% · 절반의 경로가 이 위에서 마감</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">안전 마지노선 (VaR 95%)</div>'
         f'<div class="risk-item-value risk-red">{fp(metrics["var_95_abs"])}</div>'
-        f'<div class="mc-delta d-neg">↓ {metrics["var_95_pct"]:.1f}% · 95% 확률로 이 가격 이상 유지</div></div>'
-        f'<div class="risk-item"><div class="risk-item-label">시장 폭락 시 예상 손실</div>'
+        f'<div class="mc-delta d-neg">↓ {metrics["var_95_pct"]:.1f}% · 95% 확률로 이 가격 위에서 마감</div></div>'
+        f'<div class="risk-item"><div class="risk-item-label">극단 하락 시 평균 손실 (CVaR)</div>'
         f'<div class="risk-item-value risk-red">{fp(metrics["cvar_95_abs"])}</div>'
-        f'<div class="mc-delta d-neg">↓ {metrics["cvar_95_pct"]:.1f}% · 최악 5% 상황 평균 손실</div></div>'
+        f'<div class="mc-delta d-neg">↓ {metrics["cvar_95_pct"]:.1f}% · 최악 5% 상황이 터졌을 때 평균 손실</div></div>'
         f'</div>'
         f'</section>',
         unsafe_allow_html=True,
@@ -1759,28 +1759,28 @@ def _render_investment_section(result: DashboardResult) -> None:
     st.markdown(
         f'<div class="risk-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:8px">'
         f'<div class="risk-item">'
-        f'<div class="risk-item-label">예상 수익률 (1Y 평균)</div>'
+        f'<div class="risk-item-label">1년 후 평균 수익률</div>'
         f'<div class="risk-item-value {ret_cls}">{ret_pct:+.1f}%</div>'
-        f'<div class="mc-delta {ret_delta_cls}">{ret_arrow} 평균 경로 기준</div>'
+        f'<div class="mc-delta {ret_delta_cls}">{ret_arrow} {FIXED_N_PATHS:,}번 시뮬레이션 평균</div>'
         f'</div>'
         f'<div class="risk-item">'
-        f'<div class="risk-item-label">예상 최종 자산</div>'
+        f'<div class="risk-item-label">1년 후 예상 자산 가치</div>'
         f'<div class="risk-item-value {ret_cls}">{_fp(expected_value, cur)}</div>'
         f'<div class="mc-delta {ret_delta_cls}">{ret_arrow} {ret_pct:+.1f}% · 투자금 {_fp(inv_amt, cur)} 기준</div>'
         f'</div>'
         f'<div class="risk-item">'
-        f'<div class="risk-item-label">시장 폭락 시 예상 손실</div>'
+        f'<div class="risk-item-label">극단 하락 시 예상 손실</div>'
         f'<div class="risk-item-value risk-red">{_fp(cvar_loss, cur)}</div>'
-        f'<div class="mc-delta d-neg">↓ {cvar_pct:.1f}% · 최악 5% 상황 평균 손실</div>'
+        f'<div class="mc-delta d-neg">↓ {cvar_pct:.1f}% · 최악 5% 상황이 터졌을 때 평균 손실 금액</div>'
         f'</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    # ── 공포 지수 ──────────────────────────────────────────────────────────
+    # ── 리스크 체감 지수 ────────────────────────────────────────────────────
     st.markdown(
-        '<div class="stitle" style="margin-top:24px">리스크 공포 지수'
-        '<span class="stitle-sub">피부로 느끼는 리스크</span></div>',
+        '<div class="stitle" style="margin-top:24px">리스크 체감 지수'
+        '<span class="stitle-sub">숫자가 아닌 피부로 느끼는 리스크</span></div>',
         unsafe_allow_html=True,
     )
     halved_prob = float(np.mean(terminal < 0.5 * s0)) * 100.0
@@ -1796,24 +1796,24 @@ def _render_investment_section(result: DashboardResult) -> None:
     st.markdown(
         f'<div class="risk-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:8px">'
         f'<div class="risk-item">'
-        f'<div class="risk-item-label">반토막(-50%) 확률</div>'
+        f'<div class="risk-item-label">자산이 절반 이하로 떨어질 확률</div>'
         f'<div class="risk-item-value {halved_cls}">{halved_prob:.1f}%</div>'
-        f'<div class="mc-delta d-neg">1년 뒤 {_fp(s0 * 0.5, cur)} 이하</div>'
+        f'<div class="mc-delta d-neg">1년 뒤 {_fp(s0 * 0.5, cur)} 아래로 떨어질 가능성</div>'
         f'</div>'
         f'<div class="risk-item">'
-        f'<div class="risk-item-label">원금 손실 확률</div>'
+        f'<div class="risk-item-label">원금보다 적어질 확률</div>'
         f'<div class="risk-item-value {loss_cls}">{loss_prob:.1f}%</div>'
-        f'<div class="mc-delta d-neg">현재가 {_fp(s0, cur)} 미만</div>'
+        f'<div class="mc-delta d-neg">현재가 {_fp(s0, cur)} 아래로 떨어질 가능성</div>'
         f'</div>'
         f'<div class="risk-item">'
-        f'<div class="risk-item-label">2배 달성 확률</div>'
+        f'<div class="risk-item-label">투자금 2배 달성 가능성</div>'
         f'<div class="risk-item-value risk-blue">{double_prob:.1f}%</div>'
-        f'<div class="mc-delta d-pos">목표가 {_fp(s0 * 2.0, cur)}</div>'
+        f'<div class="mc-delta d-pos">목표가 {_fp(s0 * 2.0, cur)} 돌파할 가능성</div>'
         f'</div>'
         f'<div class="risk-item">'
-        f'<div class="risk-item-label">하위 10% 시나리오</div>'
+        f'<div class="risk-item-label">최악 10% 상황의 주가</div>'
         f'<div class="risk-item-value {q10_cls}">{q10_loss_pct:+.1f}%</div>'
-        f'<div class="mc-delta d-neg">↓ 주가 {_fp(q10_price, cur)} 예상</div>'
+        f'<div class="mc-delta d-neg">↓ 하위 10% 시나리오에서 주가 {_fp(q10_price, cur)} 예상</div>'
         f'</div>'
         f'</div>',
         unsafe_allow_html=True,
@@ -1824,9 +1824,140 @@ def _render_investment_section(result: DashboardResult) -> None:
     )
 
 
+def _render_model_explanation() -> None:
+    """수학 공식 · 모델 원리 설명 섹션 — st.expander로 접을 수 있게."""
+    with st.expander("📐 수학 공식 · 모델 원리 설명", expanded=False):
+        st.markdown(
+            """
+<div style="font-family:'Pretendard Variable',Malgun Gothic,sans-serif;color:#C8CDD6;line-height:1.85;font-size:0.92rem;">
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 4px;">이 앱이 하는 일</h4>
+<p style="margin:0 0 20px;">
+주가가 미래에 어떻게 움직일지 수학 모델로 가정한 뒤,
+컴퓨터로 <b style="color:#F4F5F7;">3,000,000번</b> 독립 시뮬레이션을 실행합니다.
+그 결과들의 분포로 "얼마나 오를 수 있는지", "얼마나 잃을 수 있는지"를 확률로 보여줍니다.
+</p>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">① 기본 모델 — 기하 브라운 운동 (GBM)</h4>
+<p style="margin:0 0 6px;">주가는 "평균적 추세 + 무작위 진동"으로 움직인다고 가정합니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;margin:0 0 10px;font-family:monospace;font-size:1.0rem;letter-spacing:0.02em;color:#A8D8FF;">
+  dS<sub>t</sub> = μ · S<sub>t</sub> · dt &nbsp;+&nbsp; σ · S<sub>t</sub> · dW<sub>t</sub>
+</div>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;margin:0 0 16px;font-family:monospace;font-size:0.95rem;color:#8B93A1;">
+  <span style="color:#C8CDD6;">컴퓨터 계산용 이산화 버전:</span><br/>
+  S<sub>t+Δt</sub> = S<sub>t</sub> × exp( (μ − σ²/2) · Δt &nbsp;+&nbsp; σ · √Δt · Z )
+</div>
+<table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:80px;white-space:nowrap;">S<sub>t</sub></td>
+    <td style="padding:7px 12px;">t 시점의 주가</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">μ (뮤)</td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">연간 기대 수익률 (drift)</b> — 주가가 평균적으로 1년에 얼마나 오를지를 나타냅니다. 과거 1년 일간 수익률 평균에서 추정합니다.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">σ (시그마)</td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">연간 변동성 (volatility)</b> — 주가가 얼마나 심하게 흔들리는지입니다. 클수록 불확실성이 큽니다. 과거 일간 수익률의 표준편차 × √252 로 계산합니다.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">W<sub>t</sub></td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">위너 프로세스 (브라운 운동)</b> — 시장의 예측 불가능한 무작위 노이즈입니다. 매 시점 독립적인 난수 Z ~ N(0, 1)로 생성합니다.</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">Δt</td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">시간 간격</b> — 1/252 ≈ 0.004 (1 거래일). 1년 = 252 스텝으로 나눠서 계산합니다.</td>
+  </tr>
+</table>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">② 확장 모델 — 점프 확산 (Merton Jump-Diffusion)</h4>
+<p style="margin:0 0 6px;">
+실제 시장에는 GBM으로 설명 안 되는 갑작스러운 급락(블랙스완)이 존재합니다.
+이를 <b style="color:#F4F5F7;">포아송 점프 프로세스</b>로 추가합니다.
+</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;margin:0 0 16px;font-family:monospace;font-size:1.0rem;color:#A8D8FF;">
+  S<sub>t+Δt</sub> = S<sub>t</sub> × GBM항 × (1 + J<sub>t</sub>)<sup>N<sub>t</sub></sup>
+</div>
+<table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;width:80px;white-space:nowrap;">λ (람다)</td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">연간 평균 급락 횟수</b> — 1년에 평균 몇 번의 충격이 발생하는지입니다. 기본값 1.5회 (위기 상황 모드) 또는 과거 데이터에서 탐지합니다.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">μ<sub>J</sub></td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">점프 평균 수익률</b> — 충격 발생 시 평균적으로 얼마나 하락하는지입니다. 기본값 −15% (한 번의 충격에 평균 15% 하락).</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">σ<sub>J</sub></td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">점프 크기의 불확실성</b> — 충격의 크기가 얼마나 다양한지입니다. 기본값 10% (충격마다 규모가 다름).</td>
+  </tr>
+</table>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">③ 몬테카를로 시뮬레이션</h4>
+<p style="margin:0 0 12px;">
+위 수식을 따르는 주가 경로를 <b style="color:#F4F5F7;">3,000,000개</b> 독립적으로 생성합니다.
+각 경로는 1년 = 252 거래일 스텝으로 구성됩니다.
+모든 경로의 1년 후 최종 주가를 모아 분포를 만들면, 그게 바로 이 앱이 보여주는 예측입니다.
+</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 18px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  경로 수 3,000,000 · 1년 시뮬레이션 · 252 스텝 / 경로 · C++23 병렬 엔진
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">④ 리스크 지표 계산</h4>
+
+<p style="margin:0 0 8px;color:#F4F5F7;font-weight:600;">예측 구간 (Quantile)</p>
+<table style="width:100%;border-collapse:collapse;margin:0 0 16px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:120px;">낙관 시나리오 (P95)</td>
+    <td style="padding:7px 12px;">3,000,000개 결과 중 상위 5% 기준선. 이 가격보다 높을 확률이 5%입니다.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">기대 자산가치 (P50)</td>
+    <td style="padding:7px 12px;">중앙값. 절반의 시나리오는 이 가격 위, 나머지 절반은 이 가격 아래에서 끝납니다.</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">비관 시나리오 (P5)</td>
+    <td style="padding:7px 12px;">하위 5% 기준선. 100번 중 95번은 이 가격보다 높게 끝납니다.</td>
+  </tr>
+</table>
+
+<p style="margin:0 0 8px;color:#F4F5F7;font-weight:600;">VaR — 안전 마지노선 (Value at Risk)</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 18px;margin:0 0 8px;font-family:monospace;font-size:0.95rem;color:#A8D8FF;">
+  VaR<sub>95%</sub> = S<sub>0</sub> − Q<sub>5%</sub>(S<sub>T</sub>)
+</div>
+<p style="margin:0 0 16px;">
+"95% 확률로 이 금액 이상은 손에 남는다"는 최소 기준선입니다.
+3,000,000개 결과 중 하위 5%에 해당하는 가격이 Q<sub>5%</sub>입니다.
+</p>
+
+<p style="margin:0 0 8px;color:#F4F5F7;font-weight:600;">CVaR — 극단 하락 시 평균 손실 (Conditional Value at Risk)</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 18px;margin:0 0 8px;font-family:monospace;font-size:0.95rem;color:#A8D8FF;">
+  CVaR<sub>95%</sub> = E[ S<sub>T</sub> | S<sub>T</sub> ≤ Q<sub>5%</sub>(S<sub>T</sub>) ]
+</div>
+<p style="margin:0 0 0px;">
+VaR보다 한 단계 더 나아간 지표입니다.
+"최악의 5% 상황들이 실제로 발생했을 때, 평균적으로 주가가 얼마가 될까?"를 계산합니다.
+VaR는 마지노선만 보여주지만, CVaR은 그 선을 넘었을 때의 평균 피해를 알려줍니다.
+</p>
+
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
+
 def _render_dashboard_result(result: DashboardResult) -> None:
     _render_risk_summary(result)
     _render_investment_section(result)
+    _render_model_explanation()
 
 
 def main():
