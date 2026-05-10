@@ -12,7 +12,6 @@ from matplotlib.ticker import FuncFormatter
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 import numpy as np
-import plotly.graph_objects as go
 import streamlit as st
 
 from data_utils import (
@@ -430,17 +429,7 @@ section[data-testid="stSidebar"] .stSlider:hover {{
   background-color: #141418 !important;
   box-shadow: var(--shadow-card-hover) !important;
 }}
-.sb-rec-caption {{
-  font-family: var(--sans-ui) !important;
-  font-size: 0.625rem !important;
-  font-weight: 400 !important;
-  color: {SUBTLE} !important;
-  line-height: 1.4 !important;
-  margin: 3px 0 0 3px !important;
-  padding: 0 !important;
-  letter-spacing: -0.02em !important;
-  opacity: 0.45 !important;
-}}
+
 
 section[data-testid="stSidebar"] [data-testid="stExpander"] button[kind="secondary"] {{
   border-radius: 18px !important;
@@ -653,15 +642,6 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   opacity: 0.5;
 }}
 
-/* ── Toss 카드 — 테두리 없음, 그림자 + clip ── */
-.toss-card {{
-  background: #101012 !important;
-  background-clip: padding-box !important;
-  border-radius: 22px !important;
-  border: none !important;
-  box-shadow: var(--shadow-card) !important;
-  overflow: hidden !important;
-}}
 
 .top-shell {{
   margin: 4px 0 24px 0;
@@ -744,20 +724,7 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }}
-.risk-meta {{
-  color: {MUTED};
-  font-size: 0.8rem;
-  font-weight: 500;
-  line-height: 1.65;
-  letter-spacing: -0.02em;
-  margin: 10px 0 20px 0;
-  max-width: 920px;
-  opacity: 0.92;
-}}
-.risk-meta strong {{
-  color: {TEXT};
-  font-weight: 650;
-}}
+
 .risk-item {{
   padding: 16px 14px;
   border-radius: 14px;
@@ -822,45 +789,7 @@ button[kind="primary"]:hover {{
   .top-shell, .risk-hero {{ padding: 26px 22px; }}
 }}
 
-.mc {{
-  background: #101012 !important;
-  background-clip: padding-box !important;
-  border: none !important;
-  border-radius: 22px !important;
-  padding: 24px 26px;
-  min-height: 116px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-shadow: var(--shadow-card);
-  overflow: hidden !important;
-  transition: background 0.18s ease, box-shadow 0.18s ease !important;
-}}
-.mc:hover {{
-  background: {CARD_HI} !important;
-  box-shadow: var(--shadow-card-hover) !important;
-}}
-.mc-lbl {{
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: {MUTED};
-  letter-spacing: -0.02em;
-  margin-bottom: 10px;
-  opacity: 0.5;
-}}
-.mc-val, .mc-val-lg {{
-  font-weight: 800;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: #0064FF;
-}}
-.mc-val {{
-  font-size: 2.1rem;
-}}
-.mc-val-lg {{
-  font-size: 2.6rem;
-}}
+
 .mc-delta {{
   display: inline-flex;
   align-items: center;
@@ -896,191 +825,7 @@ button[kind="primary"]:hover {{
   opacity: 0.5;
 }}
 
-.rtbl-wrap {{
-  background: #101012 !important;
-  background-clip: padding-box !important;
-  border: none !important;
-  border-radius: 22px;
-  overflow: hidden !important;
-  box-shadow: var(--shadow-card);
-  padding: 22px 24px 20px 24px;
-  transition: box-shadow 0.18s ease, background 0.18s ease !important;
-}}
-.rtbl-wrap:hover {{
-  box-shadow: var(--shadow-card-hover) !important;
-  background-color: #16161A !important;
-}}
-.rtbl th {{
-  background: transparent;
-  color: {MUTED};
-  font-weight: 500;
-  text-align: left;
-  padding: 12px 4px 18px 4px;
-  font-size: 0.7rem;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  border: none;
-  opacity: 0.5;
-}}
-.rtbl td {{
-  background: transparent;
-  color: {TEXT};
-  padding: 21px 4px;
-  border: none;
-  font-size: 0.9375rem;
-  font-variant-numeric: tabular-nums;
-}}
-.rtbl tbody tr {{
-  border-top: none !important;
-  transition: background 0.12s ease;
-}}
-.rtbl tbody tr:hover {{ background: rgba(255,255,255,0.03); }}
 
-.rtbl {{
-  width: 100%;
-  border-collapse: collapse;
-  background: transparent;
-  border-radius: 0;
-  overflow: hidden;
-  font-size: 0.9375rem;
-}}
-.rtbl thead tr {{
-  background: transparent;
-}}
-
-/* 수학 패널 — 토스 카드 스타일 + 큰 수식 */
-.math-grid {{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}}
-@media (max-width: 900px) {{
-  .math-grid {{ grid-template-columns: 1fr; }}
-}}
-.math-panel h3 {{
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: {TEXT};
-  margin: 0;
-  letter-spacing: -0.02em;
-}}
-.math-panel {{
-  background: #101012 !important;
-  background-clip: padding-box !important;
-  border: none !important;
-  border-radius: 22px;
-  padding: 26px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  box-shadow: var(--shadow-card);
-  overflow: hidden !important;
-  transition: background 0.18s ease, box-shadow 0.18s ease !important;
-}}
-.math-panel:hover {{
-  background: {CARD_HI} !important;
-  box-shadow: var(--shadow-card-hover) !important;
-}}
-.math-panel h3 .math-h-sub {{
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: {MUTED};
-  margin-top: 6px;
-  letter-spacing: -0.02em;
-  opacity: 0.5;
-}}
-.math-eq {{
-  font-family: 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', Georgia, serif;
-  font-size: 1.5rem;
-  font-weight: 500;
-  color: {TEXT};
-  background: transparent;
-  border: none;
-  padding: 8px 4px;
-  margin: 0;
-  text-align: center;
-  line-height: 1.6;
-  letter-spacing: 0;
-}}
-.math-eq small {{ font-size: 1.125rem; color: {MUTED}; opacity: 0.5; }}
-.math-desc {{
-  font-size: 0.8125rem;
-  color: {MUTED};
-  line-height: 1.7;
-  letter-spacing: -0.02em;
-  margin: 0;
-  opacity: 0.5;
-}}
-.math-desc b {{ color: {TEXT}; font-weight: 600; opacity: 1; }}
-.math-var {{
-  display: inline-block;
-  font-family: 'Cambria Math', Georgia, serif;
-  color: {ACCENT};
-  font-weight: 600;
-  min-width: 28px;
-  font-size: 1.0625rem;
-}}
-
-/* Hero 헤더 */
-.hbar {{
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 16px;
-  margin: 6px 2px 8px 2px;
-  padding: 0;
-  border: none !important;
-}}
-.hbar h1 {{
-  font-size: 1.95rem;
-  font-weight: 850;
-  margin: 0;
-  color: {TEXT};
-  letter-spacing: -0.04em;
-}}
-.hbar .hbar-author {{
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: {MUTED};
-  opacity: 0.5;
-  letter-spacing: -0.02em;
-}}
-.hbar .badge {{
-  background: rgba(0,100,255,0.15);
-  color: #4D94FF;
-  font-weight: 700;
-  font-size: 0.7rem;
-  padding: 10px 16px;
-  border-radius: 999px;
-  letter-spacing: -0.02em;
-  border: none !important;
-  box-shadow: 0 0 0 1px rgba(0,100,255,0.12) inset;
-}}
-.hbar .perf {{
-  color: {MUTED};
-  font-size: 0.7rem;
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  opacity: 0.5;
-}}
-
-.disc {{
-  font-size: 0.72rem;
-  color: {MUTED};
-  margin: 28px 0 12px 0;
-  padding: 22px 24px;
-  background: #101012 !important;
-  background-clip: padding-box !important;
-  border-radius: 22px;
-  border: none !important;
-  box-shadow: var(--shadow-card);
-  overflow: hidden !important;
-  line-height: 1.65;
-  letter-spacing: -0.02em;
-  opacity: 0.5;
-}}
 
 #MainMenu, footer {{ visibility: hidden !important; height: 0 !important; }}
 header[data-testid="stHeader"] {{
@@ -1104,60 +849,18 @@ header[data-testid="stHeader"] button {{
   gap: 1.25rem !important;
 }}
 
-[data-testid="stPlotlyChart"] {{
-  overflow: hidden !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  box-shadow: none !important;
-}}
-[data-testid="stPlotlyChart"] .main-svg {{
-  background: transparent !important;
-}}
-
-[data-testid="stLatex"] {{
-  text-align: center !important;
-  background: rgba(0,100,255,0.07) !important;
-  background-clip: padding-box !important;
-  border-radius: 14px !important;
-  border: none !important;
-  padding: 16px 14px !important;
-  margin: 8px 0 !important;
+/* 팬 차트 이미지 — 컨테이너 패딩 바깥으로 full-bleed */
+[data-testid="stImage"] {{
+  margin-left: -1.5rem !important;
+  margin-right: -1.5rem !important;
+  width: calc(100% + 3rem) !important;
+  max-width: none !important;
   overflow: hidden !important;
 }}
-
-[data-testid="stLatex"] .katex-display {{
-  margin: 0 !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-}}
-[data-testid="stLatex"] .katex {{
-  color: #0064FF !important;
-  font-size: 1.35rem !important;
-  font-weight: 800 !important;
-}}
-
-.sq-math-start ~ [data-testid="stHorizontalBlock"]
-  [data-testid="stColumn"] > [data-testid="stVerticalBlock"] {{
-  background: #101012 !important;
-  background-clip: padding-box !important;
-  border: none !important;
-  border-radius: 22px !important;
-  padding: 26px 22px !important;
-  box-shadow: var(--shadow-card) !important;
-  overflow: hidden !important;
-  transition: background 0.18s ease, box-shadow 0.18s ease !important;
-}}
-.sq-math-start ~ [data-testid="stHorizontalBlock"]
-  [data-testid="stColumn"] > [data-testid="stVerticalBlock"]:hover {{
-  background: {CARD_HI} !important;
-  box-shadow: var(--shadow-card-hover) !important;
-}}
-.sq-math-start ~ [data-testid="stHorizontalBlock"]
-  [data-testid="stLatex"] {{
-  background: rgba(0,100,255,0.08) !important;
-  border-radius: 16px !important;
+[data-testid="stImage"] img {{
+  width: 100% !important;
+  max-width: none !important;
+  display: block !important;
 }}
 
 /* 슬라이더 — 얇은 트랙 #2C2C2E, 큰 핸들 */
@@ -1202,41 +905,6 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   color: {TEXT} !important;
 }}
 
-@keyframes sq-shimmer {{
-  0%   {{ background-position: -900px 0; }}
-  100% {{ background-position:  900px 0; }}
-}}
-@keyframes sq-pulse-soft {{
-  0%, 100% {{ opacity: 0.55; filter: brightness(0.92); }}
-  50%      {{ opacity: 1; filter: brightness(1.06); }}
-}}
-.sq-skeleton {{
-  background: linear-gradient(
-    90deg,
-    {CARD} 25%,
-    {CARD_HI} 50%,
-    {CARD} 75%
-  );
-  background-size: 1800px 100%;
-  animation: sq-shimmer 1.5s infinite linear, sq-pulse-soft 2.2s ease-in-out infinite;
-  border-radius: 22px;
-  box-shadow: var(--shadow-card);
-}}
-.sq-chart-skeleton {{
-  height: 460px;
-}}
-
-@keyframes sq-spin {{
-  to {{ transform: rotate(360deg); }}
-}}
-.sq-ring {{
-  width: 48px;
-  height: 48px;
-  border: 3px solid rgba(0,100,255,0.12);
-  border-top-color: {ACCENT};
-  border-radius: 50%;
-  animation: sq-spin 0.85s linear infinite, sq-pulse-soft 2s ease-in-out infinite;
-}}
 
 @keyframes sq-status-pulse {{
   0%, 100% {{ opacity: 0.45; transform: scaleX(0.92); }}
@@ -1276,65 +944,11 @@ section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {{
   letter-spacing: -0.02em !important;
 }}
 
-.block-container .mc,
-.block-container .rtbl-wrap,
-.block-container .math-panel {{
-  margin-bottom: 16px !important;
-}}
 
 .block-container [data-testid="element-container"],
 section[data-testid="stSidebar"] [data-testid="element-container"] {{
   overflow: hidden !important;
   box-sizing: border-box !important;
-}}
-/* math 카드 헤더 */
-.math-card-head {{
-  margin-bottom: 8px;
-}}
-.math-card-title {{
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: {TEXT};
-  letter-spacing: -0.02em !important;
-  display: block;
-}}
-.math-h-sub {{
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: {MUTED};
-  margin-top: 6px;
-  letter-spacing: -0.02em !important;
-  opacity: 0.5 !important;
-}}
-/* math 카드 하단 설명 */
-.math-desc-pad {{
-  margin: 4px 0 0 0 !important;
-  padding: 0 !important;
-}}
-
-.hbar-brand {{
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-}}
-.sq-ring-wrap {{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  padding: 72px 0 48px 0;
-}}
-.sq-ring-label {{
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: {MUTED};
-  letter-spacing: -0.02em;
-  opacity: 0.5;
-}}
-.sq-card-skeleton {{
-  height: 132px;
 }}
 </style>
 """
