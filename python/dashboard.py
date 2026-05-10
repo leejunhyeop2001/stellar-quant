@@ -1829,127 +1829,281 @@ def _render_investment_section(result: DashboardResult) -> None:
 
 def _render_model_explanation() -> None:
     """수학 공식 · 모델 원리 설명 섹션 — st.expander로 접을 수 있게."""
-    with st.expander("📐 수학 공식 · 모델 원리 설명", expanded=False):
+    with st.expander("📐 수학 공식 · 모델 원리 전체 설명", expanded=False):
         st.markdown(
             """
 <div style="font-family:'Pretendard Variable',Malgun Gothic,sans-serif;color:#C8CDD6;line-height:1.85;font-size:0.92rem;">
 
-<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 4px;">이 앱이 하는 일</h4>
 <p style="margin:0 0 20px;">
-주가가 미래에 어떻게 움직일지 수학 모델로 가정한 뒤,
-컴퓨터로 <b style="color:#F4F5F7;">3,000,000번</b> 독립 시뮬레이션을 실행합니다.
-그 결과들의 분포로 "얼마나 오를 수 있는지", "얼마나 잃을 수 있는지"를 확률로 보여줍니다.
+주가가 미래에 어떻게 움직일지 수학 모델로 가정한 뒤, C++23 병렬 엔진으로
+<b style="color:#F4F5F7;">3,000,000번</b> 독립 시뮬레이션을 실행합니다.
+결과 분포에서 "얼마나 오를 수 있는지", "얼마나 잃을 수 있는지"를 확률로 보여줍니다.
 </p>
 
-<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
 
-<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">① 기본 모델 — 기하 브라운 운동 (GBM)</h4>
-<p style="margin:0 0 6px;">주가는 "평균적 추세 + 무작위 진동"으로 움직인다고 가정합니다.</p>
-<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;margin:0 0 10px;font-family:monospace;font-size:1.0rem;letter-spacing:0.02em;color:#A8D8FF;">
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">① 로그 수익률 (Log Return)</h4>
+<p style="margin:0 0 8px;">단순 수익률 대신 로그 수익률을 씁니다. 로그 수익률은 <b style="color:#F4F5F7;">여러 기간을 덧셈으로 합산</b>할 수 있고, -100% 이하 손실이라는 불가능한 값이 생기지 않습니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 10px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  r<sub>t</sub> = ln( P<sub>t</sub> / P<sub>t−1</sub> )
+</div>
+<div style="background:rgba(0,100,255,0.06);border-left:3px solid rgba(0,100,255,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  작은 변동에서는 ln(P<sub>t</sub>/P<sub>t−1</sub>) ≈ (P<sub>t</sub> − P<sub>t−1</sub>)/P<sub>t−1</sub> 이므로 단순 수익률과 거의 같습니다. 하지만 급락·급등이 있을 때는 로그 수익률만이 정규분포 가정과 수학적 일관성을 유지합니다.
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">② 변동성 추정 — EWMA 혼합</h4>
+<p style="margin:0 0 8px;">역사적 표준편차만 쓰면 <b style="color:#F4F5F7;">최근 급등락이 평균에 묻히는</b> 문제가 생깁니다. RiskMetrics 방식의 EWMA 변동성을 혼합해 최근 시장 상황에 민감하게 반응하도록 합니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  σ²<sub>EWMA, t</sub> = λ · σ²<sub>EWMA, t−1</sub> + (1 − λ) · r²<sub>t</sub> &nbsp;&nbsp; (λ = 0.94)
+</div>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.92rem;color:#8B93A1;line-height:1.7;">
+  σ<sub>혼합</sub> = max( σ<sub>hist</sub>, &nbsp;0.7 · σ<sub>hist</sub> + 0.3 · σ<sub>EWMA</sub> )
+</div>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 14px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  σ<sub>연간</sub> = σ<sub>일간</sub> × √252 &nbsp;&nbsp;&nbsp; (루트-시간 법칙)
+</div>
+<table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:90px;white-space:nowrap;vertical-align:top;">λ = 0.94</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">감쇠 계수</b> — 오래된 데이터에 지수적으로 줄어드는 가중치를 줍니다. 0.94는 최근 데이터에 더 민감한 RiskMetrics 기본값입니다.</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;vertical-align:top;">√252</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">루트-시간 법칙</b> — 독립적인 일별 수익률이 252개 쌓이면 연간 분산이 252배가 되므로 연간 표준편차는 √252 배입니다.</td>
+  </tr>
+</table>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">③ 기대 수익률 추정과 두 가지 편향 보정</h4>
+<p style="margin:0 0 8px;">과거 1년 수익률 평균으로 미래를 추정하면 <b style="color:#F4F5F7;">추정 오차가 매우 큽니다.</b> 두 단계로 보정합니다.</p>
+<p style="margin:0 0 6px;color:#F4F5F7;font-weight:600;">1단계 — 베이지안 축소 (Bayesian Shrinkage)</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  μ<sub>보정</sub> = 0.5 × μ<sub>추정</sub> + 0.5 × 0.08
+</div>
+<div style="background:rgba(0,100,255,0.06);border-left:3px solid rgba(0,100,255,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 14px;font-size:0.88rem;color:#8B93A1;">
+  "과거 수익률만 믿으면 안 된다. 장기 시장 평균(8%)과 반반씩 절충한다"는 베이지안 사전 지식 적용입니다. TSLA처럼 급등 후 추정 μ가 폭등해도 현실적인 수준으로 끌어당겨집니다.
+</div>
+<p style="margin:0 0 6px;color:#F4F5F7;font-weight:600;">2단계 — 물리적 경계 클램핑</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  μ = min(μ<sub>보정</sub>, 0.20) &nbsp;&nbsp; (상한 20%)<br/>
+  σ = max(σ<sub>추정</sub>, 0.15) &nbsp;&nbsp; (하한 15%)
+</div>
+<div style="background:rgba(255,75,75,0.06);border-left:3px solid rgba(255,75,75,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  μ &gt; 20% 상태로 시뮬레이션하면 분포가 현실과 동떨어진 급등 곡선이 됩니다. σ &lt; 15% 는 저변동 ETF에서 발생할 수 있는데, 최소 15%를 보장해 분포가 과도하게 좁아지는 것을 방지합니다.
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">④ 기하 브라운 운동 (GBM) — 핵심 모델</h4>
+<p style="margin:0 0 8px;">주가는 "평균 추세 + 무작위 충격"으로 움직인다고 가정합니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:1.0rem;color:#A8D8FF;line-height:1.7;">
   dS<sub>t</sub> = μ · S<sub>t</sub> · dt &nbsp;+&nbsp; σ · S<sub>t</sub> · dW<sub>t</sub>
 </div>
-<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;margin:0 0 16px;font-family:monospace;font-size:0.95rem;color:#8B93A1;">
-  <span style="color:#C8CDD6;">컴퓨터 계산용 이산화 버전:</span><br/>
+<p style="margin:0 0 6px;">컴퓨터 계산을 위해 이토 보정을 포함한 이산화 버전으로 변환합니다:</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
   S<sub>t+Δt</sub> = S<sub>t</sub> × exp( (μ − σ²/2) · Δt &nbsp;+&nbsp; σ · √Δt · Z )
 </div>
-<table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
-  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:80px;white-space:nowrap;">S<sub>t</sub></td>
-    <td style="padding:7px 12px;">t 시점의 주가</td>
-  </tr>
-  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">μ (뮤)</td>
-    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">연간 기대 수익률 (drift)</b> — 주가가 평균적으로 1년에 얼마나 오를지를 나타냅니다. 과거 1년 일간 수익률 평균에서 추정합니다.</td>
-  </tr>
-  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">σ (시그마)</td>
-    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">연간 변동성 (volatility)</b> — 주가가 얼마나 심하게 흔들리는지입니다. 클수록 불확실성이 큽니다. 과거 일간 수익률의 표준편차 × √252 로 계산합니다.</td>
-  </tr>
-  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">W<sub>t</sub></td>
-    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">위너 프로세스 (브라운 운동)</b> — 시장의 예측 불가능한 무작위 노이즈입니다. 매 시점 독립적인 난수 Z ~ N(0, 1)로 생성합니다.</td>
-  </tr>
-  <tr>
-    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">Δt</td>
-    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">시간 간격</b> — 1/252 ≈ 0.004 (1 거래일). 1년 = 252 스텝으로 나눠서 계산합니다.</td>
-  </tr>
-</table>
-
-<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
-
-<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">② 확장 모델 — 점프 확산 (Merton Jump-Diffusion)</h4>
-<p style="margin:0 0 6px;">
-실제 시장에는 GBM으로 설명 안 되는 갑작스러운 급락(블랙스완)이 존재합니다.
-이를 <b style="color:#F4F5F7;">포아송 점프 프로세스</b>로 추가합니다.
-</p>
-<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 18px;margin:0 0 16px;font-family:monospace;font-size:1.0rem;color:#A8D8FF;">
-  S<sub>t+Δt</sub> = S<sub>t</sub> × GBM항 × (1 + J<sub>t</sub>)<sup>N<sub>t</sub></sup>
+<div style="background:rgba(0,100,255,0.06);border-left:3px solid rgba(0,100,255,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 12px;font-size:0.88rem;color:#8B93A1;">
+  <b style="color:#C8CDD6;">왜 (μ − σ²/2)?</b> — 이토의 보정항입니다. 로그 공간에서의 평균과 일반 공간에서의 평균이 달라서 생기는 편향을 제거합니다. 이 보정이 없으면 경로 평균이 μ가 아니라 μ + σ²/2 가 되어 체계적으로 과대추정이 발생합니다.
 </div>
 <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
   <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;width:80px;white-space:nowrap;">λ (람다)</td>
-    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">연간 평균 급락 횟수</b> — 1년에 평균 몇 번의 충격이 발생하는지입니다. 기본값 1.5회 (위기 상황 모드) 또는 과거 데이터에서 탐지합니다.</td>
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:80px;white-space:nowrap;vertical-align:top;">μ</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">연간 기대 수익률</b> — 로그 수익률 평균 × 252로 추정 후 베이지안 축소 + 클램핑 적용.</td>
   </tr>
   <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">μ<sub>J</sub></td>
-    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">점프 평균 수익률</b> — 충격 발생 시 평균적으로 얼마나 하락하는지입니다. 기본값 −15% (한 번의 충격에 평균 15% 하락).</td>
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;vertical-align:top;">σ</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">연간 변동성</b> — 일간 수익률 표준편차 × √252. EWMA 혼합 적용.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;vertical-align:top;">W<sub>t</sub></td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">위너 프로세스</b> — 예측 불가능한 시장 노이즈. 매 스텝마다 Z ~ N(0,1) 독립 난수로 근사.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;vertical-align:top;">Δt</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">시간 간격</b> — 1/252 ≈ 0.004 (1 거래일). 1년 252 스텝으로 분할.</td>
   </tr>
   <tr>
-    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">σ<sub>J</sub></td>
-    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">점프 크기의 불확실성</b> — 충격의 크기가 얼마나 다양한지입니다. 기본값 10% (충격마다 규모가 다름).</td>
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;vertical-align:top;">σ²/2</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">이토 보정항</b> — 연속 확률과정 이산화 시 발생하는 편향을 제거. 로그 정규분포의 수학적 특성에서 유도됩니다.</td>
   </tr>
 </table>
 
-<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
 
-<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">③ 몬테카를로 시뮬레이션</h4>
-<p style="margin:0 0 12px;">
-위 수식을 따르는 주가 경로를 <b style="color:#F4F5F7;">3,000,000개</b> 독립적으로 생성합니다.
-각 경로는 1년 = 252 거래일 스텝으로 구성됩니다.
-모든 경로의 1년 후 최종 주가를 모아 분포를 만들면, 그게 바로 이 앱이 보여주는 예측입니다.
-</p>
-<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 18px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
-  경로 수 3,000,000 · 1년 시뮬레이션 · 252 스텝 / 경로 · C++23 병렬 엔진
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">⑤ Merton 점프 확산 — 시장 충격 모델</h4>
+<p style="margin:0 0 8px;">실제 시장에는 GBM만으로 설명하기 어려운 갑작스러운 급락이 발생합니다. 먼저 과거 데이터에서 <b style="color:#F4F5F7;">비정상적 급락을 탐지</b>한 뒤 포아송 점프 프로세스로 추가합니다.</p>
+<p style="margin:0 0 6px;color:#F4F5F7;font-weight:600;">점프 탐지 기준</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 10px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  |r<sub>t</sub> − μ<sub>d</sub>| &gt; 3.5 × σ<sub>d</sub> &nbsp;&nbsp; 인 날을 점프로 분류
 </div>
-
-<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;"/>
-
-<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">④ 리스크 지표 계산</h4>
-
-<p style="margin:0 0 8px;color:#F4F5F7;font-weight:600;">예측 구간 (Quantile)</p>
-<table style="width:100%;border-collapse:collapse;margin:0 0 16px;">
+<p style="margin:0 0 6px;color:#F4F5F7;font-weight:600;">전체 점프 확산 공식</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 10px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  log(J<sub>i</sub>) ~ N(μ<sub>J</sub>, σ²<sub>J</sub>) &nbsp;&nbsp; (로그-정규 점프 크기)<br/>
+  N<sub>t</sub> ~ Poisson(λ · Δt) &nbsp;&nbsp;&nbsp;&nbsp; (구간 내 점프 횟수)<br/>
+  S<sub>t+Δt</sub> = S<sub>t</sub> × exp( drift<sub>Δt</sub> + Σ log J<sub>i</sub> ± σ√Δt · Z )
+</div>
+<table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
   <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:120px;">낙관 시나리오 (P95)</td>
-    <td style="padding:7px 12px;">3,000,000개 결과 중 상위 5% 기준선. 이 가격보다 높을 확률이 5%입니다.</td>
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;width:60px;white-space:nowrap;vertical-align:top;">λ</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">연간 평균 충격 횟수</b> — 위기 모드 기본값 1.5회/년. 과거 데이터 모드에서는 실제 탐지된 빈도 사용.</td>
   </tr>
   <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
-    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">기대 자산가치 (P50)</td>
-    <td style="padding:7px 12px;">중앙값. 절반의 시나리오는 이 가격 위, 나머지 절반은 이 가격 아래에서 끝납니다.</td>
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;vertical-align:top;">μ<sub>J</sub></td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">점프 평균 로그-수익률</b> — 충격 발생 시 평균 하락 폭. 기본값 −15%.</td>
   </tr>
   <tr>
-    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">비관 시나리오 (P5)</td>
-    <td style="padding:7px 12px;">하위 5% 기준선. 100번 중 95번은 이 가격보다 높게 끝납니다.</td>
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;vertical-align:top;">σ<sub>J</sub></td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">점프 크기 표준편차</b> — 충격마다 규모가 다른 정도. 기본값 10%.</td>
   </tr>
 </table>
 
-<p style="margin:0 0 8px;color:#F4F5F7;font-weight:600;">VaR — 안전 마지노선 (Value at Risk)</p>
-<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 18px;margin:0 0 8px;font-family:monospace;font-size:0.95rem;color:#A8D8FF;">
-  VaR<sub>95%</sub> = S<sub>0</sub> − Q<sub>5%</sub>(S<sub>T</sub>)
-</div>
-<p style="margin:0 0 16px;">
-"95% 확률로 이 금액 이상은 손에 남는다"는 최소 기준선입니다.
-3,000,000개 결과 중 하위 5%에 해당하는 가격이 Q<sub>5%</sub>입니다.
-</p>
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
 
-<p style="margin:0 0 8px;color:#F4F5F7;font-weight:600;">CVaR — 극단 하락 시 평균 손실 (Conditional Value at Risk)</p>
-<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 18px;margin:0 0 8px;font-family:monospace;font-size:0.95rem;color:#A8D8FF;">
-  CVaR<sub>95%</sub> = E[ S<sub>T</sub> | S<sub>T</sub> ≤ Q<sub>5%</sub>(S<sub>T</sub>) ]
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">⑥ 몬테카를로 시뮬레이션 & 안티세틱 분산 감소</h4>
+<p style="margin:0 0 8px;">주사위를 수백만 번 던져 확률을 계산하듯, 위 수식을 3,000,000번 반복해 주가 분포를 만듭니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 14px;font-family:monospace;font-size:0.88rem;color:#8B93A1;line-height:1.7;">
+  for 각 경로 (3,000,000개):<br/>
+  &nbsp;&nbsp;S[0] = S<sub>0</sub><br/>
+  &nbsp;&nbsp;for t = 1 to 252:<br/>
+  &nbsp;&nbsp;&nbsp;&nbsp;Z ~ N(0,1) 난수 생성<br/>
+  &nbsp;&nbsp;&nbsp;&nbsp;S[t] = S[t−1] × exp( drift<sub>Δt</sub> + σ√Δt · Z )<br/>
+  &nbsp;&nbsp;결과[경로] = S[252]<br/>
+  통계 계산: quantile, VaR, CVaR ...
 </div>
-<p style="margin:0 0 0px;">
-VaR보다 한 단계 더 나아간 지표입니다.
-"최악의 5% 상황들이 실제로 발생했을 때, 평균적으로 주가가 얼마가 될까?"를 계산합니다.
-VaR는 마지노선만 보여주지만, CVaR은 그 선을 넘었을 때의 평균 피해를 알려줍니다.
-</p>
+<p style="margin:0 0 6px;color:#F4F5F7;font-weight:600;">안티세틱 분산 감소 (Antithetic Variates)</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  Z 하나로 두 경로 동시 생성:<br/>
+  S<sup>+</sup> = S × exp( drift + σ√Δt · <b>+Z</b> )<br/>
+  S<sup>−</sup> = S × exp( drift + σ√Δt · <b>−Z</b> )
+</div>
+<div style="background:rgba(0,100,255,0.06);border-left:3px solid rgba(0,100,255,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  S⁺와 S⁻는 음의 상관관계를 가져 두 경로의 평균 분산이 크게 줄어듭니다.
+  <b style="color:#C8CDD6;">같은 난수 횟수로 2배의 경로를 만들면서 추정 오차는 더 작아집니다.</b> 이 덕분에 3M 경로를 실용적인 속도(≈2초)로 계산할 수 있습니다.
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">⑦ VaR · CVaR — 손실 위험 정량화</h4>
+<p style="margin:0 0 6px;color:#F4F5F7;font-weight:600;">VaR (Value at Risk) — 안전 마지노선</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  VaR<sub>95%</sub> = S<sub>0</sub> − Q<sub>5%</sub>(S<sub>T</sub>)<br/>
+  VaR<sub>95%, %</sub> = VaR<sub>95%</sub> / S<sub>0</sub> × 100
+</div>
+<p style="margin:0 0 14px;">3M개 결과를 오름차순 정렬 시 하위 5%(15만 번째) 주가가 Q<sub>5%</sub>입니다. "95% 확률로 이 가격 위에서 마감한다"는 의미이며, 이 선을 넘어서면 얼마나 나빠지는지는 알려주지 않습니다.</p>
+<p style="margin:0 0 6px;color:#F4F5F7;font-weight:600;">CVaR (Conditional VaR) — 극단 하락 시 평균 피해</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  CVaR<sub>95%</sub> = mean( max(0, S<sub>0</sub> − S<sub>T</sub>) &nbsp;|&nbsp; S<sub>T</sub> ≤ Q<sub>5%</sub> )
+</div>
+<div style="background:rgba(255,75,75,0.06);border-left:3px solid rgba(255,75,75,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  VaR는 마지노선만 알려줍니다. CVaR은 그 선을 넘었을 때 <b style="color:#C8CDD6;">평균적으로 얼마를 잃는지</b>까지 계산합니다. 금융 규제(Basel III)에서 VaR을 대체하는 지표로 주목받고 있습니다.
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">⑧ 켈리 기준 (Kelly Criterion) — 최적 투자 비율</h4>
+<p style="margin:0 0 8px;">기대 수익과 위험을 고려했을 때 <b style="color:#F4F5F7;">장기 복리 성장을 극대화하는 투자 비율</b>입니다. 카지노에서 이기는 게임에 얼마나 베팅해야 하는지를 알려주는 이론에서 유래합니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 12px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  f* = clip( (μ − r<sub>f</sub>) / σ² , 0, 1 ) &nbsp;&nbsp; (r<sub>f</sub> = 3%)
+</div>
+<table style="width:100%;border-collapse:collapse;margin:0 0 14px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:90px;white-space:nowrap;vertical-align:top;">μ − r<sub>f</sub></td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">초과 수익률</b> — 기대 수익에서 무위험 수익률(3% 은행 이자)을 뺀 순수 리스크 프리미엄.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;vertical-align:top;">σ²</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">분산 (리스크)</b> — 분모. 리스크가 클수록 최적 투자 비율이 줄어듭니다.</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;vertical-align:top;">clip(·,0,1)</td>
+    <td style="padding:7px 12px;vertical-align:top;">투자 가능 범위 0~100%로 제한. 이론 켈리는 레버리지를 허용하지만 여기서는 보수적으로 1배 이하로 제한합니다.</td>
+  </tr>
+</table>
+<div style="background:rgba(0,100,255,0.06);border-left:3px solid rgba(0,100,255,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  f* = 0.3이면 전체 자산의 30%를 이 종목에 투자하는 것이 수학적으로 장기 복리를 극대화합니다.
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">⑨ 소르티노 비율 (Sortino Ratio) — 하방 리스크 조정 수익</h4>
+<p style="margin:0 0 8px;">샤프 비율은 상승 변동성도 위험으로 취급합니다. 소르티노 비율은 <b style="color:#F4F5F7;">손실 구간의 변동성만</b> 분모에 넣습니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 8px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  Sortino = ( E[log(S<sub>T</sub>/S<sub>0</sub>)] − log(1 + r<sub>f</sub>) ) / σ<sub>downside</sub>
+</div>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 14px;font-family:monospace;font-size:0.92rem;color:#8B93A1;line-height:1.7;">
+  σ<sub>downside</sub> = std( r | r &lt; 0 ) &nbsp;&nbsp; (음수 수익률만의 표준편차)
+</div>
+<div style="background:rgba(0,100,255,0.06);border-left:3px solid rgba(0,100,255,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  올라가는 변동성은 투자자에게 좋은 것입니다. 소르티노 비율은 이를 패널티로 치지 않아 <b style="color:#C8CDD6;">성장주처럼 비대칭 수익률을 가진 종목을 더 공정하게 평가</b>합니다.
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">⑩ 초과 첨도 (Excess Kurtosis) — 팻 테일 감지</h4>
+<p style="margin:0 0 8px;">GBM은 수익률이 정규분포를 따른다고 가정합니다. 하지만 실제 주식 수익률은 <b style="color:#F4F5F7;">정규분포보다 극단적 사건이 훨씬 자주 발생</b>합니다. 초과 첨도는 이 특성을 측정합니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 12px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  z<sub>i</sub> = (r<sub>i</sub> − μ) / σ &nbsp;&nbsp; (표준화)<br/>
+  κ = E[z⁴] − 3 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (초과 첨도)
+</div>
+<table style="width:100%;border-collapse:collapse;margin:0 0 14px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:60px;white-space:nowrap;">κ = 0</td>
+    <td style="padding:7px 12px;">정규분포. GBM 가정과 일치합니다.</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">κ &gt; 0</td>
+    <td style="padding:7px 12px;"><b style="color:#F4F5F7;">팻 테일.</b> 극단적 사건이 정규분포 예측보다 더 자주 발생. 주식 시장의 전형적 특성입니다.</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">κ &lt; 0</td>
+    <td style="padding:7px 12px;">씬 테일. 극단 사건이 드뭅니다.</td>
+  </tr>
+</table>
+<div style="background:rgba(255,75,75,0.06);border-left:3px solid rgba(255,75,75,0.35);border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 20px;font-size:0.88rem;color:#8B93A1;">
+  TSLA, NVDA 같은 고변동성 성장주는 κ가 크게 양수입니다. 이 경우 리스크 스코어가 자동으로 상향 조정됩니다.
+</div>
+
+<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 24px;"/>
+
+<h4 style="color:#F4F5F7;font-size:1.05rem;font-weight:700;margin:0 0 8px;">⑪ 통합 위험 점수 (Risk Score)</h4>
+<p style="margin:0 0 8px;">VaR, 변동성, 첨도를 하나의 지표로 통합합니다. GBM 분포에서의 VaR를 이론 변동성으로 정규화해 <b style="color:#F4F5F7;">절대값이 아닌 상대적 위험도</b>를 측정합니다.</p>
+<div style="background:#0A0A0C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 18px;margin:0 0 12px;font-family:monospace;font-size:0.96rem;color:#A8D8FF;line-height:1.7;">
+  기본 점수 = (VaR<sub>95%</sub> / S<sub>0</sub>) / (σ · √T)<br/>
+  꼬리 조정 = 1 + 0.10 × max(0, κ)<br/>
+  Risk Score = 기본 점수 × 꼬리 조정
+</div>
+<table style="width:100%;border-collapse:collapse;margin:0 0 14px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:80px;white-space:nowrap;vertical-align:top;">σ · √T</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">이론 로그 수익률 표준편차</b> — 이 종목이 "원래 가져야 할" 변동 수준. VaR을 이것으로 나누면 실제 VaR이 GBM 예상보다 얼마나 큰지 알 수 있습니다.</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;vertical-align:top;">꼬리 조정</td>
+    <td style="padding:7px 12px;vertical-align:top;"><b style="color:#F4F5F7;">초과 첨도 가중치</b> — κ가 클수록 점수를 증폭. 팻 테일 종목이 GBM으로 과소평가되는 리스크를 보정합니다.</td>
+  </tr>
+</table>
+<table style="width:100%;border-collapse:collapse;margin:0 0 0px;">
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;width:90px;">점수 &lt; 1.5</td>
+    <td style="padding:7px 12px;">낮은 위험 — 안정적 범주</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#0064FF;font-weight:700;">1.5 ~ 2.5</td>
+    <td style="padding:7px 12px;">중간 위험 — 일반 주식 시장 수준</td>
+  </tr>
+  <tr style="border-bottom:1px solid rgba(255,255,255,0.06);">
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">2.5 ~ 3.5</td>
+    <td style="padding:7px 12px;">고위험 — 분산 투자 권장</td>
+  </tr>
+  <tr>
+    <td style="padding:7px 12px;color:#FF4B4B;font-weight:700;">3.5 이상</td>
+    <td style="padding:7px 12px;">매우 고위험 — 원금 손실 가능성 높음</td>
+  </tr>
+</table>
 
 </div>
 """,
