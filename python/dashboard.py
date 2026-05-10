@@ -1529,13 +1529,7 @@ def _build_portfolio_fan(
             itemsizing="constant",
             tracegroupgap=1,
         ),
-        hovermode="x unified",
-        hoverlabel=dict(
-            bgcolor="#0D0D0F",
-            bordercolor="#0064FF",
-            font=dict(size=13, family="Pretendard Variable, sans-serif"),
-            namelength=-1,
-        ),
+        hovermode=False,
         annotations=[
             # ── 왼쪽 시작점: 현재 원금 ─────────────────────────────────
             dict(
@@ -2132,12 +2126,7 @@ def _render_investment_section(result: DashboardResult) -> None:
     st.plotly_chart(
         fan_fig,
         use_container_width=True,
-        config={
-            "displayModeBar": False,
-            "scrollZoom": False,
-            "doubleClick": False,
-            "staticPlot": False,
-        },
+        config={"staticPlot": True},
     )
 
     # ── 포트폴리오 메트릭 카드 ────────────────────────────────────────────
