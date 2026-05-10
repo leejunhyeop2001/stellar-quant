@@ -723,10 +723,11 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
 .risk-pill {{
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   border-radius: 999px;
-  padding: 9px 14px;
-  font-size: 0.78rem;
-  font-weight: 750;
+  padding: 8px 16px;
+  font-size: 0.80rem;
+  font-weight: 600;
   white-space: nowrap;
 }}
 .risk-pill-blue {{ color: {ACCENT}; background: rgba(0,100,255,0.13); }}
@@ -744,12 +745,12 @@ section[data-testid="stSidebar"] button[kind="primary"]:hover {{
 }}
 .risk-item-label {{
   color: {MUTED};
-  font-size: 0.67rem;
+  font-size: 0.72rem;
   font-weight: 600;
   margin-bottom: 8px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  opacity: 0.6;
+  opacity: 0.75;
 }}
 .risk-item-value {{
   color: {TEXT};
@@ -806,15 +807,15 @@ button[kind="primary"]:hover {{
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 600;
   margin-top: 7px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   width: fit-content;
-  opacity: 0.5;
+  opacity: 0.6;
 }}
 .d-pos {{ color: {ACCENT}; background: rgba(0,100,255,0.14); opacity: 1; }}
 .d-neg {{ color: {RED};   background: rgba(255,75,75,0.14); opacity: 1; }}
@@ -1641,29 +1642,28 @@ def _risk_summary(metrics: dict[str, float]) -> tuple[str, str, str]:
     """정규화 Risk Score(첨도 가중) 구간으로 톤·설명 결정."""
 
     rs = float(metrics.get("risk_score", 0.0))
-    fk = float(metrics.get("fat_tail_feel_index", 0.0))
     if rs >= 3.5:
         return (
-            "투자 성향 및 예측 시나리오: 매우 고위험",
+            "매우 고위험",
             "risk-pill-red",
-            f"시장 충격·꼬리 손실 위험이 매우 큽니다. 원금 손실 가능성이 높습니다. (Risk Score {rs:.2f})",
+            "시장 충격·꼬리 손실 위험이 매우 큽니다. 원금 손실 가능성이 높습니다.",
         )
     if rs >= 2.5:
         return (
-            "투자 성향 및 예측 시나리오: 고위험",
+            "고위험",
             "risk-pill-red",
-            f"급락 이벤트 발생 시 큰 손실이 예상됩니다. 분산 투자를 권장합니다. (Score {rs:.2f})",
+            "급락 이벤트 발생 시 큰 손실이 예상됩니다. 분산 투자를 권장합니다.",
         )
     if rs >= 1.5:
         return (
-            "투자 성향 및 예측 시나리오: 중간 위험",
+            "중간 위험",
             "risk-pill-blue",
-            f"평균적인 주식 시장 수준의 변동성입니다. (Score {rs:.2f})",
+            "평균적인 주식 시장 수준의 변동성입니다.",
         )
     return (
-        "투자 성향 및 예측 시나리오: 낮은 위험",
+        "낮은 위험",
         "risk-pill-blue",
-        f"상대적으로 안정적인 시나리오입니다. (Score {rs:.2f})",
+        "상대적으로 안정적인 시나리오입니다.",
     )
 
 
@@ -1691,7 +1691,10 @@ def _render_risk_summary(result: DashboardResult) -> None:
         f'<div class="risk-label">Risk Report · {result.ticker}</div>'
         f'<div class="risk-title">{title}</div>'
         f'<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
-        f'<span class="risk-pill {tone}">상승 확률 &nbsp;:&nbsp; <b class="{up_cls}" style="font-size:1.15em;font-weight:800;letter-spacing:-0.01em">{up:.1f} %</b></span>'
+        f'<span class="risk-pill {tone}">'
+        f'<span style="opacity:0.75;">상승 확률</span>'
+        f'<b class="{up_cls}" style="font-size:1.65em;font-weight:900;letter-spacing:-0.04em;margin-left:2px">{up:.1f}%</b>'
+        f'</span>'
         f'<span style="color:{MUTED};font-size:0.75rem;opacity:0.5">'
         f'{result.elapsed:.2f}s · {result.n_paths:,} paths</span>'
         f'</div>'
@@ -1819,7 +1822,7 @@ def _render_investment_section(result: DashboardResult) -> None:
         unsafe_allow_html=True,
     )
     st.caption(
-        f"현재 주가 {_fp(s0, cur)} 기준. 투자금 {_fp(inv_amt, cur)}으로 반토막 시 "
+        f"현재 주가 {_fp(s0, cur)} 기준. 투자금 {_fp(inv_amt, cur)} 반토막 시 "
         f"예상 손실 ≈ {_fp(inv_amt * 0.5, cur)}"
     )
 
