@@ -1507,12 +1507,7 @@ def _build_portfolio_fan(
             gridcolor="rgba(255,255,255,0.04)",
             zeroline=False,
             fixedrange=True,
-            showspikes=True,
-            spikemode="across",
-            spikecolor="rgba(255,255,255,0.25)",
-            spikethickness=1,
-            spikedash="solid",
-            spikesnap="cursor",
+            showspikes=False,
         ),
         yaxis=dict(
             range=[y_lo, y_hi],
@@ -1700,7 +1695,7 @@ def _render_top_controls(preset: str, jump_mode: str) -> SidebarConfig:
             "투자 예정 금액 (원)",
             min_value=0.0,
             step=100_000.0,
-            format="%.0f",
+            format=",.0f",
             key="sq_inv_krw",
             on_change=_on_krw_change,
         )
@@ -1711,7 +1706,7 @@ def _render_top_controls(preset: str, jump_mode: str) -> SidebarConfig:
             "투자 예정 금액 (USD)",
             min_value=0.0,
             step=100.0,
-            format="%.2f",
+            format=",.2f",
             key="sq_inv_usd",
             on_change=_on_usd_change,
         )
