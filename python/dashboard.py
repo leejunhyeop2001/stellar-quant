@@ -1105,10 +1105,8 @@ header[data-testid="stHeader"] button {{
   overflow: hidden !important;
   box-shadow: var(--shadow-card) !important;
   margin-bottom: 0 !important;
-  transition: transform 0.18s ease, box-shadow 0.18s ease !important;
 }}
 [data-testid="stPlotlyChart"]:hover {{
-  transform: scale(1.005);
   box-shadow: var(--shadow-card-hover) !important;
 }}
 [data-testid="stPlotlyChart"] > div,
