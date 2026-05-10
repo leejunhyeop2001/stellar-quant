@@ -1,3 +1,6 @@
-# Native extension + dependencies defined in setup.py (install_requires).
-# Streamlit Community Cloud: packages.txt supplies cmake/git/build tools; pip installs this project.
-.
+numpy>=2.0
+pandas>=2.0
+yfinance>=0.2
+streamlit>=1.30
+plotly>=5.0
+matplotlib>=3.7

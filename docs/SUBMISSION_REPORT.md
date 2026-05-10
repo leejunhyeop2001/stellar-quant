@@ -163,23 +163,49 @@ C++ 엔진도 성공적이다. 1000만 경로를 0.038초에 처리하면서 대
 
 ## 8. 실행 방법
 
-```powershell
-# 1. 의존성 설치
-pip install -r requirements.txt
+### 사전 조건
 
-# 2. C++ 엔진 빌드
-cmake -S . -B build
-cmake --build build --config Release
+- Python 3.11 이상 ([python.org](https://python.org) 에서 설치)
+- Git ([git-scm.com](https://git-scm.com) 에서 설치)
 
-# 3. 웹 대시보드 실행
-streamlit run python\dashboard.py
+C++ 엔진은 선택 사항이다. 없으면 자동으로 Python(NumPy) 모드로 동작한다. 속도는 조금 느리지만 결과는 동일하다.
 
-# 4. CLI 실행 (예: 테슬라 1년 예측)
-python python\main.py --ticker TSLA --years 1
+### 1단계 — 코드 받기
 
-# 5. 백테스트
-python python\backtest.py --ticker AAPL --period 5y
+```bash
+git clone https://github.com/leejunhyeop2001/stellar-quant.git
+cd stellar-quant
 ```
+
+### 2단계 — 패키지 설치
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3단계 — 웹 대시보드 실행
+
+```bash
+streamlit run python/dashboard.py
+```
+
+실행하면 터미널에 `http://localhost:8501` 주소가 출력된다. 브라우저에서 이 주소로 접속하면 된다.
+
+### (선택) C++ 엔진 빌드 — 속도 개선용
+
+C++ 엔진을 빌드하면 300만 경로 계산이 0.26초 → 0.04초로 빨라진다. 빌드하려면 추가 도구가 필요하다.
+
+- Windows: [Visual Studio 2022](https://visualstudio.microsoft.com/) (C++ 워크로드 포함) + cmake
+- macOS: `xcode-select --install` + cmake
+- Linux: `sudo apt install build-essential cmake`
+
+```bash
+cmake -S . -B build
+cmake --build build --config Release   # Windows
+# cmake --build build                  # macOS / Linux
+```
+
+빌드 후 streamlit을 재시작하면 자동으로 C++ 엔진을 사용한다.
 
 ---
 

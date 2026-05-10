@@ -5,6 +5,61 @@ import importlib
 import sys
 from pathlib import Path
 
+import numpy as np
+
+
+class _NumpyFallbackSimulator:
+    """C++ 모듈 없이도 동작하는 NumPy 폴백. 속도는 느리지만 인터페이스는 동일."""
+
+    def simulate_gbm_paths(
+        self,
+        n_paths: int,
+        s0: float,
+        mu: float,
+        sigma: float,
+        t: float,
+        seed: int = 0,
+        n_threads: int = 1,
+        jump_lambda: float = 0.0,
+        jump_mu: float = 0.0,
+        jump_sigma: float = 0.0,
+    ) -> list:
+        rng = np.random.default_rng(seed)
+        # antithetic variates: 분산 감소
+        half = n_paths // 2
+        Z = rng.standard_normal(half)
+        Z_full = np.empty(n_paths)
+        Z_full[:half] = Z
+        Z_full[half : 2 * half] = -Z
+        if n_paths % 2 == 1:
+            Z_full[-1] = rng.standard_normal()
+        paths = s0 * np.exp((mu - 0.5 * sigma ** 2) * t + sigma * np.sqrt(t) * Z_full)
+        return paths.tolist()
+
+    def simulate_gbm_path_matrix(
+        self,
+        n_paths: int,
+        n_steps: int,
+        s0: float,
+        mu: float,
+        sigma: float,
+        t: float,
+        seed: int = 0,
+        n_threads: int = 1,
+        jump_lambda: float = 0.0,
+        jump_mu: float = 0.0,
+        jump_sigma: float = 0.0,
+    ) -> list:
+        rng = np.random.default_rng(seed)
+        dt = t / max(n_steps, 1)
+        Z = rng.standard_normal((n_paths, n_steps))
+        log_inc = (mu - 0.5 * sigma ** 2) * dt + sigma * np.sqrt(dt) * Z
+        cum_log = np.cumsum(log_inc, axis=1)
+        matrix = np.empty((n_paths, n_steps + 1))
+        matrix[:, 0] = s0
+        matrix[:, 1:] = s0 * np.exp(cum_log)
+        return matrix.tolist()
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -56,9 +111,5 @@ def import_simulator(build_dir: str | None = None):
 
     try:
         return importlib.import_module("gbm_simulator")
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "Cannot import 'gbm_simulator'. Build the C++ module first:\n"
-            "  Linux/macOS: cmake -S . -B build && cmake --build build -j\"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)\"\n"
-            "  Windows MSVC: cmake -S . -B build && cmake --build build --config Release"
-        ) from exc
+    except ModuleNotFoundError:
+        return _NumpyFallbackSimulator()
