@@ -1484,7 +1484,7 @@ def _build_portfolio_fan(
         paper_bgcolor="#101012",
         plot_bgcolor="#101012",
         height=560,
-        autosize=False,
+        autosize=True,
         dragmode=False,
         margin=dict(l=48, r=220, t=56, b=100),
         font=dict(
@@ -1508,6 +1508,8 @@ def _build_portfolio_fan(
             zeroline=False,
             fixedrange=True,
             showspikes=False,
+            rangeslider=dict(visible=False),
+            rangeselector=dict(visible=False),
         ),
         yaxis=dict(
             range=[y_lo, y_hi],
