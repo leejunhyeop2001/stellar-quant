@@ -1,4 +1,4 @@
-# Stellar-Quant
+## Stellar-Quant
 
 C++23 / Python 하이브리드 주가 몬테카를로 시뮬레이션 도구입니다.
 
